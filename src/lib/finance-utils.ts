@@ -65,6 +65,7 @@ export function calculateKpi(months: MonthlyFinancials[]): KpiData {
     cashOnHand,
     projectsCount,
     monthly: [],
+    expenseCategories: [],
   };
 }
 
