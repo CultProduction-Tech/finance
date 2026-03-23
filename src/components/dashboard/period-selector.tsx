@@ -1,0 +1,100 @@
+"use client";
+
+import { MONTHS_RU } from "@/types/finance";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface PeriodSelectorProps {
+  year: number;
+  startMonth: number; // 0-based index
+  endMonth: number;
+  onYearChange: (year: number) => void;
+  onStartMonthChange: (month: number) => void;
+  onEndMonthChange: (month: number) => void;
+}
+
+export function PeriodSelector({
+  year,
+  startMonth,
+  endMonth,
+  onYearChange,
+  onStartMonthChange,
+  onEndMonthChange,
+}: PeriodSelectorProps) {
+  const handleThisMonth = () => {
+    const now = new Date();
+    onYearChange(now.getFullYear());
+    onStartMonthChange(now.getMonth());
+    onEndMonthChange(now.getMonth());
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={handleThisMonth}
+        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        Этот месяц
+      </button>
+      <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
+        <SelectTrigger className="w-[100px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="2025">2025</SelectItem>
+          <SelectItem value="2026">2026</SelectItem>
+          <SelectItem value="2027">2027</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={MONTHS_RU[startMonth]}
+        onValueChange={(v) => {
+          const idx = MONTHS_RU.indexOf(v as typeof MONTHS_RU[number]);
+          if (idx === -1) return;
+          onStartMonthChange(idx);
+          if (idx > endMonth) onEndMonthChange(idx);
+        }}
+      >
+        <SelectTrigger className="w-[140px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {MONTHS_RU.map((m) => (
+            <SelectItem key={m} value={m}>
+              {m}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <span className="text-muted-foreground">—</span>
+
+      <Select
+        value={MONTHS_RU[endMonth]}
+        onValueChange={(v) => {
+          const idx = MONTHS_RU.indexOf(v as typeof MONTHS_RU[number]);
+          if (idx === -1) return;
+          onEndMonthChange(idx);
+          if (idx < startMonth) onStartMonthChange(idx);
+        }}
+      >
+        <SelectTrigger className="w-[140px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {MONTHS_RU.map((m) => (
+            <SelectItem key={m} value={m}>
+              {m}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
