@@ -147,7 +147,7 @@ export function BusinessEquationChart({ monthly, projectsCount }: BusinessEquati
             <LabelList
               dataKey="deviation"
               position="top"
-              formatter={(v: number) => `${v}%`}
+              formatter={(v) => `${v}%`}
               style={{ fontSize: 12, fontWeight: 500 }}
             />
           </Bar>
