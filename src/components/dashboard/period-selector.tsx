@@ -33,13 +33,36 @@ export function PeriodSelector({
     onEndMonthChange(now.getMonth());
   };
 
+  const handleThisYear = () => {
+    const now = new Date();
+    onYearChange(now.getFullYear());
+    onStartMonthChange(0);
+    onEndMonthChange(11);
+  };
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const isThisMonth = year === currentYear && startMonth === currentMonth && endMonth === currentMonth;
+  const isThisYear = year === currentYear && startMonth === 0 && endMonth === 11;
+
+  const activeStyle = "rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors";
+  const inactiveStyle = "rounded-md border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors";
+
   return (
     <div className="flex items-center gap-2">
       <button
         onClick={handleThisMonth}
-        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+        className={isThisMonth ? activeStyle : inactiveStyle}
       >
         Этот месяц
+      </button>
+      <button
+        onClick={handleThisYear}
+        className={isThisYear ? activeStyle : inactiveStyle}
+      >
+        Этот год
       </button>
       <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
         <SelectTrigger className="w-[100px]">

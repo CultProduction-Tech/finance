@@ -9,6 +9,7 @@ import { KpiGrid } from "./kpi-grid";
 import { ProfitChart } from "./profit-chart";
 import { BusinessEquationChart } from "./business-equation-chart";
 import { ExpenseBudgetChart } from "./expense-budget-chart";
+import { MarginalityChart } from "./marginality-chart";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
@@ -83,10 +84,8 @@ export function Dashboard() {
         {/* Placeholder для графиков (фаза 3) */}
         <div className="mt-8 grid gap-6">
           {kpi && <ProfitChart monthly={kpi.monthly} />}
-          {kpi && <BusinessEquationChart monthly={kpi.monthly} projectsCount={kpi.projectsCount} />}
-          <div className="rounded-xl border bg-card p-6 h-[300px] flex items-center justify-center text-muted-foreground">
-            Маржинальность
-          </div>
+          {kpi && <BusinessEquationChart monthly={kpi.monthly} />}
+          {kpi && <MarginalityChart monthly={kpi.monthly} />}
           {kpi && <ExpenseBudgetChart expenseCategories={kpi.expenseCategories} revenue={kpi.revenue} />}
         </div>
       </main>

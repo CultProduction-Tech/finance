@@ -10,7 +10,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
   LabelList,
 } from "recharts";
 import { ExpenseCategoryData } from "@/types/finance";
@@ -85,11 +84,11 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function DeviationLabel(props: any) {
-  const { x, y, width, value, viewBox } = props;
-  const point = props.content?.props?.data?.[props.index] || null;
-  // Use viewBox or calculated position
+  const { x, y, width, height, value, viewBox } = props;
+  // Не рендерим если бар-сегмент имеет нулевую высоту (чтобы не дублировать)
+  if (!height || Math.abs(height) < 1) return null;
   const cx = (x ?? viewBox?.x ?? 0) + (width ?? viewBox?.width ?? 0) / 2;
-  const cy = (y ?? viewBox?.y ?? 0) - 8;
+  const cy = (y ?? viewBox?.y ?? 0) - 14;
   const dev = value as number;
   const color = dev > 0 ? COLOR_OVERSPEND : dev < 0 ? COLOR_SAVINGS : "hsl(var(--muted-foreground))";
 
@@ -158,10 +157,11 @@ export function ExpenseBudgetChart({ expenseCategories, revenue }: ExpenseBudget
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="flex items-start justify-between mb-4">
+        <div className="w-24" />
         <h3 className="text-lg font-bold text-center flex-1">
           Исполнение бюджета расходов
         </h3>
-        <div className="text-right">
+        <div className="text-right w-24">
           <p className="text-lg font-bold">{formatFull(totalFact)}</p>
           <p className="text-xs text-muted-foreground">{pctOfRevenue}% от выручки</p>
         </div>
@@ -189,14 +189,13 @@ export function ExpenseBudgetChart({ expenseCategories, revenue }: ExpenseBudget
             wrapperStyle={{ fontSize: 12 }}
             formatter={(value) => <span style={{ color: "hsl(var(--foreground))" }}>{value}</span>}
           />
-          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]}>
-            <LabelList
-              dataKey="deviation"
-              content={<DeviationLabel />}
-            />
+          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} />
+          <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="deviation" content={<DeviationLabel />} />
           </Bar>
-          <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]} />
-          <Bar dataKey="savings" name="Экономия" stackId="a" fill={COLOR_SAVINGS} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="savings" name="Экономия" stackId="a" fill={COLOR_SAVINGS} radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="deviation" content={<DeviationLabel />} />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -17,16 +17,17 @@ import { MonthlyKpiData } from "@/types/finance";
 
 interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
-  projectsCount: number;
 }
 
 interface BarDataPoint {
   name: string;
   deviation: number;
+  deviationLabel: number;
   fact: number;
   budget: number;
   isPercent: boolean;
 }
+
 
 const COLOR_NEGATIVE = "hsl(0, 70%, 60%)";    // красный
 const COLOR_POSITIVE = "hsl(220, 75%, 55%)";   // синий
@@ -67,14 +68,14 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
       <p style={{ fontWeight: 600, marginBottom: 4 }}>{point.name}</p>
       <p>Бюджет: {budgetStr}</p>
       <p>Факт: {factStr}</p>
-      <p style={{ color: point.deviation >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE, marginTop: 2 }}>
-        Отклонение: {point.deviation}%
+      <p style={{ color: point.deviationLabel >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE, marginTop: 2 }}>
+        Отклонение: {point.deviationLabel}%
       </p>
     </div>
   );
 }
 
-export function BusinessEquationChart({ monthly, projectsCount }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly }: BusinessEquationChartProps) {
   const chartData = useMemo<BarDataPoint[]>(() => {
     // Суммируем факт и бюджет за выбранный период
     let factRevenue = 0, budgetRevenue = 0;
@@ -83,8 +84,19 @@ export function BusinessEquationChart({ monthly, projectsCount }: BusinessEquati
     let factFixed = 0, budgetFixed = 0;
     let factProfit = 0, budgetProfit = 0;
     let pastCount = 0;
+    let totalRequestsFact = 0, totalRequestsPlan = 0;
+    let totalProjectsSoldFact = 0, totalProjectsPlan = 0;
+    let totalSoldRevenue = 0;
 
     for (const m of monthly) {
+      // AMO-метрики: доступны для всех месяцев (прошлых + текущий)
+      totalRequestsFact += m.requestsFact;
+      totalRequestsPlan += m.requestsPlan;
+      totalProjectsSoldFact += m.projectsSoldFact;
+      totalProjectsPlan += m.projectsPlan;
+      totalSoldRevenue += m.projectsSoldRevenue;
+
+      // PlanFact-метрики: только прошлые месяцы
       if (!m.isPast) continue;
       factRevenue += m.revenue;
       budgetRevenue += m.budgetRevenue;
@@ -103,52 +115,78 @@ export function BusinessEquationChart({ monthly, projectsCount }: BusinessEquati
     const avgFactMarginPct = pastCount > 0 ? factMarginPercent / pastCount : 0;
     const avgBudgetMarginPct = pastCount > 0 ? budgetMarginPercent / pastCount : 0;
 
-    const factAvgCheck = projectsCount > 0 ? factRevenue / projectsCount : 0;
-    const budgetAvgCheck = projectsCount > 0 ? budgetRevenue / projectsCount : 0;
+    // Средний чек: факт = сумма цен сделок AMO / кол-во продано, план = бюджет выручки / план проектов
+    const factAvgCheck = totalProjectsSoldFact > 0 ? totalSoldRevenue / totalProjectsSoldFact : 0;
+    const budgetAvgCheck = totalProjectsPlan > 0 ? budgetRevenue / totalProjectsPlan : 0;
 
-    return [
-      { name: "Средний чек", deviation: computeDeviation(factAvgCheck, budgetAvgCheck), fact: factAvgCheck, budget: budgetAvgCheck, isPercent: false },
-      { name: "Выручка", deviation: computeDeviation(factRevenue, budgetRevenue), fact: factRevenue, budget: budgetRevenue, isPercent: false },
-      { name: "Маржин-ть", deviation: computeDeviation(avgFactMarginPct, avgBudgetMarginPct), fact: avgFactMarginPct, budget: avgBudgetMarginPct, isPercent: true },
-      { name: "Маржа", deviation: computeDeviation(factMargin, budgetMargin), fact: factMargin, budget: budgetMargin, isPercent: false },
-      { name: "Пост. расходы", deviation: computeDeviation(factFixed, budgetFixed), fact: factFixed, budget: budgetFixed, isPercent: false },
-      { name: "Прибыль", deviation: computeDeviation(factProfit, budgetProfit), fact: factProfit, budget: budgetProfit, isPercent: false },
+    // Конверсия Z→P: факт = продано / все запросы, целевой показатель = 50%
+    const factConversion = totalRequestsFact > 0 ? (totalProjectsSoldFact / totalRequestsFact) * 100 : 0;
+    const budgetConversion = 50;
+
+    const items: [string, number, number, boolean][] = [
+      ["Запросы", totalRequestsFact, totalRequestsPlan, false],
+      ["Конверсия", factConversion, budgetConversion, true],
+      ["Проекты", totalProjectsSoldFact, totalProjectsPlan, false],
+      ["Средний чек", factAvgCheck, budgetAvgCheck, false],
+      ["Выручка", factRevenue, budgetRevenue, false],
+      ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
+      ["Маржа", factMargin, budgetMargin, false],
+      ["Пост. расходы", factFixed, budgetFixed, false],
+      ["Прибыль", factProfit, budgetProfit, false],
     ];
-  }, [monthly, projectsCount]);
+
+    return items.map(([name, fact, budget, isPercent]) => {
+      const dev = computeDeviation(fact, budget);
+      return {
+        name,
+        deviationLabel: dev,
+        deviation: Math.max(-100, Math.min(100, dev)),
+        fact,
+        budget,
+        isPercent,
+      };
+    });
+  }, [monthly]);
 
   return (
     <div className="rounded-xl border bg-card p-6">
       <h3 className="text-lg font-bold mb-4 text-center">
         Бизнес-уравнение
       </h3>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+      <ResponsiveContainer width="100%" height={360}>
+        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
             tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
+            interval={0}
+            angle={-25}
+            textAnchor="end"
+            height={50}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
             tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             width={55}
+            domain={[-110, 110]}
           />
-          <ReferenceLine y={0} stroke="hsl(var(--border))" />
+          <ReferenceLine y={0} stroke="#a0a0a0" strokeDasharray="3 3" strokeWidth={2} />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="deviation" radius={[4, 4, 0, 0]} barSize={60}>
+          <Bar dataKey="deviation" radius={[4, 4, 0, 0]} barSize={50}>
             {chartData.map((entry, index) => (
               <Cell
                 key={index}
-                fill={entry.deviation >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE}
+                fill={entry.deviationLabel >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE}
               />
             ))}
             <LabelList
-              dataKey="deviation"
-              position="top"
+              dataKey="deviationLabel"
+              position="insideTop"
               formatter={(v) => `${v}%`}
-              style={{ fontSize: 12, fontWeight: 500 }}
+              style={{ fontSize: 11, fontWeight: 600, fill: "white" }}
+              offset={8}
             />
           </Bar>
         </BarChart>

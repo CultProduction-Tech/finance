@@ -6,7 +6,12 @@ import {
   getOperationCategories,
   getPaymentStructure,
 } from "@/lib/planfact-client";
-import { getProjectsCount } from "@/lib/amocrm-client";
+import { getProjectDetails, getLeadCountsByCreatedDate } from "@/lib/amocrm-client";
+import type { AmoProjectDetail } from "@/lib/amocrm-client";
+
+// План запросов на 2026 по месяцам (Янв–Ноя), Дек = 0 (уточнить)
+const REQUESTS_PLAN_2026 = [7, 19, 22, 11, 14, 20, 20, 30, 30, 32, 16, 0];
+const PROJECTS_PLAN = 10;
 
 export interface ExpenseCategory {
   id: number;
@@ -45,6 +50,12 @@ export interface MonthlyKpi {
   budgetMarginPercent: number;
   budgetFixedExpenses: number;
   isPast: boolean;
+  projects?: { id: number; name: string; price: number; expensePlan: number; marginPercent: number }[];
+  requestsFact: number;
+  requestsPlan: number;
+  projectsSoldFact: number;
+  projectsSoldRevenue: number;
+  projectsPlan: number;
 }
 
 /**
@@ -70,11 +81,10 @@ export async function GET(request: NextRequest) {
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
     // Справочник статей + бюджеты БДР + остатки + проекты из AMO
-    const [categories, budgets, accountBalance, projectsCount] = await Promise.all([
+    const [categories, budgets, accountBalance] = await Promise.all([
       getOperationCategories(),
       getBudgets({ budgetMethod: "Bdr" }),
       getAccountBalance(now.toISOString()),
-      getProjectsCount(startDate, endDate),
     ]);
 
     // Корневые статьи
@@ -114,6 +124,39 @@ export async function GET(request: NextRequest) {
 
     const pastMonths = months.filter((m) => m <= currentMonth);
     const futureMonths = months.filter((m) => m > currentMonth);
+
+    // === Проекты из AMO помесячно (для графика маржинальности) ===
+    // === Запросы из AMO помесячно (для бизнес-уравнения) ===
+    const monthRanges = months.map((m) => {
+      const [y, mo] = m.split("-").map(Number);
+      const mStart = `${y}-${String(mo).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, mo, 0).getDate();
+      const mEnd = `${y}-${String(mo).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      return { m, mStart, mEnd };
+    });
+
+    const projectPromises = monthRanges.map(({ m, mStart, mEnd }) => {
+      const isPast = m < currentMonth;
+      if (m > currentMonth) return Promise.resolve([]);
+      return getProjectDetails(mStart, mEnd, isPast);
+    });
+
+    const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
+      if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0 });
+      return getLeadCountsByCreatedDate(mStart, mEnd);
+    });
+
+    const [projectResults, leadCountResults] = await Promise.all([
+      Promise.all(projectPromises),
+      Promise.all(leadCountPromises),
+    ]);
+
+    const projectsByMonth = new Map<string, AmoProjectDetail[]>();
+    const leadCountsByMonth = new Map<string, { sold: number; notSold: number }>();
+    for (let i = 0; i < months.length; i++) {
+      projectsByMonth.set(months[i], projectResults[i]);
+      leadCountsByMonth.set(months[i], leadCountResults[i]);
+    }
 
     // === Прошлые/текущий: paymentstructure (помесячно, параллельно) ===
     const psPromises = pastMonths.map((m) => {
@@ -270,6 +313,18 @@ export async function GET(request: NextRequest) {
         budgetMarginPercent,
         budgetFixedExpenses: m.budgetFixedExpenses,
         isPast: monthKey <= currentMonth,
+        projects: projectsByMonth.get(monthKey)?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          expensePlan: p.expensePlan,
+          marginPercent: p.marginPercent,
+        })),
+        requestsFact: (leadCountsByMonth.get(monthKey)?.sold ?? 0) + (leadCountsByMonth.get(monthKey)?.notSold ?? 0),
+        requestsPlan: REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0,
+        projectsSoldFact: leadCountsByMonth.get(monthKey)?.sold ?? 0,
+        projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
+        projectsPlan: PROJECTS_PLAN,
       });
 
       totalRevenue += m.revenue;
@@ -349,6 +404,52 @@ export async function GET(request: NextRequest) {
       expenseCategories.sort((a, b) => b.fact - a.fact);
     }
 
+    // Если нет прошлых месяцев (текущий/будущий) — показываем бюджет как факт и бюджет
+    if (pastMonths.length === 0 && budgetDetail) {
+      const parentMap = new Map<number, number>();
+      for (const cat of categories.items) {
+        if (cat.parentOperationCategoryId !== null) {
+          parentMap.set(cat.operationCategoryId, cat.parentOperationCategoryId);
+        }
+      }
+      const firstLevelOutcome = new Set(
+        categories.items.filter((c) => c.parentOperationCategoryId === outcomeRoot.operationCategoryId).map((c) => c.operationCategoryId),
+      );
+      function getFirstLevelParentFallback(id: number): number {
+        let current = id;
+        while (parentMap.has(current) && !firstLevelOutcome.has(current)) {
+          current = parentMap.get(current)!;
+        }
+        return current;
+      }
+
+      const budgetByCategory = new Map<number, { name: string; value: number }>();
+      for (const version of budgetDetail.versions) {
+        for (const item of version.info.items) {
+          const monthKey = item.date.substring(0, 7);
+          if (!months.includes(monthKey)) continue;
+          const cat = categories.items.find((c) => c.operationCategoryId === item.operationCategoryId);
+          if (!cat || cat.operationCategoryType !== "Outcome") continue;
+          const parentId = getFirstLevelParentFallback(item.operationCategoryId);
+          const parentCat = categories.items.find((c) => c.operationCategoryId === parentId);
+          const existing = budgetByCategory.get(parentId) || { name: parentCat?.title || `Статья ${parentId}`, value: 0 };
+          existing.value += Math.abs(item.value);
+          budgetByCategory.set(parentId, existing);
+        }
+      }
+
+      for (const [id, data] of budgetByCategory) {
+        if (data.value === 0) continue;
+        expenseCategories.push({
+          id,
+          name: data.name,
+          fact: data.value,
+          budget: data.value,
+        });
+      }
+      expenseCategories.sort((a, b) => b.fact - a.fact);
+    }
+
     const response: KpiResponse = {
       revenue: totalRevenue,
       variableExpenses: totalVariableExpenses,
@@ -357,7 +458,7 @@ export async function GET(request: NextRequest) {
       fixedExpenses: totalFixedExpenses,
       profit: totalProfit,
       cashOnHand: accountBalance.total,
-      projectsCount,
+      projectsCount: Array.from(projectsByMonth.values()).reduce((sum, p) => sum + p.length, 0),
       monthly,
       expenseCategories,
     };

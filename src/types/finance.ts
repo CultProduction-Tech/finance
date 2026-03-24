@@ -20,6 +20,21 @@ export interface MonthlyKpiData {
   budgetMarginPercent: number;
   budgetFixedExpenses: number;
   isPast: boolean;
+  projects?: ProjectMarginality[];
+  // Бизнес-уравнение: Запросы, Конверсия, Проекты
+  requestsFact: number;
+  requestsPlan: number;
+  projectsSoldFact: number;
+  projectsSoldRevenue: number;
+  projectsPlan: number;
+}
+
+export interface ProjectMarginality {
+  id: number;
+  name: string;
+  price: number;
+  expensePlan: number;
+  marginPercent: number;
 }
 
 export interface ExpenseCategoryData {

@@ -81,19 +81,23 @@ export function ProfitChart({ monthly }: ProfitChartProps) {
   const chartData = useMemo<ChartDataPoint[]>(() => {
     let cumFact = 0;
     let cumBudget = 0;
+    let cumRevenue = 0;
 
     return monthly.map((m) => {
       // Бюджет НИ: всегда из бюджета
       cumBudget += m.budgetProfit;
 
-      // Факт НИ и рентабельность: только прошлые/текущий
+      // Факт НИ и рентабельность НИ: только прошлые
       let factCumValue: number | null = null;
       let profitabilityValue: number | null = null;
 
       if (m.isPast) {
         cumFact += m.factProfit;
+        cumRevenue += m.factRevenue;
         factCumValue = cumFact;
-        profitabilityValue = m.factProfitability;
+        profitabilityValue = cumRevenue !== 0
+          ? (cumFact / cumRevenue) * 100
+          : 0;
       }
 
       const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
