@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Финансовый дашборд",
-  description: "Финансовый дашборд компании",
+  title: "Дашборд Бластер",
+  description: "Дашборд Бластер",
 };
 
 export default function RootLayout({
