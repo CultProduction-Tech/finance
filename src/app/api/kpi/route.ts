@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
-    const leadCountsByMonth = new Map<string, { sold: number; notSold: number }>();
+    const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number }>();
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
