@@ -10,6 +10,7 @@ import { ProfitChart } from "./profit-chart";
 import { BusinessEquationChart } from "./business-equation-chart";
 import { ExpenseBudgetChart } from "./expense-budget-chart";
 import { MarginalityChart } from "./marginality-chart";
+import { MonthNotes } from "./month-notes";
 import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
@@ -55,7 +56,7 @@ export function Dashboard() {
       </header>
 
       {/* KPI карточки */}
-      <main className="max-w-5xl mx-auto px-4 py-4">
+      <main className="max-w-7xl mx-auto px-4 py-4">
         {loading ? (
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -75,6 +76,12 @@ export function Dashboard() {
           {kpi && <MarginalityChart monthly={kpi.monthly} />}
           {kpi && <ExpenseBudgetChart expenseCategories={kpi.expenseCategories} revenue={kpi.revenue} />}
         </div>
+
+        {startMonth === endMonth && (
+          <div className="mt-4">
+            <MonthNotes entity={entity} year={year} month={startMonth} />
+          </div>
+        )}
       </main>
 
       {/* Переключение юрлиц — внизу */}
