@@ -27,9 +27,9 @@ interface ChartDataPoint {
   budgetMonthly: number;
 }
 
-const COLOR_BUDGET = "hsl(220, 75%, 55%)";   // синий
-const COLOR_FACT = "hsl(145, 60%, 42%)";      // зелёный
-const COLOR_PROFITABILITY = "hsl(45, 95%, 50%)"; // жёлтый
+const COLOR_BUDGET = "hsl(210, 70%, 55%)";   // синий
+const COLOR_FACT = "hsl(175, 65%, 45%)";      // teal
+const COLOR_PROFITABILITY = "hsl(45, 90%, 45%)"; // gold
 
 function formatValue(value: number): string {
   const abs = Math.abs(value);
@@ -118,11 +118,11 @@ export function ProfitChart({ monthly }: ProfitChartProps) {
   if (!chartData.length) return null;
 
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
       <h3 className="text-lg font-bold mb-4 text-center">
-        Чистая прибыль и рентабельность
+        &#x1F4C8; Чистая прибыль и рентабельность
       </h3>
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis

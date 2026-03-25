@@ -29,8 +29,8 @@ interface BarDataPoint {
 }
 
 
-const COLOR_NEGATIVE = "hsl(0, 70%, 60%)";    // красный
-const COLOR_POSITIVE = "hsl(220, 75%, 55%)";   // синий
+const COLOR_NEGATIVE = "hsl(0, 70%, 75%)";    // розовый/salmon
+const COLOR_POSITIVE = "hsl(210, 70%, 55%)";   // синий
 
 function computeDeviation(fact: number, budget: number): number {
   if (budget === 0) return 0;
@@ -149,11 +149,11 @@ export function BusinessEquationChart({ monthly }: BusinessEquationChartProps) {
   }, [monthly]);
 
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
       <h3 className="text-lg font-bold mb-4 text-center">
-        Бизнес-уравнение
+        &#x2696; Бизнес-уравнение
       </h3>
-      <ResponsiveContainer width="100%" height={360}>
+      <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
@@ -183,10 +183,10 @@ export function BusinessEquationChart({ monthly }: BusinessEquationChartProps) {
             ))}
             <LabelList
               dataKey="deviationLabel"
-              position="insideTop"
-              formatter={(v) => `${v}%`}
-              style={{ fontSize: 11, fontWeight: 600, fill: "white" }}
-              offset={8}
+              position="top"
+              formatter={(v) => `${Number(v) > 0 ? "+" : ""}${v}%`}
+              style={{ fontSize: 11, fontWeight: 600 }}
+              offset={4}
             />
           </Bar>
         </BarChart>

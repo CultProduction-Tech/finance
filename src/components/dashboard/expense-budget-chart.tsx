@@ -29,9 +29,9 @@ interface ChartDataPoint {
   totalFact: number;
 }
 
-const COLOR_FACT = "hsl(220, 75%, 55%)";       // синий
-const COLOR_OVERSPEND = "hsl(0, 70%, 60%)";    // красный
-const COLOR_SAVINGS = "hsl(145, 60%, 42%)";    // зелёный
+const COLOR_FACT = "hsl(210, 60%, 65%)";       // мягкий синий
+const COLOR_OVERSPEND = "hsl(0, 65%, 75%)";    // розовый
+const COLOR_SAVINGS = "hsl(160, 50%, 65%)";    // мятный
 
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
@@ -155,18 +155,18 @@ export function ExpenseBudgetChart({ expenseCategories, revenue }: ExpenseBudget
   if (!chartData.length) return null;
 
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
       <div className="flex items-start justify-between mb-4">
         <div className="w-24" />
         <h3 className="text-lg font-bold text-center flex-1">
-          Исполнение бюджета расходов
+          &#x1F4B8; Исполнение бюджета расходов
         </h3>
         <div className="text-right w-24">
           <p className="text-lg font-bold">{formatFull(totalFact)}</p>
           <p className="text-xs text-muted-foreground">{pctOfRevenue}% от выручки</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
@@ -176,7 +176,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue }: ExpenseBudget
             interval={0}
             angle={-25}
             textAnchor="end"
-            height={60}
+            height={50}
           />
           <YAxis
             tickFormatter={(v) => formatAmount(v)}

@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 
+// Вертикальная черта-разделитель после НИ (не используем Customized)
+
 interface MarginalityChartProps {
   monthly: MonthlyKpiData[];
 }
@@ -26,9 +28,9 @@ interface BarDataPoint {
   monthKey?: string;
 }
 
-const COLOR_CUMULATIVE = "hsl(220, 75%, 55%)";
-const COLOR_ABOVE = "hsl(145, 60%, 42%)";
-const COLOR_BELOW = "hsl(0, 70%, 60%)";
+const COLOR_CUMULATIVE = "hsl(221, 83%, 53%)";
+const COLOR_ABOVE = "hsl(142, 71%, 45%)";
+const COLOR_BELOW = "hsl(0, 70%, 75%)";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
@@ -158,7 +160,7 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
     : null;
 
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
       <div className="flex items-center justify-between mb-4">
         {drillMonth ? (
           <button
@@ -171,14 +173,25 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
           <div />
         )}
         <h3 className="text-lg font-bold text-center flex-1">
-          Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
+          &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
         </h3>
         {drillMonth ? <div className="w-12" /> : <div />}
       </div>
-      <ResponsiveContainer width="100%" height={320}>
+      <div className="relative">
+        {chartData.length > 1 && (
+          <div
+            className="absolute top-[25px] bottom-[5px] z-10"
+            style={{
+              width: 2,
+              backgroundColor: "#888",
+              left: `calc(55px + (100% - 55px - 20px) * ${1 / chartData.length})`,
+            }}
+          />
+        )}
+      <ResponsiveContainer width="100%" height={220}>
         <BarChart
           data={chartData}
-          margin={{ top: 25, right: 20, left: 0, bottom: 5 }}
+          margin={{ top: 20, right: 10, left: 0, bottom: 5 }}
           onClick={handleBarClick}
           style={{ cursor: chartData.some((d) => d.type === "month") ? "pointer" : "default" }}
         >
@@ -194,7 +207,7 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
             tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             width={55}
-            domain={[0, (max: number) => Math.max(max, budgetLine + 5)]}
+            domain={[0, (max: number) => Math.max(max + 5, budgetLine + 5)]}
           />
           {budgetLine > 0 && (
             <ReferenceLine
@@ -204,7 +217,7 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
               strokeWidth={2}
               label={{
                 value: `Марж-ть ${budgetLine}%`,
-                position: "insideTopLeft",
+                position: "insideBottomLeft",
                 fontSize: 11,
                 fill: COLOR_CUMULATIVE,
                 offset: 5,
@@ -235,11 +248,26 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
               dataKey="value"
               position="top"
               formatter={(v) => `${v}%`}
-              style={{ fontSize: 12, fontWeight: 500 }}
+              style={{ fontSize: 10, fontWeight: 500 }}
             />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <div className="flex items-center justify-center gap-5 mt-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_CUMULATIVE }} /> НИ
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_ABOVE }} /> Выше
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_BELOW }} /> Ниже
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0 border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Бюджет
+        </span>
+      </div>
+      </div>
     </div>
   );
 }

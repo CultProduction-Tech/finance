@@ -10,19 +10,19 @@ interface EntitySwitcherProps {
 
 export function EntitySwitcher({ selected, onSelect }: EntitySwitcherProps) {
   return (
-    <div className="flex gap-1 rounded-lg bg-muted p-1">
+    <div className="flex">
       {LEGAL_ENTITIES.map((entity) => (
         <button
           key={entity.id}
           onClick={() => entity.id !== "cult" && onSelect(entity.id)}
           disabled={entity.id === "cult"}
           className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "px-6 py-3 text-sm font-medium transition-colors border-t-2",
             entity.id === "cult"
-              ? "text-muted-foreground/50 cursor-not-allowed"
+              ? "text-muted-foreground/50 cursor-not-allowed border-transparent bg-muted/50"
               : selected === entity.id
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? "border-t-primary text-foreground bg-background"
+                : "border-transparent text-muted-foreground bg-muted/50 hover:bg-muted",
           )}
         >
           {entity.fullName}

@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Дашборд Бластер",
   description: "Дашборд Бластер",
+  openGraph: {
+    title: "Дашборд Бластер",
+    description: "Дашборд Бластер",
+    siteName: "Дашборд Бластер",
+  },
 };
 
 export default function RootLayout({

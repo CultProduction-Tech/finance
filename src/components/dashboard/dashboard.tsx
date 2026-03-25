@@ -10,7 +10,6 @@ import { ProfitChart } from "./profit-chart";
 import { BusinessEquationChart } from "./business-equation-chart";
 import { ExpenseBudgetChart } from "./expense-budget-chart";
 import { MarginalityChart } from "./marginality-chart";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
@@ -29,51 +28,40 @@ export function Dashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen dashboard-bg-blaster">
       {/* Шапка */}
-      <header className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">{entityInfo.name}</h1>
-                <p className="text-sm text-muted-foreground">Финансовый дашборд</p>
-              </div>
+      <header className="border-b bg-card sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✏️</span>
+              <h1 className="text-xl font-bold tracking-tight uppercase">{entityInfo.name}</h1>
               {useMock && (
                 <Badge variant="secondary" className="text-xs">
                   Demo-данные
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <PeriodSelector
-                year={year}
-                startMonth={startMonth}
-                endMonth={endMonth}
-                onYearChange={setYear}
-                onStartMonthChange={setStartMonth}
-                onEndMonthChange={setEndMonth}
-              />
-            </div>
+            <PeriodSelector
+              year={year}
+              startMonth={startMonth}
+              endMonth={endMonth}
+              onYearChange={setYear}
+              onStartMonthChange={setStartMonth}
+              onEndMonthChange={setEndMonth}
+            />
           </div>
         </div>
       </header>
 
-      {/* Переключение юрлиц */}
-      <div className="max-w-7xl mx-auto px-4 pt-4 sm:px-6 lg:px-8">
-        <EntitySwitcher selected={entity} onSelect={setEntity} />
-      </div>
-
-      <Separator className="max-w-7xl mx-auto mt-4" />
-
       {/* KPI карточки */}
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="max-w-5xl mx-auto px-4 py-4">
         {loading ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[100px] rounded-xl border bg-card animate-pulse"
+                className="h-[90px] rounded-xl bg-card/80 animate-pulse"
               />
             ))}
           </div>
@@ -81,14 +69,20 @@ export function Dashboard() {
           <KpiGrid data={kpi} />
         ) : null}
 
-        {/* Placeholder для графиков (фаза 3) */}
-        <div className="mt-8 grid gap-6">
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
           {kpi && <ProfitChart monthly={kpi.monthly} />}
           {kpi && <BusinessEquationChart monthly={kpi.monthly} />}
           {kpi && <MarginalityChart monthly={kpi.monthly} />}
           {kpi && <ExpenseBudgetChart expenseCategories={kpi.expenseCategories} revenue={kpi.revenue} />}
         </div>
       </main>
+
+      {/* Переключение юрлиц — внизу */}
+      <footer className="sticky bottom-0 bg-card border-t z-50 shadow-lg">
+        <div className="max-w-5xl mx-auto px-4">
+          <EntitySwitcher selected={entity} onSelect={setEntity} />
+        </div>
+      </footer>
     </div>
   );
 }

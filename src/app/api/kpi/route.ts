@@ -380,7 +380,7 @@ export async function GET(request: NextRequest) {
         for (const version of budgetDetail.versions) {
           for (const item of version.info.items) {
             const monthKey = item.date.substring(0, 7);
-            if (!pastMonths.includes(monthKey)) continue;
+            if (!months.includes(monthKey)) continue;
             const cat = categories.items.find((c) => c.operationCategoryId === item.operationCategoryId);
             if (!cat || cat.operationCategoryType !== "Outcome") continue;
             const parentId = getFirstLevelParent(item.operationCategoryId);

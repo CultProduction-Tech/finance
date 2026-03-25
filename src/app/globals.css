@@ -49,38 +49,38 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #e8eef5;
+  --foreground: #172428;
+  --card: #fbfeff;
+  --card-foreground: #172428;
+  --popover: #fbfeff;
+  --popover-foreground: #172428;
+  --primary: #008098;
+  --primary-foreground: #fcfcfc;
+  --secondary: #e3edf0;
+  --secondary-foreground: #172428;
+  --muted: #e3edf0;
+  --muted-foreground: #5a6569;
+  --accent: #007760;
+  --accent-foreground: #fcfcfc;
+  --destructive: #d40924;
+  --border: #cbdbdf;
+  --input: #cbdbdf;
+  --ring: #008098;
+  --chart-1: #008fae;
+  --chart-2: #008474;
+  --chart-3: #3aa85b;
+  --chart-4: #d58b4b;
+  --chart-5: #cc272e;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #fbfeff;
+  --sidebar-foreground: #172428;
+  --sidebar-primary: #008098;
+  --sidebar-primary-foreground: #fcfcfc;
+  --sidebar-accent: #e3edf0;
+  --sidebar-accent-foreground: #172428;
+  --sidebar-border: #cbdbdf;
+  --sidebar-ring: #008098;
 }
 
 .dark {
@@ -127,4 +127,12 @@
   html {
     @apply font-sans;
   }
+}
+
+.dashboard-bg-blaster {
+  background-color: #e8eef5;
+  background-image:
+    radial-gradient(ellipse at 0% 100%, rgba(0, 100, 180, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 0%, rgba(0, 128, 152, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(180, 200, 220, 0.15) 0%, transparent 70%);
 }
