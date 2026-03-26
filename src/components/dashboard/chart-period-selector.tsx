@@ -2,36 +2,51 @@
 
 import { MONTHS_RU } from "@/types/finance";
 
+export type QuickPeriod = "month" | "year" | null;
+
 interface ChartPeriodSelectorProps {
-  year: number;
   startMonth: number;
   endMonth: number;
-  onYearChange: (year: number) => void;
+  activeQuick: QuickPeriod;
   onStartMonthChange: (month: number) => void;
   onEndMonthChange: (month: number) => void;
+  onQuickPeriod: (period: QuickPeriod) => void;
 }
 
-const selectClass = "bg-muted/60 border border-border rounded-md px-1.5 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer";
+const selectClass = "bg-muted/60 border border-border rounded-md px-1.5 py-0.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer";
 
 export function ChartPeriodSelector({
-  year,
   startMonth,
   endMonth,
-  onYearChange,
+  activeQuick,
   onStartMonthChange,
   onEndMonthChange,
+  onQuickPeriod,
 }: ChartPeriodSelectorProps) {
+  const btnBase = "rounded-md px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer border";
+
   return (
     <div className="flex items-center gap-1 text-xs shrink-0">
-      <select
-        value={year}
-        onChange={(e) => onYearChange(Number(e.target.value))}
-        className={selectClass}
+      <button
+        onClick={() => onQuickPeriod(activeQuick === "month" ? null : "month")}
+        className={`${btnBase} ${
+          activeQuick === "month"
+            ? "bg-primary text-primary-foreground border-primary"
+            : "bg-muted/60 border-border text-foreground hover:bg-muted"
+        }`}
       >
-        <option value={2025}>2025</option>
-        <option value={2026}>2026</option>
-        <option value={2027}>2027</option>
-      </select>
+        Месяц
+      </button>
+      <button
+        onClick={() => onQuickPeriod(activeQuick === "year" ? null : "year")}
+        className={`${btnBase} ${
+          activeQuick === "year"
+            ? "bg-primary text-primary-foreground border-primary"
+            : "bg-muted/60 border-border text-foreground hover:bg-muted"
+        }`}
+      >
+        НИ
+      </button>
       <select
         value={startMonth}
         onChange={(e) => {

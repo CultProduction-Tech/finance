@@ -54,6 +54,7 @@ export interface MonthlyKpi {
   requestsFact: number;
   requestsPlan: number;
   projectsSoldFact: number;
+  projectsNotSoldFact: number;
   projectsSoldRevenue: number;
   projectsPlan: number;
 }
@@ -136,13 +137,12 @@ export async function GET(request: NextRequest) {
     });
 
     const projectPromises = monthRanges.map(({ m, mStart, mEnd }) => {
-      const isPast = m < currentMonth;
       if (m > currentMonth) return Promise.resolve([]);
-      return getProjectDetails(mStart, mEnd, isPast);
+      return getProjectDetails(mStart, mEnd);
     });
 
     const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
-      if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0 });
+      if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 });
       return getLeadCountsByCreatedDate(mStart, mEnd);
     });
 
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
-    const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number }>();
+    const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number }>();
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
@@ -320,9 +320,10 @@ export async function GET(request: NextRequest) {
           expensePlan: p.expensePlan,
           marginPercent: p.marginPercent,
         })),
-        requestsFact: (leadCountsByMonth.get(monthKey)?.sold ?? 0) + (leadCountsByMonth.get(monthKey)?.notSold ?? 0),
+        requestsFact: leadCountsByMonth.get(monthKey)?.totalRequests ?? 0,
         requestsPlan: REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0,
         projectsSoldFact: leadCountsByMonth.get(monthKey)?.sold ?? 0,
+        projectsNotSoldFact: leadCountsByMonth.get(monthKey)?.notSold ?? 0,
         projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
         projectsPlan: PROJECTS_PLAN,
       });

@@ -86,16 +86,21 @@ export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquat
     let factProfit = 0, budgetProfit = 0;
     let pastCount = 0;
     let totalRequestsFact = 0, totalRequestsPlan = 0;
-    let totalProjectsSoldFact = 0, totalProjectsPlan = 0;
-    let totalSoldRevenue = 0;
+    let totalProjectsSoldFact = 0, totalProjectsNotSoldFact = 0;
+    let totalProjectsByActs = 0, totalProjectsByActsRevenue = 0;
 
     for (const m of monthly) {
       // AMO-метрики: доступны для всех месяцев (прошлых + текущий)
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;
       totalProjectsSoldFact += m.projectsSoldFact;
-      totalProjectsPlan += m.projectsPlan;
-      totalSoldRevenue += m.projectsSoldRevenue;
+      totalProjectsNotSoldFact += m.projectsNotSoldFact;
+
+      // Проекты по актам (из projects — STATUS_SOLD + дата акта)
+      if (m.projects) {
+        totalProjectsByActs += m.projects.length;
+        for (const p of m.projects) totalProjectsByActsRevenue += p.price;
+      }
 
       // PlanFact-метрики: только прошлые месяцы
       if (!m.isPast) continue;
@@ -116,19 +121,23 @@ export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquat
     const avgFactMarginPct = pastCount > 0 ? factMarginPercent / pastCount : 0;
     const avgBudgetMarginPct = pastCount > 0 ? budgetMarginPercent / pastCount : 0;
 
-    // Средний чек: факт = сумма цен сделок AMO / кол-во продано, план = бюджет выручки / план проектов
-    const factAvgCheck = totalProjectsSoldFact > 0 ? totalSoldRevenue / totalProjectsSoldFact : 0;
-    const budgetAvgCheck = totalProjectsPlan > 0 ? budgetRevenue / totalProjectsPlan : 0;
+    // Средний чек: бюджет = 647 500, факт = выручка / проекты по актам
+    const BUDGET_AVG_CHECK = 647500;
+    const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
 
-    // Конверсия Z→P: факт = продано / все запросы, целевой показатель = 50%
-    const factConversion = totalRequestsFact > 0 ? (totalProjectsSoldFact / totalRequestsFact) * 100 : 0;
+    // Конверсия: факт = sold / (sold + notSold), бюджет = 50%
+    const totalDecided = totalProjectsSoldFact + totalProjectsNotSoldFact;
+    const factConversion = totalDecided > 0 ? (totalProjectsSoldFact / totalDecided) * 100 : 0;
     const budgetConversion = 50;
+
+    // Проекты: факт = по актам, бюджет = budgetRevenue / средний чек
+    const budgetProjects = BUDGET_AVG_CHECK > 0 ? budgetRevenue / BUDGET_AVG_CHECK : 0;
 
     const items: [string, number, number, boolean][] = [
       ["Запросы", totalRequestsFact, totalRequestsPlan, false],
       ["Конверсия", factConversion, budgetConversion, true],
-      ["Проекты", totalProjectsSoldFact, totalProjectsPlan, false],
-      ["Средний чек", factAvgCheck, budgetAvgCheck, false],
+      ["Проекты", totalProjectsByActs, budgetProjects, false],
+      ["Средний чек", factAvgCheck, BUDGET_AVG_CHECK, false],
       ["Выручка", factRevenue, budgetRevenue, false],
       ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
       ["Маржа", factMargin, budgetMargin, false],

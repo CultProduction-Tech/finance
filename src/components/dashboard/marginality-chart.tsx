@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -59,6 +59,11 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
 
 export function MarginalityChart({ monthly, periodSelector }: MarginalityChartProps) {
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
+
+  // Сброс drill-down при смене периода (данные monthly изменились)
+  useEffect(() => {
+    setDrillMonth(null);
+  }, [monthly]);
 
   const budgetLine = useMemo(() => {
     let total = 0;

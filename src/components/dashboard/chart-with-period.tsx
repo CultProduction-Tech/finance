@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { KpiData, LegalEntity } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
-import { ChartPeriodSelector } from "./chart-period-selector";
+import { ChartPeriodSelector, QuickPeriod } from "./chart-period-selector";
 
 interface ChartWithPeriodProps {
   entity: LegalEntity;
@@ -22,35 +22,34 @@ export function ChartWithPeriod({
   globalKpi,
   children,
 }: ChartWithPeriodProps) {
-  const [localYear, setLocalYear] = useState<number | null>(null);
   const [localStart, setLocalStart] = useState<number | null>(null);
   const [localEnd, setLocalEnd] = useState<number | null>(null);
+  const [activeQuick, setActiveQuick] = useState<QuickPeriod>(null);
 
   // Сброс локального периода при смене глобального
   const prevGlobal = useRef({ globalYear, globalStartMonth, globalEndMonth });
   useEffect(() => {
     const prev = prevGlobal.current;
     if (prev.globalYear !== globalYear || prev.globalStartMonth !== globalStartMonth || prev.globalEndMonth !== globalEndMonth) {
-      setLocalYear(null);
       setLocalStart(null);
       setLocalEnd(null);
+      setActiveQuick(null);
       prevGlobal.current = { globalYear, globalStartMonth, globalEndMonth };
     }
   }, [globalYear, globalStartMonth, globalEndMonth]);
 
-  const hasLocal = localYear !== null && localStart !== null && localEnd !== null;
+  const hasLocal = localStart !== null && localEnd !== null;
 
-  const activeYear = hasLocal ? localYear : globalYear;
   const activeStart = hasLocal ? localStart : globalStartMonth;
   const activeEnd = hasLocal ? localEnd : globalEndMonth;
 
   const needsLocalFetch = hasLocal && (
-    localYear !== globalYear || localStart !== globalStartMonth || localEnd !== globalEndMonth
+    localStart !== globalStartMonth || localEnd !== globalEndMonth
   );
 
   const { data: localKpi, loading: localLoading } = useKpi({
     entity,
-    year: needsLocalFetch ? activeYear : globalYear,
+    year: globalYear,
     startMonth: needsLocalFetch ? activeStart : globalStartMonth,
     endMonth: needsLocalFetch ? activeEnd : globalEndMonth,
   });
@@ -58,14 +57,45 @@ export function ChartWithPeriod({
   const kpi = needsLocalFetch ? localKpi : globalKpi;
   const loading = needsLocalFetch ? localLoading : false;
 
+  const currentMonth = new Date().getMonth();
+
+  const handleQuickPeriod = useCallback((period: QuickPeriod) => {
+    if (period === null) {
+      // Сброс к глобальному периоду
+      setLocalStart(null);
+      setLocalEnd(null);
+      setActiveQuick(null);
+    } else if (period === "month") {
+      setLocalStart(currentMonth);
+      setLocalEnd(currentMonth);
+      setActiveQuick("month");
+    } else {
+      setLocalStart(0);
+      setLocalEnd(11);
+      setActiveQuick("year");
+    }
+  }, [currentMonth]);
+
+  const handleStartChange = useCallback((v: number) => {
+    setLocalStart(v);
+    setActiveQuick(null);
+    if (localEnd === null) setLocalEnd(globalEndMonth);
+  }, [localEnd, globalEndMonth]);
+
+  const handleEndChange = useCallback((v: number) => {
+    setLocalEnd(v);
+    setActiveQuick(null);
+    if (localStart === null) setLocalStart(globalStartMonth);
+  }, [localStart, globalStartMonth]);
+
   const periodSelector = (
     <ChartPeriodSelector
-      year={activeYear}
       startMonth={activeStart}
       endMonth={activeEnd}
-      onYearChange={(v) => { setLocalYear(v); if (localStart === null) { setLocalStart(globalStartMonth); setLocalEnd(globalEndMonth); } }}
-      onStartMonthChange={(v) => { setLocalStart(v); if (localYear === null) { setLocalYear(globalYear); setLocalEnd(globalEndMonth); } }}
-      onEndMonthChange={(v) => { setLocalEnd(v); if (localYear === null) { setLocalYear(globalYear); setLocalStart(globalStartMonth); } }}
+      activeQuick={activeQuick}
+      onStartMonthChange={handleStartChange}
+      onEndMonthChange={handleEndChange}
+      onQuickPeriod={handleQuickPeriod}
     />
   );
 

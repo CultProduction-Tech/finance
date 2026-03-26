@@ -23,6 +23,7 @@ export interface AmoLeadCounts {
   sold: number;
   notSold: number;
   soldTotalPrice: number;
+  totalRequests: number; // все лиды в воронке за период (все этапы)
 }
 
 export interface AmoProjectDetail {
@@ -136,18 +137,16 @@ export async function getProjectsCount(startDate: string, endDate: string): Prom
 
 /**
  * Список проектов с маржинальностью.
- * isPast=true → статус "Завершен", isPast=false → "Идут работы"
+ * Фильтр: статус сделки "Продано" + дата акта в диапазоне (без фильтра по статусу проекта).
  */
 export async function getProjectDetails(
   startDate: string,
   endDate: string,
-  isPast: boolean,
 ): Promise<AmoProjectDetail[]> {
   if (!BASE_URL || !ACCESS_TOKEN || !PIPELINE_ID) {
     return [];
   }
 
-  const requiredStatus = isPast ? PROJECT_STATUS_COMPLETED : PROJECT_STATUS_ACTIVE;
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
   const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
 
@@ -168,12 +167,6 @@ export async function getProjectDetails(
     if (!data._embedded?.leads?.length) break;
 
     for (const lead of data._embedded.leads) {
-      // Фильтр по статусу проекта
-      const statusField = lead.custom_fields_values?.find(
-        (f) => f.field_id === PROJECT_STATUS_FIELD_ID,
-      );
-      if (statusField?.values?.[0]?.value !== requiredStatus) continue;
-
       // Фильтр по дате акта
       const actDateField = lead.custom_fields_values?.find(
         (f) => f.field_id === ACT_DATE_FIELD_ID,
@@ -210,54 +203,77 @@ export async function getProjectDetails(
 }
 
 /**
- * Количество сделок «Продано» и «Не продано, проект закрыт» по дате создания.
- * Используется для расчёта Запросов и Конверсии в бизнес-уравнении.
+ * Количество сделок по дате создания.
+ * totalRequests — все лиды в воронке (все этапы).
+ * sold/notSold — «Продано»/«Не продано, проект закрыт».
  */
 export async function getLeadCountsByCreatedDate(
   startDate: string,
   endDate: string,
 ): Promise<AmoLeadCounts> {
   if (!BASE_URL || !ACCESS_TOKEN || !PIPELINE_ID) {
-    return { sold: 0, notSold: 0, soldTotalPrice: 0 };
+    return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 };
   }
 
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
   const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
 
+  // 1) Все лиды в воронке за период (все этапы)
+  let totalRequests = 0;
+  {
+    let page = 1;
+    let hasMore = true;
+    while (hasMore) {
+      const params = new URLSearchParams({
+        "filter[pipeline_id]": String(PIPELINE_ID),
+        "filter[created_at][from]": String(startTs),
+        "filter[created_at][to]": String(endTs),
+        limit: "250",
+        page: String(page),
+      });
+      const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
+      if (!data._embedded?.leads?.length) break;
+      for (const lead of data._embedded.leads) {
+        if (lead.pipeline_id === PIPELINE_ID) totalRequests++;
+      }
+      hasMore = !!data._links?.next;
+      page++;
+    }
+  }
+
+  // 2) Sold + Not Sold (для конверсии)
   let sold = 0;
   let notSold = 0;
   let soldTotalPrice = 0;
-  let page = 1;
-  let hasMore = true;
-
-  while (hasMore) {
-    const params = new URLSearchParams({
-      "filter[statuses][0][pipeline_id]": String(PIPELINE_ID),
-      "filter[statuses][0][status_id]": String(STATUS_SOLD),
-      "filter[statuses][1][pipeline_id]": String(PIPELINE_ID),
-      "filter[statuses][1][status_id]": String(STATUS_NOT_SOLD),
-      "filter[created_at][from]": String(startTs),
-      "filter[created_at][to]": String(endTs),
-      limit: "250",
-      page: String(page),
-    });
-
-    const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
-    if (!data._embedded?.leads?.length) break;
-
-    for (const lead of data._embedded.leads) {
-      if (lead.pipeline_id !== PIPELINE_ID) continue;
-      if (lead.status_id === STATUS_SOLD) {
-        sold++;
-        soldTotalPrice += lead.price || 0;
-      } else if (lead.status_id === STATUS_NOT_SOLD) {
-        notSold++;
+  {
+    let page = 1;
+    let hasMore = true;
+    while (hasMore) {
+      const params = new URLSearchParams({
+        "filter[statuses][0][pipeline_id]": String(PIPELINE_ID),
+        "filter[statuses][0][status_id]": String(STATUS_SOLD),
+        "filter[statuses][1][pipeline_id]": String(PIPELINE_ID),
+        "filter[statuses][1][status_id]": String(STATUS_NOT_SOLD),
+        "filter[created_at][from]": String(startTs),
+        "filter[created_at][to]": String(endTs),
+        limit: "250",
+        page: String(page),
+      });
+      const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
+      if (!data._embedded?.leads?.length) break;
+      for (const lead of data._embedded.leads) {
+        if (lead.pipeline_id !== PIPELINE_ID) continue;
+        if (lead.status_id === STATUS_SOLD) {
+          sold++;
+          soldTotalPrice += lead.price || 0;
+        } else if (lead.status_id === STATUS_NOT_SOLD) {
+          notSold++;
+        }
       }
+      hasMore = !!data._links?.next;
+      page++;
     }
-
-    hasMore = !!data._links?.next;
-    page++;
   }
 
-  return { sold, notSold, soldTotalPrice };
+  return { sold, notSold, soldTotalPrice, totalRequests };
 }
