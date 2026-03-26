@@ -17,6 +17,7 @@ import { ExpenseCategoryData } from "@/types/finance";
 interface ExpenseBudgetChartProps {
   expenseCategories: ExpenseCategoryData[];
   revenue: number;
+  periodSelector?: React.ReactNode;
 }
 
 interface ChartDataPoint {
@@ -99,7 +100,7 @@ function DeviationLabel(props: any) {
   );
 }
 
-export function ExpenseBudgetChart({ expenseCategories, revenue }: ExpenseBudgetChartProps) {
+export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector }: ExpenseBudgetChartProps) {
   const { chartData, totalFact, pctOfRevenue } = useMemo(() => {
     let total = 0;
 
@@ -156,14 +157,14 @@ export function ExpenseBudgetChart({ expenseCategories, revenue }: ExpenseBudget
 
   return (
     <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
-      <div className="flex items-start justify-between mb-4">
-        <div className="w-24" />
-        <h3 className="text-lg font-bold text-center flex-1">
-          &#x1F4B8; Исполнение бюджета расходов
-        </h3>
-        <div className="text-right w-24">
-          <p className="text-lg font-bold">{formatFull(totalFact)}</p>
-          <p className="text-xs text-muted-foreground">{pctOfRevenue}% от выручки</p>
+      <h3 className="text-lg font-bold mb-1 text-center">
+        &#x1F4B8; Исполнение бюджета расходов
+      </h3>
+      <div className="flex items-center justify-between mb-2">
+        {periodSelector || <div />}
+        <div className="text-right">
+          <span className="text-lg font-bold">{formatFull(totalFact)}</span>
+          <span className="text-xs text-muted-foreground ml-1">{pctOfRevenue}% от выручки</span>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={220}>

@@ -15,6 +15,7 @@ import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 
 interface ProfitChartProps {
   monthly: MonthlyKpiData[];
+  periodSelector?: React.ReactNode;
 }
 
 interface ChartDataPoint {
@@ -77,7 +78,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-export function ProfitChart({ monthly }: ProfitChartProps) {
+export function ProfitChart({ monthly, periodSelector }: ProfitChartProps) {
   const chartData = useMemo<ChartDataPoint[]>(() => {
     let cumFact = 0;
     let cumBudget = 0;
@@ -122,6 +123,7 @@ export function ProfitChart({ monthly }: ProfitChartProps) {
       <h3 className="text-lg font-bold mb-4 text-center">
         &#x1F4C8; Чистая прибыль и рентабельность
       </h3>
+      {periodSelector && <div className="flex justify-end -mt-3 mb-2">{periodSelector}</div>}
       <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />

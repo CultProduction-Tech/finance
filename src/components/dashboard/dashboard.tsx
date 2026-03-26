@@ -11,6 +11,7 @@ import { BusinessEquationChart } from "./business-equation-chart";
 import { ExpenseBudgetChart } from "./expense-budget-chart";
 import { MarginalityChart } from "./marginality-chart";
 import { MonthNotes } from "./month-notes";
+import { ChartWithPeriod } from "./chart-with-period";
 import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
@@ -55,8 +56,8 @@ export function Dashboard() {
         </div>
       </header>
 
-      {/* KPI карточки */}
-      <main className="max-w-7xl mx-auto px-4 py-4">
+      {/* KPI карточки — ограниченная ширина */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
         {loading ? (
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -69,20 +70,33 @@ export function Dashboard() {
         ) : kpi ? (
           <KpiGrid data={kpi} />
         ) : null}
+      </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {kpi && <ProfitChart monthly={kpi.monthly} />}
-          {kpi && <BusinessEquationChart monthly={kpi.monthly} />}
-          {kpi && <MarginalityChart monthly={kpi.monthly} />}
-          {kpi && <ExpenseBudgetChart expenseCategories={kpi.expenseCategories} revenue={kpi.revenue} />}
-        </div>
-
-        {startMonth === endMonth && (
-          <div className="mt-4">
-            <MonthNotes entity={entity} year={year} month={startMonth} />
+      {/* Графики — широкий контейнер */}
+      {kpi && (
+        <div className="px-4 pb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} />}
+            </ChartWithPeriod>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+              {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} />}
+            </ChartWithPeriod>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+              {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} />}
+            </ChartWithPeriod>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+              {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} />}
+            </ChartWithPeriod>
           </div>
-        )}
-      </main>
+
+          {startMonth === endMonth && (
+            <div className="mt-4 max-w-7xl mx-auto">
+              <MonthNotes entity={entity} year={year} month={startMonth} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Переключение юрлиц — внизу */}
       <footer className="sticky bottom-0 bg-card border-t z-50 shadow-lg">

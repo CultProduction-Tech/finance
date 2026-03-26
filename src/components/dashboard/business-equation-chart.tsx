@@ -17,6 +17,7 @@ import { MonthlyKpiData } from "@/types/finance";
 
 interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
+  periodSelector?: React.ReactNode;
 }
 
 interface BarDataPoint {
@@ -75,7 +76,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   );
 }
 
-export function BusinessEquationChart({ monthly }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquationChartProps) {
   const chartData = useMemo<BarDataPoint[]>(() => {
     // Суммируем факт и бюджет за выбранный период
     let factRevenue = 0, budgetRevenue = 0;
@@ -153,6 +154,7 @@ export function BusinessEquationChart({ monthly }: BusinessEquationChartProps) {
       <h3 className="text-lg font-bold mb-4 text-center">
         &#x2696; Бизнес-уравнение
       </h3>
+      {periodSelector && <div className="flex justify-start -mt-3 mb-2">{periodSelector}</div>}
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />

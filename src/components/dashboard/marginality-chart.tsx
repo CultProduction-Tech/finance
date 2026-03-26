@@ -19,6 +19,7 @@ import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 
 interface MarginalityChartProps {
   monthly: MonthlyKpiData[];
+  periodSelector?: React.ReactNode;
 }
 
 interface BarDataPoint {
@@ -56,7 +57,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   );
 }
 
-export function MarginalityChart({ monthly }: MarginalityChartProps) {
+export function MarginalityChart({ monthly, periodSelector }: MarginalityChartProps) {
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
 
   const budgetLine = useMemo(() => {
@@ -161,7 +162,10 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
 
   return (
     <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
-      <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-bold mb-1 text-center">
+        &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
+      </h3>
+      <div className="flex items-center justify-between mb-2">
         {drillMonth ? (
           <button
             onClick={() => setDrillMonth(null)}
@@ -172,10 +176,7 @@ export function MarginalityChart({ monthly }: MarginalityChartProps) {
         ) : (
           <div />
         )}
-        <h3 className="text-lg font-bold text-center flex-1">
-          &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
-        </h3>
-        {drillMonth ? <div className="w-12" /> : <div />}
+        {periodSelector}
       </div>
       <div className="relative">
         {chartData.length > 1 && (
