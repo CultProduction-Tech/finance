@@ -167,7 +167,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector 
           <span className="text-xs text-muted-foreground ml-1">{pctOfRevenue}% от выручки</span>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={240}>
         <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
@@ -177,7 +177,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector 
             interval={0}
             angle={-25}
             textAnchor="end"
-            height={50}
+            height={60}
           />
           <YAxis
             tickFormatter={(v) => formatAmount(v)}

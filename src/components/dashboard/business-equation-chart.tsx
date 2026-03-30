@@ -164,24 +164,24 @@ export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquat
         &#x2696; Бизнес-уравнение
       </h3>
       {periodSelector && <div className="flex justify-start -mt-3 mb-2">{periodSelector}</div>}
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
+      <ResponsiveContainer width="100%" height={240}>
+        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             interval={0}
             angle={-25}
             textAnchor="end"
-            height={50}
+            height={60}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
             tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             width={55}
-            domain={[-110, 110]}
+            domain={[-120, 120]}
           />
           <ReferenceLine y={0} stroke="#a0a0a0" strokeDasharray="3 3" strokeWidth={2} />
           <Tooltip content={<CustomTooltip />} />
