@@ -41,6 +41,15 @@ export function Dashboard() {
     endMonth,
   });
 
+  // Полный год для кумулятива в графике прибыли (только если период не с января)
+  const needsFullYear = startMonth !== 0;
+  const { data: fullYearKpi } = useKpi({
+    entity,
+    year,
+    startMonth: needsFullYear ? 0 : startMonth,
+    endMonth: needsFullYear ? 11 : endMonth,
+  });
+
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
@@ -89,7 +98,7 @@ export function Dashboard() {
         <div className="px-4 pb-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
-              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} />}
+              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={needsFullYear ? fullYearKpi?.monthly : undefined} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
               {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}

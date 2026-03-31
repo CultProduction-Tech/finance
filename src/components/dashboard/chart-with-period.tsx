@@ -11,6 +11,8 @@ interface ChartWithPeriodProps {
   globalStartMonth: number;
   globalEndMonth: number;
   globalKpi: KpiData;
+  /** Всегда запрашивать данные с января (для графиков с нарастающим итогом) */
+  alwaysFromJanuary?: boolean;
   children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode) => ReactNode;
 }
 
@@ -20,6 +22,7 @@ export function ChartWithPeriod({
   globalStartMonth,
   globalEndMonth,
   globalKpi,
+  alwaysFromJanuary,
   children,
 }: ChartWithPeriodProps) {
   const [localStart, setLocalStart] = useState<number | null>(null);
@@ -43,19 +46,22 @@ export function ChartWithPeriod({
   const activeStart = hasLocal ? localStart : globalStartMonth;
   const activeEnd = hasLocal ? localEnd : globalEndMonth;
 
+  const fetchStart = alwaysFromJanuary ? 0 : activeStart;
+
   const needsLocalFetch = hasLocal && (
     localStart !== globalStartMonth || localEnd !== globalEndMonth
   );
+  const needsJanuaryFetch = alwaysFromJanuary && globalStartMonth !== 0;
 
   const { data: localKpi, loading: localLoading } = useKpi({
     entity,
     year: globalYear,
-    startMonth: needsLocalFetch ? activeStart : globalStartMonth,
+    startMonth: needsLocalFetch ? fetchStart : (needsJanuaryFetch ? 0 : globalStartMonth),
     endMonth: needsLocalFetch ? activeEnd : globalEndMonth,
   });
 
-  const kpi = needsLocalFetch ? localKpi : globalKpi;
-  const loading = needsLocalFetch ? localLoading : false;
+  const kpi = (needsLocalFetch || needsJanuaryFetch) ? localKpi : globalKpi;
+  const loading = (needsLocalFetch || needsJanuaryFetch) ? localLoading : false;
 
   const currentMonth = new Date().getMonth();
 

@@ -16,6 +16,8 @@ import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 interface ProfitChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
+  /** Полные данные за год для расчёта кумулятива с января */
+  fullYearMonthly?: MonthlyKpiData[];
 }
 
 interface ChartDataPoint {
@@ -78,17 +80,21 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-export function ProfitChart({ monthly, periodSelector }: ProfitChartProps) {
+export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: ProfitChartProps) {
   const chartData = useMemo<ChartDataPoint[]>(() => {
+    // Если есть данные за полный год — считаем кумулятив по ним,
+    // но показываем только месяцы из monthly
+    const displayMonths = new Set(monthly.map((m) => m.month));
+    const source = fullYearMonthly ?? monthly;
+
     let cumFact = 0;
     let cumBudget = 0;
     let cumRevenue = 0;
+    const result: ChartDataPoint[] = [];
 
-    return monthly.map((m) => {
-      // Бюджет НИ: всегда из бюджета
+    for (const m of source) {
       cumBudget += m.budgetProfit;
 
-      // Факт НИ и рентабельность НИ: только прошлые
       let factCumValue: number | null = null;
       let profitabilityValue: number | null = null;
 
@@ -101,10 +107,13 @@ export function ProfitChart({ monthly, periodSelector }: ProfitChartProps) {
           : 0;
       }
 
+      // Показываем только выбранные месяцы
+      if (!displayMonths.has(m.month)) continue;
+
       const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
       const label = MONTHS_RU[monthIndex]?.substring(0, 3) || m.month;
 
-      return {
+      result.push({
         month: m.month,
         label,
         factCum: factCumValue,
@@ -112,9 +121,11 @@ export function ProfitChart({ monthly, periodSelector }: ProfitChartProps) {
         profitabilityCum: profitabilityValue,
         factMonthly: m.factProfit,
         budgetMonthly: m.budgetProfit,
-      };
-    });
-  }, [monthly]);
+      });
+    }
+
+    return result;
+  }, [monthly, fullYearMonthly]);
 
   if (!chartData.length) return null;
 

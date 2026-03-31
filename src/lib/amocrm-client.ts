@@ -211,7 +211,7 @@ export async function getLeadCountsByCreatedDate(
     }
   }
 
-  // 2) Sold + Not Sold (для конверсии)
+  // 2) Sold + Not Sold (для конверсии) — по дате закрытия
   let sold = 0;
   let notSold = 0;
   let soldTotalPrice = 0;
@@ -224,8 +224,8 @@ export async function getLeadCountsByCreatedDate(
         "filter[statuses][0][status_id]": String(STATUS_SOLD),
         "filter[statuses][1][pipeline_id]": String(pipelineId),
         "filter[statuses][1][status_id]": String(STATUS_NOT_SOLD),
-        "filter[created_at][from]": String(startTs),
-        "filter[created_at][to]": String(endTs),
+        "filter[closed_at][from]": String(startTs),
+        "filter[closed_at][to]": String(endTs),
         limit: "250",
         page: String(page),
       });
