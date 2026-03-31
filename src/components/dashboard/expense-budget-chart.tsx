@@ -12,12 +12,13 @@ import {
   ResponsiveContainer,
   LabelList,
 } from "recharts";
-import { ExpenseCategoryData } from "@/types/finance";
+import { ExpenseCategoryData, LegalEntity } from "@/types/finance";
 
 interface ExpenseBudgetChartProps {
   expenseCategories: ExpenseCategoryData[];
   revenue: number;
   periodSelector?: React.ReactNode;
+  entity?: LegalEntity;
 }
 
 interface ChartDataPoint {
@@ -100,26 +101,43 @@ function DeviationLabel(props: any) {
   );
 }
 
-export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector }: ExpenseBudgetChartProps) {
+// Фильтр статей по entity
+const ALLOWED_NAMES: Record<string, string[]> = {
+  blaster: [
+    "4. ЗП Бэкофис",
+    "2. ЗП Продакшн",
+    "1. ЗП Коммерция",
+    "3. ЗП КРЕАТИВ",
+    "6. ОФИС",
+    "8.1. КОМИССИИ",
+    "9. НАЛОГИ ФОТ",
+    "5. БОНУСЫ НЕ В МАРЖЕ",
+    "10. ИНВЕСТИЦИИ, СТРАТЕГИЧЕСКИЕ АКТИВНОСТИ",
+    "7. ИМИДЖ И РАЗВИТИЕ",
+  ],
+  cult: [
+    "ЛЮДИ",
+    "Налог на прибыль (доходы)",
+    "Налоги и комиссии",
+    "ФИН. ОПЕРАЦИИ",
+    "ТЕНДЕРЫ",
+    "Проценты по кредитам и займам",
+    "ИМИДЖ",
+    "Онлайн сервисы",
+    "ОФИС",
+    "БОНУСЫ НЕ В МАРЖЕ",
+    "БЭКОФИС",
+  ],
+};
+
+export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector, entity }: ExpenseBudgetChartProps) {
   const { chartData, totalFact, pctOfRevenue } = useMemo(() => {
     let total = 0;
 
-    // Только статьи из ТЗ (постоянные расходы)
-    const allowedNames = [
-      "4. ЗП Бэкофис",
-      "2. ЗП Продакшн",
-      "1. ЗП Коммерция",
-      "3. ЗП КРЕАТИВ",
-      "6. ОФИС",
-      "8.1. КОМИССИИ",
-      "9. НАЛОГИ ФОТ",
-      "5. БОНУСЫ НЕ В МАРЖЕ",
-      "10. ИНВЕСТИЦИИ, СТРАТЕГИЧЕСКИЕ АКТИВНОСТИ",
-      "7. ИМИДЖ И РАЗВИТИЕ",
-    ];
-    const filtered = expenseCategories.filter(
-      (c) => allowedNames.includes(c.name),
-    );
+    const allowed = entity ? ALLOWED_NAMES[entity] : null;
+    const filtered = allowed
+      ? expenseCategories.filter((c) => allowed.includes(c.name))
+      : expenseCategories;
 
     const data: ChartDataPoint[] = filtered.map((c) => {
       total += c.fact;
@@ -151,7 +169,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector 
       totalFact: total,
       pctOfRevenue: revenue > 0 ? Math.round((total / revenue) * 100) : 0,
     };
-  }, [expenseCategories, revenue]);
+  }, [expenseCategories, revenue, entity]);
 
   if (!chartData.length) return null;
 

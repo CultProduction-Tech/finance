@@ -73,6 +73,7 @@
   --chart-4: #d58b4b;
   --chart-5: #cc272e;
   --radius: 0.625rem;
+  accent-color: #008098;
   --sidebar: #fbfeff;
   --sidebar-foreground: #172428;
   --sidebar-primary: #008098;
@@ -135,4 +136,24 @@
     radial-gradient(ellipse at 0% 100%, rgba(0, 100, 180, 0.2) 0%, transparent 50%),
     radial-gradient(ellipse at 100% 0%, rgba(0, 128, 152, 0.18) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 50%, rgba(180, 200, 220, 0.15) 0%, transparent 70%);
+}
+
+/* Тема Культ */
+.theme-cult {
+  --background: #f0e8ef;
+  --primary: #e88ac8;
+  --primary-foreground: #ffffff;
+  --ring: #e88ac8;
+  accent-color: #e88ac8;
+  --accent: #d4a0c4;
+  --accent-foreground: #2a1a24;
+  --border: #e0cdd9;
+  --input: #e0cdd9;
+  --muted: #f0e4ec;
+  --secondary: #f0e4ec;
+  background-color: #f5edf3;
+  background-image:
+    radial-gradient(ellipse at 0% 100%, rgba(232, 138, 200, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 0%, rgba(212, 160, 196, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(240, 220, 236, 0.15) 0%, transparent 70%);
 }

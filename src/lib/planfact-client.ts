@@ -4,7 +4,6 @@
  */
 
 const API_URL = process.env.PLANFACT_API_URL || "https://api.planfact.io";
-const API_KEY = process.env.PLANFACT_API_KEY || "";
 
 interface PlanFactResponse<T> {
   data: T;
@@ -13,35 +12,37 @@ interface PlanFactResponse<T> {
   errorCode: string | null;
 }
 
-async function pfFetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-  const url = new URL(`${API_URL}${endpoint}`);
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        url.searchParams.append(key, value);
-      }
+function createPfFetch(apiKey: string) {
+  return async function pfFetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+    const url = new URL(`${API_URL}${endpoint}`);
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          url.searchParams.append(key, value);
+        }
+      });
+    }
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        "Content-Type": "application/json",
+        "X-ApiKey": apiKey,
+      },
+      next: { revalidate: 300 },
     });
-  }
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      "Content-Type": "application/json",
-      "X-ApiKey": API_KEY,
-    },
-    next: { revalidate: 300 }, // кэш 5 мин
-  });
+    if (!res.ok) {
+      throw new Error(`PlanFact API error: ${res.status} ${res.statusText}`);
+    }
 
-  if (!res.ok) {
-    throw new Error(`PlanFact API error: ${res.status} ${res.statusText}`);
-  }
+    const json: PlanFactResponse<T> = await res.json();
 
-  const json: PlanFactResponse<T> = await res.json();
+    if (!json.isSuccess) {
+      throw new Error(`PlanFact API: ${json.errorMessage || json.errorCode}`);
+    }
 
-  if (!json.isSuccess) {
-    throw new Error(`PlanFact API: ${json.errorMessage || json.errorCode}`);
-  }
-
-  return json.data;
+    return json.data;
+  };
 }
 
 // ============ Типы ответов ============
@@ -219,178 +220,85 @@ export interface PaymentStructureResponse {
   items: PaymentStructureItem[] | null;
 }
 
-// ============ API методы ============
+// ============ Фабрика клиента ============
 
-/** Остатки на счетах */
-export async function getAccountBalance(currentDate: string, accountIds?: number[]) {
-  const params: Record<string, string> = {
-    "filter.currentDate": currentDate,
+export function createPlanFactClient(apiKey: string) {
+  const pfFetch = createPfFetch(apiKey);
+
+  return {
+    /** Остатки на счетах */
+    async getAccountBalance(currentDate: string, accountIds?: number[]) {
+      const params: Record<string, string> = {
+        "filter.currentDate": currentDate,
+      };
+      if (accountIds?.length) {
+        accountIds.forEach((id, i) => {
+          params[`filter.accountIds[${i}]`] = String(id);
+        });
+      }
+      return pfFetch<AccountBalanceResponse>("/api/v1/businessmetrics/accountbalance", params);
+    },
+
+    /** Список бюджетов */
+    async getBudgets(options?: { budgetMethod?: "Bdr" | "Bdds" }) {
+      const params: Record<string, string> = {};
+      if (options?.budgetMethod) {
+        params["filter.budgetMethod"] = options.budgetMethod;
+      }
+      return pfFetch<BudgetsResponse>("/api/v1/budgets", params);
+    },
+
+    /** Детали бюджета */
+    async getBudgetDetail(budgetId: string) {
+      return pfFetch<BudgetDetailResponse>(`/api/v1/budgets/${budgetId}`);
+    },
+
+    /** Список статей */
+    async getOperationCategories() {
+      return pfFetch<OperationCategoriesResponse>("/api/v1/operationcategories");
+    },
+
+    /** Структура платежей (P&L агрегаты) */
+    async getPaymentStructure(
+      startDate: string,
+      endDate: string,
+      categoryIds: number[],
+      options?: { isCalculation?: boolean; standardPeriod?: "Day" | "Week" | "Month" | "Quarter" | "Year"; projectIds?: number[] },
+    ) {
+      const params: Record<string, string> = {
+        "filter.periodStartDate": startDate,
+        "filter.periodEndDate": endDate,
+      };
+      if (options?.isCalculation !== undefined) {
+        params["filter.isCalculation"] = String(options.isCalculation);
+      }
+      if (options?.standardPeriod) {
+        params["filter.standardPeriod"] = options.standardPeriod;
+      }
+      categoryIds.forEach((id, i) => {
+        params[`filter.firstLevelOperationCategoryId[${i}]`] = String(id);
+      });
+      if (options?.projectIds?.length) {
+        options.projectIds.forEach((id, i) => {
+          params[`filter.projectId[${i}]`] = String(id);
+        });
+      }
+      return pfFetch<PaymentStructureResponse>("/api/v1/businessmetrics/paymentstructure", params);
+    },
+
+    /** Список проектов */
+    async getProjects(options?: { limit?: number }) {
+      const params: Record<string, string> = {
+        "paging.limit": String(options?.limit || 10000),
+      };
+      return pfFetch<ProjectsResponse>("/api/v1/projects", params);
+    },
+
+    /** Список юрлиц (компаний) */
+    async getCompanies() {
+      return pfFetch<CompaniesResponse>("/api/v1/companies");
+    },
   };
-  if (accountIds?.length) {
-    accountIds.forEach((id, i) => {
-      params[`filter.accountIds[${i}]`] = String(id);
-    });
-  }
-  return pfFetch<AccountBalanceResponse>("/api/v1/businessmetrics/accountbalance", params);
 }
 
-/** Денежный поток за период (помесячно) */
-export async function getCashFlow(
-  startDate: string,
-  endDate: string,
-  options?: {
-    isCalculation?: boolean;
-    accountIds?: number[];
-    projectIds?: number[];
-    standardPeriod?: "Day" | "Week" | "Month" | "Quarter" | "Year";
-  },
-) {
-  const params: Record<string, string> = {
-    "filter.periodStartDate": startDate,
-    "filter.periodEndDate": endDate,
-    "filter.standardPeriod": options?.standardPeriod || "Month",
-  };
-  if (options?.isCalculation !== undefined) {
-    params["filter.isCalculation"] = String(options.isCalculation);
-  }
-  if (options?.accountIds?.length) {
-    options.accountIds.forEach((id, i) => {
-      params[`filter.accountId[${i}]`] = String(id);
-    });
-  }
-  if (options?.projectIds?.length) {
-    options.projectIds.forEach((id, i) => {
-      params[`filter.projectId[${i}]`] = String(id);
-    });
-  }
-  return pfFetch<CashFlowResponse>("/api/v1/businessmetrics/cashflow", params);
-}
-
-/** История поступлений/выплат по статьям */
-export async function getBizInfoByCategories(
-  startDate: string,
-  endDate: string,
-  options?: {
-    isCalculation?: boolean;
-    projectIds?: number[];
-    operationCategoryIds?: number[];
-  },
-) {
-  const params: Record<string, string> = {
-    "filter.periodStartDate": startDate,
-    "filter.periodEndDate": endDate,
-  };
-  if (options?.isCalculation !== undefined) {
-    params["filter.isCalculation"] = String(options.isCalculation);
-  }
-  if (options?.projectIds?.length) {
-    options.projectIds.forEach((id, i) => {
-      params[`filter.projectId[${i}]`] = String(id);
-    });
-  }
-  if (options?.operationCategoryIds?.length) {
-    options.operationCategoryIds.forEach((id, i) => {
-      params[`filter.operationCategoryId[${i}]`] = String(id);
-    });
-  }
-  return pfFetch<BizInfoByCategoryItem[]>(
-    "/api/v1/bizinfos/incomeoutcomehistorybyoperationcategories",
-    params,
-  );
-}
-
-/** История поступлений/выплат по проектам */
-export async function getBizInfoByProjects(
-  startDate: string,
-  endDate: string,
-  options?: {
-    isCalculation?: boolean;
-    projectIds?: number[];
-  },
-) {
-  const params: Record<string, string> = {
-    "filter.periodStartDate": startDate,
-    "filter.periodEndDate": endDate,
-  };
-  if (options?.isCalculation !== undefined) {
-    params["filter.isCalculation"] = String(options.isCalculation);
-  }
-  if (options?.projectIds?.length) {
-    options.projectIds.forEach((id, i) => {
-      params[`filter.projectId[${i}]`] = String(id);
-    });
-  }
-  return pfFetch<BizInfoByProjectItem[]>(
-    "/api/v1/bizinfos/incomeoutcomehistorybyprojects",
-    params,
-  );
-}
-
-/** Список проектов */
-export async function getProjects(options?: {
-  active?: boolean;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-}) {
-  const params: Record<string, string> = {
-    "paging.limit": String(options?.limit || 10000),
-  };
-  if (options?.active !== undefined) {
-    params["filter.active"] = String(options.active);
-  }
-  if (options?.startDate) {
-    params["filter.startDateTime"] = options.startDate;
-  }
-  if (options?.endDate) {
-    params["filter.endDateTime"] = options.endDate;
-  }
-  return pfFetch<ProjectsResponse>("/api/v1/projects", params);
-}
-
-/** Список бюджетов */
-export async function getBudgets(options?: { budgetMethod?: "Bdr" | "Bdds" }) {
-  const params: Record<string, string> = {};
-  if (options?.budgetMethod) {
-    params["filter.budgetMethod"] = options.budgetMethod;
-  }
-  return pfFetch<BudgetsResponse>("/api/v1/budgets", params);
-}
-
-/** Детали бюджета */
-export async function getBudgetDetail(budgetId: string) {
-  return pfFetch<BudgetDetailResponse>(`/api/v1/budgets/${budgetId}`);
-}
-
-/** Список статей */
-export async function getOperationCategories() {
-  return pfFetch<OperationCategoriesResponse>("/api/v1/operationcategories");
-}
-
-/** Структура платежей (P&L агрегаты) */
-export async function getPaymentStructure(
-  startDate: string,
-  endDate: string,
-  categoryIds: number[],
-  options?: { isCalculation?: boolean; standardPeriod?: "Day" | "Week" | "Month" | "Quarter" | "Year" },
-) {
-  const params: Record<string, string> = {
-    "filter.periodStartDate": startDate,
-    "filter.periodEndDate": endDate,
-  };
-  if (options?.isCalculation !== undefined) {
-    params["filter.isCalculation"] = String(options.isCalculation);
-  }
-  if (options?.standardPeriod) {
-    params["filter.standardPeriod"] = options.standardPeriod;
-  }
-  categoryIds.forEach((id, i) => {
-    params[`filter.firstLevelOperationCategoryId[${i}]`] = String(id);
-  });
-  return pfFetch<PaymentStructureResponse>("/api/v1/businessmetrics/paymentstructure", params);
-}
-
-/** Список юрлиц (компаний) */
-export async function getCompanies() {
-  return pfFetch<CompaniesResponse>("/api/v1/companies");
-}
+export type PlanFactClient = ReturnType<typeof createPlanFactClient>;

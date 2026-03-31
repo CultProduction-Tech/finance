@@ -13,11 +13,12 @@ import {
   ReferenceLine,
   LabelList,
 } from "recharts";
-import { MonthlyKpiData } from "@/types/finance";
+import { MonthlyKpiData, LegalEntity } from "@/types/finance";
 
 interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
+  entity?: LegalEntity;
 }
 
 interface BarDataPoint {
@@ -76,7 +77,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   );
 }
 
-export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
   const chartData = useMemo<BarDataPoint[]>(() => {
     // Суммируем факт и бюджет за выбранный период
     let factRevenue = 0, budgetRevenue = 0;
@@ -133,17 +134,25 @@ export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquat
     // Проекты: факт = по актам, бюджет = budgetRevenue / средний чек
     const budgetProjects = BUDGET_AVG_CHECK > 0 ? budgetRevenue / BUDGET_AVG_CHECK : 0;
 
-    const items: [string, number, number, boolean][] = [
-      ["Запросы", totalRequestsFact, totalRequestsPlan, false],
-      ["Конверсия", factConversion, budgetConversion, true],
-      ["Проекты", totalProjectsByActs, budgetProjects, false],
-      ["Средний чек", factAvgCheck, BUDGET_AVG_CHECK, false],
-      ["Выручка", factRevenue, budgetRevenue, false],
-      ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
-      ["Маржа", factMargin, budgetMargin, false],
-      ["Пост. расходы", factFixed, budgetFixed, false],
-      ["Прибыль", factProfit, budgetProfit, false],
-    ];
+    const items: [string, number, number, boolean][] = entity === "cult"
+      ? [
+          ["Выручка", factRevenue, budgetRevenue, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
+          ["Маржа", factMargin, budgetMargin, false],
+          ["Пост. расходы", factFixed, budgetFixed, false],
+          ["Прибыль", factProfit, budgetProfit, false],
+        ]
+      : [
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false],
+          ["Конверсия", factConversion, budgetConversion, true],
+          ["Проекты", totalProjectsByActs, budgetProjects, false],
+          ["Средний чек", factAvgCheck, BUDGET_AVG_CHECK, false],
+          ["Выручка", factRevenue, budgetRevenue, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
+          ["Маржа", factMargin, budgetMargin, false],
+          ["Пост. расходы", factFixed, budgetFixed, false],
+          ["Прибыль", factProfit, budgetProfit, false],
+        ];
 
     return items.map(([name, fact, budget, isPercent]) => {
       const dev = computeDeviation(fact, budget);
@@ -156,7 +165,7 @@ export function BusinessEquationChart({ monthly, periodSelector }: BusinessEquat
         isPercent,
       };
     });
-  }, [monthly]);
+  }, [monthly, entity]);
 
   return (
     <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">

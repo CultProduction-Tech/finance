@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCompanies } from "@/lib/planfact-client";
+import { createPlanFactClient } from "@/lib/planfact-client";
 
 export async function GET() {
   try {
-    const data = await getCompanies();
+    const pf = createPlanFactClient(process.env.PLANFACT_API_KEY || "");
+    const data = await pf.getCompanies();
     return NextResponse.json(data);
   } catch (error) {
     console.error("Companies API error:", error);

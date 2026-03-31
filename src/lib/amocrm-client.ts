@@ -5,7 +5,6 @@
 
 const BASE_URL = process.env.AMOCRM_BASE_URL || "";
 const ACCESS_TOKEN = process.env.AMOCRM_ACCESS_TOKEN || "";
-const PIPELINE_ID = Number(process.env.AMOCRM_PIPELINE_ID || "0");
 const ACT_DATE_FIELD_ID = Number(process.env.AMOCRM_ACT_DATE_FIELD_ID || "0");
 const PROJECT_STATUS_FIELD_ID = Number(process.env.AMOCRM_PROJECT_STATUS_FIELD_ID || "0");
 
@@ -23,7 +22,7 @@ export interface AmoLeadCounts {
   sold: number;
   notSold: number;
   soldTotalPrice: number;
-  totalRequests: number; // все лиды в воронке за период (все этапы)
+  totalRequests: number;
 }
 
 export interface AmoProjectDetail {
@@ -75,77 +74,31 @@ async function amoFetch<T>(endpoint: string): Promise<T> {
   return JSON.parse(text);
 }
 
-/**
- * Количество проектов (сделок) в статусе "Продано" в воронке "Продакшн_Бластер",
- * у которых "Дата акта" попадает в указанный месяц.
- */
-export async function getProjectsCount(startDate: string, endDate: string): Promise<number> {
-  if (!BASE_URL || !ACCESS_TOKEN || !PIPELINE_ID) {
-    return 0;
-  }
-
-  // AMO CRM фильтрует по статусам и воронке
-  // Дату акта проверяем вручную (кастомные поля не поддерживают серверную фильтрацию по диапазону)
-  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
-  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
-
-  let count = 0;
-  let page = 1;
-  let hasMore = true;
-
-  while (hasMore) {
-    const params = new URLSearchParams({
-      "filter[statuses][0][pipeline_id]": String(PIPELINE_ID),
-      "filter[statuses][0][status_id]": String(STATUS_SOLD),
-      limit: "250",
-      page: String(page),
-    });
-
-    const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
-
-    if (!data._embedded?.leads?.length) {
-      break;
-    }
-
-    for (const lead of data._embedded.leads) {
-      // Фильтр: "Статус проекта" = "Идут работы"
-      const projectStatusField = lead.custom_fields_values?.find(
-        (f) => f.field_id === PROJECT_STATUS_FIELD_ID,
-      );
-      const projectStatus = projectStatusField?.values?.[0]?.value;
-      if (projectStatus !== PROJECT_STATUS_ACTIVE) continue;
-
-      // Фильтр: "Дата акта" в диапазоне
-      const actDateField = lead.custom_fields_values?.find(
-        (f) => f.field_id === ACT_DATE_FIELD_ID,
-      );
-
-      if (!actDateField?.values?.[0]?.value) continue;
-
-      const actDateTs = Number(actDateField.values[0].value);
-      if (actDateTs >= startTs && actDateTs <= endTs) {
-        count++;
-      }
-    }
-
-    hasMore = !!data._links?.next;
-    page++;
-  }
-
-  return count;
+export interface AmoConfig {
+  pipelineId: number;
+  /** Если задан — проекты фильтруются по этим status_id (вместо дефолтного STATUS_SOLD=142) */
+  projectStatusIds?: number[];
+  /** Если задан — маржинальность берётся из этого поля (абс. значение), иначе считается как price - expensePlan */
+  marginFieldId?: number;
 }
 
 /**
  * Список проектов с маржинальностью.
- * Фильтр: статус сделки "Продано" + дата акта в диапазоне (без фильтра по статусу проекта).
+ * Фильтр: статус сделки "Продано" + дата акта в диапазоне.
  */
 export async function getProjectDetails(
   startDate: string,
   endDate: string,
+  config?: AmoConfig,
 ): Promise<AmoProjectDetail[]> {
-  if (!BASE_URL || !ACCESS_TOKEN || !PIPELINE_ID) {
+  const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
+
+  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
     return [];
   }
+
+  // Если задан projectStatusIds — фильтруем по этим этапам, иначе дефолт STATUS_SOLD
+  const statusIds = config?.projectStatusIds ?? [STATUS_SOLD];
 
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
   const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
@@ -155,11 +108,10 @@ export async function getProjectDetails(
   let hasMore = true;
 
   while (hasMore) {
-    const params = new URLSearchParams({
-      "filter[statuses][0][pipeline_id]": String(PIPELINE_ID),
-      "filter[statuses][0][status_id]": String(STATUS_SOLD),
-      limit: "250",
-      page: String(page),
+    const params = new URLSearchParams({ limit: "250", page: String(page) });
+    statusIds.forEach((sid, i) => {
+      params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
+      params.set(`filter[statuses][${i}][status_id]`, String(sid));
     });
 
     const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
@@ -175,16 +127,31 @@ export async function getProjectDetails(
       const actDateTs = Number(actDateField.values[0].value);
       if (actDateTs < startTs || actDateTs > endTs) continue;
 
-      // Бюджет и план расходов
       const price = lead.price || 0;
-      const expensePlanField = lead.custom_fields_values?.find(
-        (f) => f.field_id === EXPENSE_PLAN_FIELD_ID,
-      );
-      const expensePlan = Number(expensePlanField?.values?.[0]?.value || 0);
 
-      const marginPercent = price > 0
-        ? Math.round(((price - expensePlan) / price) * 1000) / 10
-        : 0;
+      let expensePlan = 0;
+      let marginPercent = 0;
+
+      if (config?.marginFieldId) {
+        // Маржа из кастомного поля (абс. значение в рублях)
+        const marginField = lead.custom_fields_values?.find(
+          (f) => f.field_id === config.marginFieldId,
+        );
+        const marginValue = Number(marginField?.values?.[0]?.value || 0);
+        expensePlan = price - marginValue;
+        marginPercent = price > 0
+          ? Math.round((marginValue / price) * 1000) / 10
+          : 0;
+      } else {
+        // План расходов → маржа = price - expensePlan
+        const expensePlanField = lead.custom_fields_values?.find(
+          (f) => f.field_id === EXPENSE_PLAN_FIELD_ID,
+        );
+        expensePlan = Number(expensePlanField?.values?.[0]?.value || 0);
+        marginPercent = price > 0
+          ? Math.round(((price - expensePlan) / price) * 1000) / 10
+          : 0;
+      }
 
       projects.push({
         id: lead.id,
@@ -210,8 +177,11 @@ export async function getProjectDetails(
 export async function getLeadCountsByCreatedDate(
   startDate: string,
   endDate: string,
+  config?: AmoConfig,
 ): Promise<AmoLeadCounts> {
-  if (!BASE_URL || !ACCESS_TOKEN || !PIPELINE_ID) {
+  const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
+
+  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
     return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 };
   }
 
@@ -225,7 +195,7 @@ export async function getLeadCountsByCreatedDate(
     let hasMore = true;
     while (hasMore) {
       const params = new URLSearchParams({
-        "filter[pipeline_id]": String(PIPELINE_ID),
+        "filter[pipeline_id]": String(pipelineId),
         "filter[created_at][from]": String(startTs),
         "filter[created_at][to]": String(endTs),
         limit: "250",
@@ -234,7 +204,7 @@ export async function getLeadCountsByCreatedDate(
       const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
       if (!data._embedded?.leads?.length) break;
       for (const lead of data._embedded.leads) {
-        if (lead.pipeline_id === PIPELINE_ID) totalRequests++;
+        if (lead.pipeline_id === pipelineId) totalRequests++;
       }
       hasMore = !!data._links?.next;
       page++;
@@ -250,9 +220,9 @@ export async function getLeadCountsByCreatedDate(
     let hasMore = true;
     while (hasMore) {
       const params = new URLSearchParams({
-        "filter[statuses][0][pipeline_id]": String(PIPELINE_ID),
+        "filter[statuses][0][pipeline_id]": String(pipelineId),
         "filter[statuses][0][status_id]": String(STATUS_SOLD),
-        "filter[statuses][1][pipeline_id]": String(PIPELINE_ID),
+        "filter[statuses][1][pipeline_id]": String(pipelineId),
         "filter[statuses][1][status_id]": String(STATUS_NOT_SOLD),
         "filter[created_at][from]": String(startTs),
         "filter[created_at][to]": String(endTs),
@@ -262,7 +232,7 @@ export async function getLeadCountsByCreatedDate(
       const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
       if (!data._embedded?.leads?.length) break;
       for (const lead of data._embedded.leads) {
-        if (lead.pipeline_id !== PIPELINE_ID) continue;
+        if (lead.pipeline_id !== pipelineId) continue;
         if (lead.status_id === STATUS_SOLD) {
           sold++;
           soldTotalPrice += lead.price || 0;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LegalEntity, LEGAL_ENTITIES } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
 import { PeriodSelector } from "./period-selector";
@@ -22,6 +22,18 @@ export function Dashboard() {
 
   const entityInfo = LEGAL_ENTITIES.find((e) => e.id === entity)!;
 
+  // Применяем тему на <html> чтобы порталы (Select dropdown) тоже её видели
+  useEffect(() => {
+    const html = document.documentElement;
+    if (entity === "cult") {
+      html.classList.add("theme-cult");
+      html.classList.remove("dashboard-bg-blaster");
+    } else {
+      html.classList.remove("theme-cult");
+    }
+    return () => html.classList.remove("theme-cult");
+  }, [entity]);
+
   const { data: kpi, loading, useMock } = useKpi({
     entity,
     year,
@@ -30,7 +42,7 @@ export function Dashboard() {
   });
 
   return (
-    <div className="min-h-screen dashboard-bg-blaster">
+    <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-4">
@@ -80,13 +92,13 @@ export function Dashboard() {
               {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
-              {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} />}
+              {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
               {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
-              {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} />}
+              {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
           </div>
 

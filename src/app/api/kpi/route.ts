@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAccountBalance,
-  getBudgets,
-  getBudgetDetail,
-  getOperationCategories,
-  getPaymentStructure,
-} from "@/lib/planfact-client";
+import { getEntityConfig } from "@/lib/entity-config";
 import { getProjectDetails, getLeadCountsByCreatedDate } from "@/lib/amocrm-client";
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
+import type { LegalEntity } from "@/types/finance";
 
 // План запросов на 2026 по месяцам (Янв–Ноя), Дек = 0 (уточнить)
 const REQUESTS_PLAN_2026 = [7, 19, 22, 11, 14, 20, 20, 30, 30, 32, 16, 0];
@@ -60,16 +55,17 @@ export interface MonthlyKpi {
 }
 
 /**
- * GET /api/kpi?startDate=2026-01-01&endDate=2026-12-31
+ * GET /api/kpi?startDate=2026-01-01&endDate=2026-12-31&entity=blaster
  *
  * Прошедшие/текущий месяц → paymentstructure factValue (точные агрегаты P&L)
- * Будущие месяцы → Бюджет БДР (Бюджет 26)
+ * Будущие месяцы → Бюджет БДР
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const entity = (searchParams.get("entity") || "blaster") as LegalEntity;
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -78,15 +74,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const config = getEntityConfig(entity);
+    const pf = config.planfact;
+    const amoConfig = config.amo;
+
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    // Справочник статей + бюджеты БДР + остатки + проекты из AMO
-    const [categories, budgets, accountBalance] = await Promise.all([
-      getOperationCategories(),
-      getBudgets({ budgetMethod: "Bdr" }),
-      getAccountBalance(now.toISOString()),
+    // Справочник статей + бюджеты БДР + остатки + (опционально) проекты для фильтра
+    const [categories, budgets, accountBalance, allProjects] = await Promise.all([
+      pf.getOperationCategories(),
+      pf.getBudgets({ budgetMethod: "Bdr" }),
+      pf.getAccountBalance(now.toISOString()),
+      config.excludeProjectIds?.length ? pf.getProjects() : Promise.resolve(null),
     ]);
+
+    // Если есть excludeProjectIds — собираем список ID для фильтра paymentstructure
+    const pfProjectIds = allProjects
+      ? allProjects.items
+          .filter((p) => !config.excludeProjectIds!.includes(p.projectId))
+          .map((p) => p.projectId)
+      : undefined;
 
     // Корневые статьи
     const incomeRoot = categories.items.find(
@@ -126,8 +134,7 @@ export async function GET(request: NextRequest) {
     const pastMonths = months.filter((m) => m <= currentMonth);
     const futureMonths = months.filter((m) => m > currentMonth);
 
-    // === Проекты из AMO помесячно (для графика маржинальности) ===
-    // === Запросы из AMO помесячно (для бизнес-уравнения) ===
+    // === Проекты из AMO помесячно ===
     const monthRanges = months.map((m) => {
       const [y, mo] = m.split("-").map(Number);
       const mStart = `${y}-${String(mo).padStart(2, "0")}-01`;
@@ -138,12 +145,12 @@ export async function GET(request: NextRequest) {
 
     const projectPromises = monthRanges.map(({ m, mStart, mEnd }) => {
       if (m > currentMonth) return Promise.resolve([]);
-      return getProjectDetails(mStart, mEnd);
+      return getProjectDetails(mStart, mEnd, amoConfig);
     });
 
     const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
       if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 });
-      return getLeadCountsByCreatedDate(mStart, mEnd);
+      return getLeadCountsByCreatedDate(mStart, mEnd, amoConfig);
     });
 
     const [projectResults, leadCountResults] = await Promise.all([
@@ -164,16 +171,16 @@ export async function GET(request: NextRequest) {
       const mStart = `${y}-${String(mo).padStart(2, "0")}-01`;
       const lastDay = new Date(y, mo, 0).getDate();
       const mEnd = `${y}-${String(mo).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-      return getPaymentStructure(
+      return pf.getPaymentStructure(
         mStart, mEnd,
         [incomeRoot.operationCategoryId, outcomeRoot.operationCategoryId],
-        { isCalculation: true },
+        { isCalculation: true, projectIds: pfProjectIds },
       );
     });
 
     const psResults = await Promise.all(psPromises);
 
-    // Собираем факт: детали для выручки/маржи, корневые итоги для прибыли
+    // Собираем факт
     interface MonthlyEntry {
       revenue: number;
       variableExpenses: number;
@@ -205,14 +212,12 @@ export async function GET(request: NextRequest) {
       let totalOutcome = 0;
 
       for (const item of ps.items || []) {
-        // Корневые итоги → Чистая прибыль = Доходы - Расходы
         if (item.operationCategoryId === incomeRoot.operationCategoryId) {
           totalIncome = item.factValue;
         } else if (item.operationCategoryId === outcomeRoot.operationCategoryId) {
           totalOutcome = item.factValue;
         }
 
-        // Детали → выручка, переменные, постоянные
         for (const detail of item.details || []) {
           const cls = categoryClassification.get(detail.operationCategoryId);
           if (!cls) continue;
@@ -237,12 +242,12 @@ export async function GET(request: NextRequest) {
       monthlyMap.set(monthKey, entry);
     }
 
-    // === Бюджет БДР (для всех месяцев — нужен для графика "Бюджет НИ") ===
+    // === Бюджет БДР ===
     const targetBudget = budgets.items.find((b) =>
       b.budgetStatus !== "Closed" && b.startDate <= endDate && b.endDate >= startDate,
     );
 
-    const budgetDetail = targetBudget ? await getBudgetDetail(targetBudget.budgetId) : null;
+    const budgetDetail = targetBudget ? await pf.getBudgetDetail(targetBudget.budgetId) : null;
 
     if (budgetDetail) {
 
@@ -260,16 +265,13 @@ export async function GET(request: NextRequest) {
           }
           const entry = monthlyMap.get(monthKey)!;
 
-          // Бюджетная прибыль: все доходы минус все расходы
           if (cat.operationCategoryType === "Income") entry.budgetProfit += item.value;
           else if (cat.operationCategoryType === "Outcome") entry.budgetProfit -= Math.abs(item.value);
 
-          // Бюджетные значения по показателям (для графика Бизнес-уравнение)
           if (cls.isRevenue) entry.budgetRevenue += item.value;
           else if (cls.isVariableExpense) entry.budgetVariableExpenses += Math.abs(item.value);
           else if (cls.isFixedExpense) entry.budgetFixedExpenses += Math.abs(item.value);
 
-          // Для будущих месяцев — заполняем основные поля из бюджета
           if (futureMonths.includes(monthKey)) {
             if (cat.operationCategoryType === "Income") entry.profit += item.value;
             else if (cat.operationCategoryType === "Outcome") entry.profit -= Math.abs(item.value);
@@ -339,9 +341,7 @@ export async function GET(request: NextRequest) {
       ? Math.round((totalMargin / totalRevenue) * 100)
       : 0;
 
-    // === Расходы по статьям (для графика "Исполнение бюджета расходов") ===
-    // Факт: кумулятивный paymentstructure за прошедший период
-    // Бюджет: из budget API по категориям за те же месяцы
+    // === Расходы по статьям ===
     const expenseCategories: ExpenseCategory[] = [];
     if (pastMonths.length > 0) {
       const firstPast = pastMonths[0];
@@ -349,22 +349,19 @@ export async function GET(request: NextRequest) {
       const [py, pm] = firstPast.split("-").map(Number);
       const [ly, lm] = lastPast.split("-").map(Number);
       const lastDay = new Date(ly, lm, 0).getDate();
-      const cumPs = await getPaymentStructure(
+      const cumPs = await pf.getPaymentStructure(
         `${py}-${String(pm).padStart(2, "0")}-01`,
         `${ly}-${String(lm).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
         [outcomeRoot.operationCategoryId],
-        { isCalculation: true },
+        { isCalculation: true, projectIds: pfProjectIds },
       );
 
-      // Собираем бюджет по статьям расходов из budget API за прошедшие месяцы
-      // Budget items могут быть на уровне подкатегорий — маппим к parent (первый уровень)
       const parentMap = new Map<number, number>();
       for (const cat of categories.items) {
         if (cat.parentOperationCategoryId !== null) {
           parentMap.set(cat.operationCategoryId, cat.parentOperationCategoryId);
         }
       }
-      // Первый уровень под outcome root
       const firstLevelOutcome = new Set(
         categories.items.filter((c) => c.parentOperationCategoryId === outcomeRoot.operationCategoryId).map((c) => c.operationCategoryId),
       );
@@ -405,7 +402,6 @@ export async function GET(request: NextRequest) {
       expenseCategories.sort((a, b) => b.fact - a.fact);
     }
 
-    // Если нет прошлых месяцев (текущий/будущий) — показываем бюджет как факт и бюджет
     if (pastMonths.length === 0 && budgetDetail) {
       const parentMap = new Map<number, number>();
       for (const cat of categories.items) {

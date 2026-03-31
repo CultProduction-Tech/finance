@@ -40,7 +40,7 @@ export function useKpi({ entity, year, startMonth, endMonth }: UseKpiOptions): U
     setError(null);
 
     try {
-      const res = await fetch(`/api/kpi?startDate=${startDate}&endDate=${endDate}`);
+      const res = await fetch(`/api/kpi?startDate=${startDate}&endDate=${endDate}&entity=${entity}`);
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
