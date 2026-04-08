@@ -85,7 +85,11 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
     // Если есть данные за полный год — считаем кумулятив по ним,
     // но показываем только месяцы из monthly
     const displayMonths = new Set(monthly.map((m) => m.month));
-    const source = fullYearMonthly ?? monthly;
+    // Используем fullYearMonthly только если он содержит все displayMonths
+    const hasAllMonths = fullYearMonthly
+      ? monthly.every((m) => fullYearMonthly.some((f) => f.month === m.month))
+      : false;
+    const source = hasAllMonths ? fullYearMonthly! : monthly;
 
     let cumFact = 0;
     let cumBudget = 0;
@@ -127,7 +131,13 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
     return result;
   }, [monthly, fullYearMonthly]);
 
-  if (!chartData.length) return null;
+  if (!chartData.length) {
+    return (
+      <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+        Нет данных
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">

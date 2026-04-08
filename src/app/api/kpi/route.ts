@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
+import type { PaymentStructureResponse } from "@/lib/planfact-client";
 import { getProjectDetails, getLeadCountsByCreatedDate } from "@/lib/amocrm-client";
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
@@ -35,6 +36,7 @@ export interface MonthlyKpi {
   margin: number;
   marginPercent: number;
   fixedExpenses: number;
+  fixedExpensesForEquation: number;
   profit: number;
   factProfit: number;
   budgetProfit: number;
@@ -298,6 +300,9 @@ export async function GET(request: NextRequest) {
       const budgetMargin = m.budgetRevenue - m.budgetVariableExpenses;
       const budgetMarginPercent = m.budgetRevenue > 0 ? Math.round((budgetMargin / m.budgetRevenue) * 100) : 0;
 
+      // Для бизнес-уравнения: в текущем месяце подставляем бюджетные пост. расходы вместо факта
+      const fixedExpensesForEquation = monthKey === currentMonth ? m.budgetFixedExpenses : m.fixedExpenses;
+
       monthly.push({
         month: monthKey,
         revenue: m.revenue,
@@ -305,6 +310,7 @@ export async function GET(request: NextRequest) {
         margin,
         marginPercent,
         fixedExpenses: m.fixedExpenses,
+        fixedExpensesForEquation,
         profit: m.profit,
         factProfit: m.factProfit,
         budgetProfit: m.budgetProfit,
@@ -342,19 +348,26 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // === Расходы по статьям ===
+    // Факт — только по ЗАВЕРШЁННЫМ месяцам (исключая текущий).
+    // Для текущего месяца к факту добавляется бюджет (чтобы столбик не был "экономия 100%").
     const expenseCategories: ExpenseCategory[] = [];
-    if (pastMonths.length > 0) {
-      const firstPast = pastMonths[0];
-      const lastPast = pastMonths[pastMonths.length - 1];
-      const [py, pm] = firstPast.split("-").map(Number);
-      const [ly, lm] = lastPast.split("-").map(Number);
-      const lastDay = new Date(ly, lm, 0).getDate();
-      const cumPs = await pf.getPaymentStructure(
-        `${py}-${String(pm).padStart(2, "0")}-01`,
-        `${ly}-${String(lm).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-        [outcomeRoot.operationCategoryId],
-        { isCalculation: true, projectIds: pfProjectIds },
-      );
+    const completedPastMonths = pastMonths.filter((m) => m < currentMonth);
+    const hasCurrentInPeriod = months.includes(currentMonth);
+    if (completedPastMonths.length > 0 || hasCurrentInPeriod) {
+      let cumPs: PaymentStructureResponse = { items: [] };
+      if (completedPastMonths.length > 0) {
+        const firstPast = completedPastMonths[0];
+        const lastPast = completedPastMonths[completedPastMonths.length - 1];
+        const [py, pm] = firstPast.split("-").map(Number);
+        const [ly, lm] = lastPast.split("-").map(Number);
+        const lastDay = new Date(ly, lm, 0).getDate();
+        cumPs = await pf.getPaymentStructure(
+          `${py}-${String(pm).padStart(2, "0")}-01`,
+          `${ly}-${String(lm).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+          [outcomeRoot.operationCategoryId],
+          { isCalculation: true, projectIds: pfProjectIds },
+        );
+      }
 
       const parentMap = new Map<number, number>();
       for (const cat of categories.items) {
@@ -374,6 +387,9 @@ export async function GET(request: NextRequest) {
       }
 
       const budgetByCategory = new Map<number, number>();
+      // Бюджет текущего месяца — для подстановки вместо факта
+      const currentMonthBudgetByCategory = new Map<number, number>();
+      const currentMonthIncluded = months.includes(currentMonth);
       if (budgetDetail) {
         for (const version of budgetDetail.versions) {
           for (const item of version.info.items) {
@@ -383,18 +399,50 @@ export async function GET(request: NextRequest) {
             if (!cat || cat.operationCategoryType !== "Outcome") continue;
             const parentId = getFirstLevelParent(item.operationCategoryId);
             budgetByCategory.set(parentId, (budgetByCategory.get(parentId) || 0) + Math.abs(item.value));
+            if (monthKey === currentMonth) {
+              currentMonthBudgetByCategory.set(parentId, (currentMonthBudgetByCategory.get(parentId) || 0) + Math.abs(item.value));
+            }
           }
         }
       }
 
+      // Собираем фактические значения по детальным статьям
+      const factByDetail = new Map<number, { name: string; value: number }>();
       for (const item of cumPs.items || []) {
         for (const detail of item.details || []) {
-          const budgetVal = budgetByCategory.get(detail.operationCategoryId) || 0;
-          if (Math.abs(detail.factValue) === 0 && budgetVal === 0) continue;
-          expenseCategories.push({
-            id: detail.operationCategoryId,
+          factByDetail.set(detail.operationCategoryId, {
             name: detail.operationCategory?.title || `Статья ${detail.operationCategoryId}`,
-            fact: Math.abs(detail.factValue),
+            value: Math.abs(detail.factValue),
+          });
+        }
+      }
+
+      // Объединяем факт (за завершённые месяцы) + бюджет текущего месяца как факт
+      const addedIds = new Set<number>();
+      for (const [id, data] of factByDetail) {
+        const budgetVal = budgetByCategory.get(id) || 0;
+        const currentBudget = currentMonthIncluded ? (currentMonthBudgetByCategory.get(id) || 0) : 0;
+        const factWithCurrent = data.value + currentBudget;
+        if (factWithCurrent === 0 && budgetVal === 0) continue;
+        expenseCategories.push({
+          id,
+          name: data.name,
+          fact: factWithCurrent,
+          budget: budgetVal,
+        });
+        addedIds.add(id);
+      }
+      // Добавляем статьи которых нет в факте, но есть в бюджете текущего месяца
+      if (currentMonthIncluded) {
+        for (const [id, budgetCur] of currentMonthBudgetByCategory) {
+          if (addedIds.has(id)) continue;
+          const budgetVal = budgetByCategory.get(id) || 0;
+          const cat = categories.items.find((c) => c.operationCategoryId === id);
+          if (budgetCur === 0 && budgetVal === 0) continue;
+          expenseCategories.push({
+            id,
+            name: cat?.title || `Статья ${id}`,
+            fact: budgetCur,
             budget: budgetVal,
           });
         }

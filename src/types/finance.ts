@@ -10,6 +10,7 @@ export interface MonthlyKpiData {
   margin: number;
   marginPercent: number;
   fixedExpenses: number;
+  fixedExpensesForEquation: number;
   profit: number;
   factProfit: number;
   budgetProfit: number;

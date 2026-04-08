@@ -60,7 +60,7 @@ async function amoFetch<T>(endpoint: string): Promise<T> {
       Authorization: `Bearer ${ACCESS_TOKEN}`,
       "Content-Type": "application/json",
     },
-    next: { revalidate: 300 },
+    next: { revalidate: 900 },
   });
 
   if (res.status === 204) return { _embedded: null } as T;
@@ -80,6 +80,10 @@ export interface AmoConfig {
   projectStatusIds?: number[];
   /** Если задан — маржинальность берётся из этого поля (абс. значение), иначе считается как price - expensePlan */
   marginFieldId?: number;
+  /** Статус "успешная сделка" для конверсии (по умолчанию 142) */
+  conversionSoldStatusId?: number;
+  /** Статус "неуспешная сделка" для конверсии (по умолчанию 143) */
+  conversionNotSoldStatusId?: number;
 }
 
 /**
@@ -180,6 +184,8 @@ export async function getLeadCountsByCreatedDate(
   config?: AmoConfig,
 ): Promise<AmoLeadCounts> {
   const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
+  const soldId = config?.conversionSoldStatusId ?? STATUS_SOLD;
+  const notSoldId = config?.conversionNotSoldStatusId ?? STATUS_NOT_SOLD;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
     return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 };
@@ -221,9 +227,9 @@ export async function getLeadCountsByCreatedDate(
     while (hasMore) {
       const params = new URLSearchParams({
         "filter[statuses][0][pipeline_id]": String(pipelineId),
-        "filter[statuses][0][status_id]": String(STATUS_SOLD),
+        "filter[statuses][0][status_id]": String(soldId),
         "filter[statuses][1][pipeline_id]": String(pipelineId),
-        "filter[statuses][1][status_id]": String(STATUS_NOT_SOLD),
+        "filter[statuses][1][status_id]": String(notSoldId),
         "filter[closed_at][from]": String(startTs),
         "filter[closed_at][to]": String(endTs),
         limit: "250",
@@ -233,10 +239,10 @@ export async function getLeadCountsByCreatedDate(
       if (!data._embedded?.leads?.length) break;
       for (const lead of data._embedded.leads) {
         if (lead.pipeline_id !== pipelineId) continue;
-        if (lead.status_id === STATUS_SOLD) {
+        if (lead.status_id === soldId) {
           sold++;
           soldTotalPrice += lead.price || 0;
-        } else if (lead.status_id === STATUS_NOT_SOLD) {
+        } else if (lead.status_id === notSoldId) {
           notSold++;
         }
       }

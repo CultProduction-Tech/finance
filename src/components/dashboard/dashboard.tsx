@@ -16,9 +16,10 @@ import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
   const [entity, setEntity] = useState<LegalEntity>("blaster");
-  const [year, setYear] = useState(2026);
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
   const [startMonth, setStartMonth] = useState(0);
-  const [endMonth, setEndMonth] = useState(2); // Январь — Март
+  const [endMonth, setEndMonth] = useState(now.getMonth()); // Январь — текущий месяц
 
   const entityInfo = LEGAL_ENTITIES.find((e) => e.id === entity)!;
 
@@ -41,13 +42,12 @@ export function Dashboard() {
     endMonth,
   });
 
-  // Полный год для кумулятива в графике прибыли (только если период не с января)
-  const needsFullYear = startMonth !== 0;
+  // Полный год для кумулятива в графике прибыли
   const { data: fullYearKpi } = useKpi({
     entity,
     year,
-    startMonth: needsFullYear ? 0 : startMonth,
-    endMonth: needsFullYear ? 11 : endMonth,
+    startMonth: 0,
+    endMonth: 11,
   });
 
   return (
@@ -98,7 +98,7 @@ export function Dashboard() {
         <div className="px-4 pb-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
-              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={needsFullYear ? fullYearKpi?.monthly : undefined} />}
+              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
               {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}

@@ -15,7 +15,11 @@ const configs: Record<LegalEntity, EntityConfig> = {
     planfact: createPlanFactClient(process.env.PLANFACT_API_KEY || ""),
     amo: {
       pipelineId: Number(process.env.AMOCRM_PIPELINE_ID || "0"),
-      // Бластер: проекты = статус "Продано" (142) — дефолт
+      // Бластер: проекты = статус "Продажа" (84825134)
+      projectStatusIds: [84825134],
+      // Конверсия: Продажа + Закрыто и не реализовано (143)
+      conversionSoldStatusId: 84825134,
+      conversionNotSoldStatusId: 143,
     },
     budgetName: "Бюджет 26",
   },

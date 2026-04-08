@@ -28,7 +28,7 @@ function createPfFetch(apiKey: string) {
         "Content-Type": "application/json",
         "X-ApiKey": apiKey,
       },
-      next: { revalidate: 300 },
+      next: { revalidate: 900 },
     });
 
     if (!res.ok) {

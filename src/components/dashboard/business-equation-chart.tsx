@@ -81,7 +81,6 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
   const chartData = useMemo<BarDataPoint[]>(() => {
     // Суммируем факт и бюджет за выбранный период
     let factRevenue = 0, budgetRevenue = 0;
-    let factMarginPercent = 0, budgetMarginPercent = 0;
     let factMargin = 0, budgetMargin = 0;
     let factFixed = 0, budgetFixed = 0;
     let factProfit = 0, budgetProfit = 0;
@@ -89,6 +88,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let totalRequestsFact = 0, totalRequestsPlan = 0;
     let totalProjectsSoldFact = 0, totalProjectsNotSoldFact = 0;
     let totalProjectsByActs = 0, totalProjectsByActsRevenue = 0;
+    // Для маржинальности из AMO (как на графике Маржинальность)
+    let amoProjectsPrice = 0, amoProjectsExpense = 0;
 
     for (const m of monthly) {
       // AMO-метрики: доступны для всех месяцев (прошлых + текущий)
@@ -100,7 +101,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       // Проекты по актам (из projects — STATUS_SOLD + дата акта)
       if (m.projects) {
         totalProjectsByActs += m.projects.length;
-        for (const p of m.projects) totalProjectsByActsRevenue += p.price;
+        for (const p of m.projects) {
+          totalProjectsByActsRevenue += p.price;
+          amoProjectsPrice += p.price;
+          amoProjectsExpense += p.expensePlan;
+        }
       }
 
       // PlanFact-метрики: только прошлые месяцы
@@ -109,18 +114,19 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       budgetRevenue += m.budgetRevenue;
       factMargin += m.margin;
       budgetMargin += m.budgetMargin;
-      factFixed += m.fixedExpenses;
+      factFixed += m.fixedExpensesForEquation ?? m.fixedExpenses;
       budgetFixed += m.budgetFixedExpenses;
       factProfit += m.factProfit;
       budgetProfit += m.budgetProfit;
-      factMarginPercent += m.marginPercent;
-      budgetMarginPercent += m.budgetMarginPercent;
       pastCount++;
     }
 
-    // Маржинальность — среднее за период
-    const avgFactMarginPct = pastCount > 0 ? factMarginPercent / pastCount : 0;
-    const avgBudgetMarginPct = pastCount > 0 ? budgetMarginPercent / pastCount : 0;
+    // Маржинальность факт — из AMO-проектов (как на графике Маржинальность)
+    const avgFactMarginPct = amoProjectsPrice > 0
+      ? ((amoProjectsPrice - amoProjectsExpense) / amoProjectsPrice) * 100
+      : 0;
+    // Бюджетная маржинальность — взвешенно из PlanFact
+    const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
     // Средний чек: бюджет = 647 500, факт = выручка / проекты по актам
     const BUDGET_AVG_CHECK = 647500;
@@ -134,28 +140,31 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     // Проекты: факт = по актам, бюджет = budgetRevenue / средний чек
     const budgetProjects = BUDGET_AVG_CHECK > 0 ? budgetRevenue / BUDGET_AVG_CHECK : 0;
 
-    const items: [string, number, number, boolean][] = entity === "cult"
+    // [name, fact, budget, isPercent, isExpense (инверсия знака отклонения)]
+    const items: [string, number, number, boolean, boolean][] = entity === "cult"
       ? [
-          ["Выручка", factRevenue, budgetRevenue, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
-          ["Маржа", factMargin, budgetMargin, false],
-          ["Пост. расходы", factFixed, budgetFixed, false],
-          ["Прибыль", factProfit, budgetProfit, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
+          ["Маржа", factMargin, budgetMargin, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, false, true],
+          ["Прибыль", factProfit, budgetProfit, false, false],
         ]
       : [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false],
-          ["Конверсия", factConversion, budgetConversion, true],
-          ["Проекты", totalProjectsByActs, budgetProjects, false],
-          ["Средний чек", factAvgCheck, BUDGET_AVG_CHECK, false],
-          ["Выручка", factRevenue, budgetRevenue, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true],
-          ["Маржа", factMargin, budgetMargin, false],
-          ["Пост. расходы", factFixed, budgetFixed, false],
-          ["Прибыль", factProfit, budgetProfit, false],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
+          ["Конверсия", factConversion, budgetConversion, true, false],
+          ["Проекты", totalProjectsByActs, budgetProjects, false, false],
+          ["Средний чек", factAvgCheck, BUDGET_AVG_CHECK, false, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
+          ["Маржа", factMargin, budgetMargin, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, false, true],
+          ["Прибыль", factProfit, budgetProfit, false, false],
         ];
 
-    return items.map(([name, fact, budget, isPercent]) => {
-      const dev = computeDeviation(fact, budget);
+    return items.map(([name, fact, budget, isPercent, isExpense]) => {
+      const rawDev = computeDeviation(fact, budget);
+      // Для расходов инвертируем знак: меньше факт = экономия = плюс
+      const dev = isExpense ? -rawDev : rawDev;
       return {
         name,
         deviationLabel: dev,
