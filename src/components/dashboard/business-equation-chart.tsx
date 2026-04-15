@@ -31,8 +31,8 @@ interface BarDataPoint {
 }
 
 
-const COLOR_NEGATIVE = "hsl(0, 70%, 75%)";    // розовый/salmon
-const COLOR_POSITIVE = "hsl(210, 70%, 55%)";   // синий
+const COLOR_NEGATIVE = "hsl(0, 70%, 75%)";
+const COLOR_POSITIVE = "hsl(210, 70%, 55%)";
 
 function computeDeviation(fact: number, budget: number): number {
   if (budget === 0) return 0;
@@ -79,7 +79,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
 
 export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
   const chartData = useMemo<BarDataPoint[]>(() => {
-    // Суммируем факт и бюджет за выбранный период
     let factRevenue = 0, budgetRevenue = 0;
     let factMargin = 0, budgetMargin = 0;
     let factFixed = 0, budgetFixed = 0;
@@ -88,17 +87,16 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let totalRequestsFact = 0, totalRequestsPlan = 0;
     let totalProjectsSoldFact = 0, totalProjectsNotSoldFact = 0;
     let totalProjectsByActs = 0, totalProjectsByActsRevenue = 0;
-    // Для маржинальности из AMO (как на графике Маржинальность)
     let amoProjectsPrice = 0, amoProjectsExpense = 0;
 
     for (const m of monthly) {
-      // AMO-метрики: доступны для всех месяцев (прошлых + текущий)
+
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;
       totalProjectsSoldFact += m.projectsSoldFact;
       totalProjectsNotSoldFact += m.projectsNotSoldFact;
 
-      // Проекты по актам (из projects — STATUS_SOLD + дата акта)
+
       if (m.projects) {
         totalProjectsByActs += m.projects.length;
         for (const p of m.projects) {
@@ -108,7 +106,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         }
       }
 
-      // PlanFact-метрики: только прошлые месяцы
+
       if (!m.isPast) continue;
       factRevenue += m.revenue;
       budgetRevenue += m.budgetRevenue;
@@ -121,26 +119,26 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       pastCount++;
     }
 
-    // Маржинальность факт — из AMO-проектов (как на графике Маржинальность)
+
     const avgFactMarginPct = amoProjectsPrice > 0
       ? ((amoProjectsPrice - amoProjectsExpense) / amoProjectsPrice) * 100
       : 0;
-    // Бюджетная маржинальность — взвешенно из PlanFact
+
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
-    // Средний чек: бюджет = 647 500, факт = выручка / проекты по актам
+
     const BUDGET_AVG_CHECK = 647500;
     const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
 
-    // Конверсия: факт = sold / (sold + notSold), бюджет = 50%
+
     const totalDecided = totalProjectsSoldFact + totalProjectsNotSoldFact;
     const factConversion = totalDecided > 0 ? (totalProjectsSoldFact / totalDecided) * 100 : 0;
     const budgetConversion = 50;
 
-    // Проекты: факт = по актам, бюджет = budgetRevenue / средний чек
+
     const budgetProjects = BUDGET_AVG_CHECK > 0 ? budgetRevenue / BUDGET_AVG_CHECK : 0;
 
-    // [name, fact, budget, isPercent, isExpense (инверсия знака отклонения)]
+
     const items: [string, number, number, boolean, boolean][] = entity === "cult"
       ? [
           ["Выручка", factRevenue, budgetRevenue, false, false],
@@ -163,7 +161,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
 
     return items.map(([name, fact, budget, isPercent, isExpense]) => {
       const rawDev = computeDeviation(fact, budget);
-      // Для расходов инвертируем знак: меньше факт = экономия = плюс
+
       const dev = isExpense ? -rawDev : rawDev;
       return {
         name,

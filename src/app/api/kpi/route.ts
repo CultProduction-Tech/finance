@@ -5,7 +5,7 @@ import { getProjectDetails, getLeadCountsByCreatedDate } from "@/lib/amocrm-clie
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 
-// План запросов на 2026 по месяцам (Янв–Ноя), Дек = 0 (уточнить)
+
 const REQUESTS_PLAN_2026 = [7, 19, 22, 11, 14, 20, 20, 30, 30, 32, 16, 0];
 const PROJECTS_PLAN = 10;
 
@@ -56,12 +56,6 @@ export interface MonthlyKpi {
   projectsPlan: number;
 }
 
-/**
- * GET /api/kpi?startDate=2026-01-01&endDate=2026-12-31&entity=blaster
- *
- * Прошедшие/текущий месяц → paymentstructure factValue (точные агрегаты P&L)
- * Будущие месяцы → Бюджет БДР
- */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
@@ -83,7 +77,6 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    // Справочник статей + бюджеты БДР + остатки + (опционально) проекты для фильтра
     const [categories, budgets, accountBalance, allProjects] = await Promise.all([
       pf.getOperationCategories(),
       pf.getBudgets({ budgetMethod: "Bdr" }),
@@ -91,14 +84,12 @@ export async function GET(request: NextRequest) {
       config.excludeProjectIds?.length ? pf.getProjects() : Promise.resolve(null),
     ]);
 
-    // Если есть excludeProjectIds — собираем список ID для фильтра paymentstructure
     const pfProjectIds = allProjects
       ? allProjects.items
           .filter((p) => !config.excludeProjectIds!.includes(p.projectId))
           .map((p) => p.projectId)
       : undefined;
 
-    // Корневые статьи
     const incomeRoot = categories.items.find(
       (c) => c.parentOperationCategoryId === null && c.operationCategoryType === "Income",
     );
@@ -109,7 +100,6 @@ export async function GET(request: NextRequest) {
       throw new Error("Cannot find root Income/Outcome categories");
     }
 
-    // Классификация статей
     const categoryClassification = new Map<number, {
       isRevenue: boolean;
       isVariableExpense: boolean;
@@ -123,7 +113,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Генерируем месяцы
     const months: string[] = [];
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -136,7 +125,6 @@ export async function GET(request: NextRequest) {
     const pastMonths = months.filter((m) => m <= currentMonth);
     const futureMonths = months.filter((m) => m > currentMonth);
 
-    // === Проекты из AMO помесячно ===
     const monthRanges = months.map((m) => {
       const [y, mo] = m.split("-").map(Number);
       const mStart = `${y}-${String(mo).padStart(2, "0")}-01`;
@@ -167,7 +155,6 @@ export async function GET(request: NextRequest) {
       leadCountsByMonth.set(months[i], leadCountResults[i]);
     }
 
-    // === Прошлые/текущий: paymentstructure (помесячно, параллельно) ===
     const psPromises = pastMonths.map((m) => {
       const [y, mo] = m.split("-").map(Number);
       const mStart = `${y}-${String(mo).padStart(2, "0")}-01`;
@@ -182,7 +169,6 @@ export async function GET(request: NextRequest) {
 
     const psResults = await Promise.all(psPromises);
 
-    // Собираем факт
     interface MonthlyEntry {
       revenue: number;
       variableExpenses: number;
@@ -244,7 +230,6 @@ export async function GET(request: NextRequest) {
       monthlyMap.set(monthKey, entry);
     }
 
-    // === Бюджет БДР ===
     const targetBudget = budgets.items.find((b) =>
       b.budgetStatus !== "Closed" && b.startDate <= endDate && b.endDate >= startDate,
     );
@@ -286,7 +271,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // === Итоги ===
     let totalRevenue = 0;
     let totalVariableExpenses = 0;
     let totalFixedExpenses = 0;
@@ -300,7 +284,6 @@ export async function GET(request: NextRequest) {
       const budgetMargin = m.budgetRevenue - m.budgetVariableExpenses;
       const budgetMarginPercent = m.budgetRevenue > 0 ? Math.round((budgetMargin / m.budgetRevenue) * 100) : 0;
 
-      // Для бизнес-уравнения: в текущем месяце подставляем бюджетные пост. расходы вместо факта
       const fixedExpensesForEquation = monthKey === currentMonth ? m.budgetFixedExpenses : m.fixedExpenses;
 
       monthly.push({
@@ -347,9 +330,6 @@ export async function GET(request: NextRequest) {
       ? Math.round((totalMargin / totalRevenue) * 100)
       : 0;
 
-    // === Расходы по статьям ===
-    // Факт — только по ЗАВЕРШЁННЫМ месяцам (исключая текущий).
-    // Для текущего месяца к факту добавляется бюджет (чтобы столбик не был "экономия 100%").
     const expenseCategories: ExpenseCategory[] = [];
     const completedPastMonths = pastMonths.filter((m) => m < currentMonth);
     const hasCurrentInPeriod = months.includes(currentMonth);
@@ -387,7 +367,6 @@ export async function GET(request: NextRequest) {
       }
 
       const budgetByCategory = new Map<number, number>();
-      // Бюджет текущего месяца — для подстановки вместо факта
       const currentMonthBudgetByCategory = new Map<number, number>();
       const currentMonthIncluded = months.includes(currentMonth);
       if (budgetDetail) {
@@ -406,7 +385,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Собираем фактические значения по детальным статьям
       const factByDetail = new Map<number, { name: string; value: number }>();
       for (const item of cumPs.items || []) {
         for (const detail of item.details || []) {
@@ -417,7 +395,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Объединяем факт (за завершённые месяцы) + бюджет текущего месяца как факт
       const addedIds = new Set<number>();
       for (const [id, data] of factByDetail) {
         const budgetVal = budgetByCategory.get(id) || 0;
@@ -432,7 +409,6 @@ export async function GET(request: NextRequest) {
         });
         addedIds.add(id);
       }
-      // Добавляем статьи которых нет в факте, но есть в бюджете текущего месяца
       if (currentMonthIncluded) {
         for (const [id, budgetCur] of currentMonthBudgetByCategory) {
           if (addedIds.has(id)) continue;

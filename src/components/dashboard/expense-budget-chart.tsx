@@ -31,9 +31,9 @@ interface ChartDataPoint {
   totalFact: number;
 }
 
-const COLOR_FACT = "hsl(210, 60%, 65%)";       // мягкий синий
-const COLOR_OVERSPEND = "hsl(0, 65%, 75%)";    // розовый
-const COLOR_SAVINGS = "hsl(160, 50%, 65%)";    // мятный
+const COLOR_FACT = "hsl(210, 60%, 65%)";
+const COLOR_OVERSPEND = "hsl(0, 65%, 75%)";
+const COLOR_SAVINGS = "hsl(160, 50%, 65%)";
 
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
@@ -87,7 +87,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function DeviationLabel(props: any) {
   const { x, y, width, height, value, viewBox } = props;
-  // Не рендерим если бар-сегмент имеет нулевую высоту (чтобы не дублировать)
   if (!height || Math.abs(height) < 1) return null;
   const cx = (x ?? viewBox?.x ?? 0) + (width ?? viewBox?.width ?? 0) / 2;
   const cy = (y ?? viewBox?.y ?? 0) - 14;
@@ -101,7 +100,6 @@ function DeviationLabel(props: any) {
   );
 }
 
-// Фильтр статей по entity
 const ALLOWED_NAMES: Record<string, string[]> = {
   blaster: [
     "4. ЗП Бэкофис",

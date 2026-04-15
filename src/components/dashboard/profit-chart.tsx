@@ -16,7 +16,6 @@ import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 interface ProfitChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
-  /** Полные данные за год для расчёта кумулятива с января */
   fullYearMonthly?: MonthlyKpiData[];
 }
 
@@ -30,9 +29,9 @@ interface ChartDataPoint {
   budgetMonthly: number;
 }
 
-const COLOR_BUDGET = "hsl(210, 70%, 55%)";   // синий
-const COLOR_FACT = "hsl(175, 65%, 45%)";      // teal
-const COLOR_PROFITABILITY = "hsl(45, 90%, 45%)"; // gold
+const COLOR_BUDGET = "hsl(210, 70%, 55%)";
+const COLOR_FACT = "hsl(175, 65%, 45%)";
+const COLOR_PROFITABILITY = "hsl(45, 90%, 45%)";
 
 function formatValue(value: number): string {
   const abs = Math.abs(value);
@@ -82,10 +81,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: ProfitChartProps) {
   const chartData = useMemo<ChartDataPoint[]>(() => {
-    // Если есть данные за полный год — считаем кумулятив по ним,
-    // но показываем только месяцы из monthly
     const displayMonths = new Set(monthly.map((m) => m.month));
-    // Используем fullYearMonthly только если он содержит все displayMonths
     const hasAllMonths = fullYearMonthly
       ? monthly.every((m) => fullYearMonthly.some((f) => f.month === m.month))
       : false;
@@ -111,7 +107,6 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
           : 0;
       }
 
-      // Показываем только выбранные месяцы
       if (!displayMonths.has(m.month)) continue;
 
       const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;

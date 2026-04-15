@@ -1,8 +1,3 @@
-/**
- * Клиент для работы с API ПланФакт
- * Docs: https://apidoc.planfact.io/
- */
-
 const API_URL = process.env.PLANFACT_API_URL || "https://api.planfact.io";
 
 interface PlanFactResponse<T> {
@@ -45,7 +40,6 @@ function createPfFetch(apiKey: string) {
   };
 }
 
-// ============ Типы ответов ============
 
 export interface AccountBalanceItem {
   accountId: number;
@@ -136,7 +130,7 @@ export interface BudgetItem {
   budgetStatus: string;
   startDate: string;
   endDate: string;
-  budgetMethod: string; // 'Bdr' (P&L) | 'Bdds' (cash flow)
+  budgetMethod: string;
   entityIds: number[];
   projectIds: number[];
 }
@@ -172,9 +166,9 @@ export interface BudgetDetailResponse extends BudgetItem {
 export interface OperationCategoryItem {
   operationCategoryId: number;
   title: string | null;
-  operationCategoryType: string; // 'Income' | 'Outcome' | 'Assets' | 'Liabilities' | 'Capital'
-  accountCategoryType: string;   // 'Income' | 'IncomeOther' | 'Outcome' | 'OutcomeOther' | ...
-  outcomeClassification: string; // 'None' | 'DirectVariable' | 'IndirectFixed'
+  operationCategoryType: string;
+  accountCategoryType: string;
+  outcomeClassification: string;
   parentOperationCategoryId: number | null;
   active: boolean | null;
 }
@@ -220,13 +214,11 @@ export interface PaymentStructureResponse {
   items: PaymentStructureItem[] | null;
 }
 
-// ============ Фабрика клиента ============
 
 export function createPlanFactClient(apiKey: string) {
   const pfFetch = createPfFetch(apiKey);
 
   return {
-    /** Остатки на счетах */
     async getAccountBalance(currentDate: string, accountIds?: number[]) {
       const params: Record<string, string> = {
         "filter.currentDate": currentDate,
@@ -239,7 +231,6 @@ export function createPlanFactClient(apiKey: string) {
       return pfFetch<AccountBalanceResponse>("/api/v1/businessmetrics/accountbalance", params);
     },
 
-    /** Список бюджетов */
     async getBudgets(options?: { budgetMethod?: "Bdr" | "Bdds" }) {
       const params: Record<string, string> = {};
       if (options?.budgetMethod) {
@@ -248,17 +239,14 @@ export function createPlanFactClient(apiKey: string) {
       return pfFetch<BudgetsResponse>("/api/v1/budgets", params);
     },
 
-    /** Детали бюджета */
     async getBudgetDetail(budgetId: string) {
       return pfFetch<BudgetDetailResponse>(`/api/v1/budgets/${budgetId}`);
     },
 
-    /** Список статей */
     async getOperationCategories() {
       return pfFetch<OperationCategoriesResponse>("/api/v1/operationcategories");
     },
 
-    /** Структура платежей (P&L агрегаты) */
     async getPaymentStructure(
       startDate: string,
       endDate: string,
@@ -286,7 +274,6 @@ export function createPlanFactClient(apiKey: string) {
       return pfFetch<PaymentStructureResponse>("/api/v1/businessmetrics/paymentstructure", params);
     },
 
-    /** Список проектов */
     async getProjects(options?: { limit?: number }) {
       const params: Record<string, string> = {
         "paging.limit": String(options?.limit || 10000),
@@ -294,7 +281,6 @@ export function createPlanFactClient(apiKey: string) {
       return pfFetch<ProjectsResponse>("/api/v1/projects", params);
     },
 
-    /** Список юрлиц (компаний) */
     async getCompanies() {
       return pfFetch<CompaniesResponse>("/api/v1/companies");
     },

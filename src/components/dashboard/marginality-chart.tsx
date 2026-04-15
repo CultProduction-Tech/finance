@@ -15,7 +15,6 @@ import {
 } from "recharts";
 import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 
-// Вертикальная черта-разделитель после НИ (не используем Customized)
 
 interface MarginalityChartProps {
   monthly: MonthlyKpiData[];
@@ -60,7 +59,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
 export function MarginalityChart({ monthly, periodSelector }: MarginalityChartProps) {
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
 
-  // Сброс drill-down при смене периода (данные monthly изменились)
   useEffect(() => {
     setDrillMonth(null);
   }, [monthly]);
@@ -77,7 +75,6 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
     return count > 0 ? Math.round(total / count) : 0;
   }, [monthly]);
 
-  // Считаем маржинальность месяца из AMO-проектов
   const calcProjectsMargin = useCallback((projects?: { price: number; expensePlan: number }[]) => {
     if (!projects?.length) return 0;
     let totalPrice = 0;
@@ -94,7 +91,6 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
   const chartData = useMemo(() => {
     const monthsWithProjects = monthly.filter((m) => m.projects?.length);
 
-    // НИ — накопительный итог по всем проектам всех месяцев
     let cumPrice = 0;
     let cumExpense = 0;
     for (const m of monthsWithProjects) {
@@ -114,7 +110,6 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
     }];
 
     if (drillMonth) {
-      // Drill-down: проекты конкретного месяца
       const m = monthly.find((m) => m.month === drillMonth);
       if (m?.projects?.length) {
         for (const p of m.projects) {
@@ -126,7 +121,6 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
         }
       }
     } else if (monthly.length === 1 && monthly[0]?.projects?.length) {
-      // Один месяц выбран — сразу проекты
       for (const p of monthly[0].projects) {
         data.push({
           name: p.name.length > 15 ? p.name.substring(0, 13) + "…" : p.name,
@@ -135,7 +129,6 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
         });
       }
     } else {
-      // Несколько месяцев — столбцы по месяцам
       for (const m of monthly) {
         if (!m.projects?.length) continue;
         const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;

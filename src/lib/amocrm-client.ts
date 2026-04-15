@@ -1,22 +1,10 @@
-/**
- * Клиент для AMO CRM API (только чтение)
- * Docs: https://www.amocrm.ru/developers/content/crm_platform/leads-api
- */
-
 const BASE_URL = process.env.AMOCRM_BASE_URL || "";
 const ACCESS_TOKEN = process.env.AMOCRM_ACCESS_TOKEN || "";
 const ACT_DATE_FIELD_ID = Number(process.env.AMOCRM_ACT_DATE_FIELD_ID || "0");
-const PROJECT_STATUS_FIELD_ID = Number(process.env.AMOCRM_PROJECT_STATUS_FIELD_ID || "0");
 
 const EXPENSE_PLAN_FIELD_ID = 1647605;
-
-// Статус "Продано" в AMO — стандартный id=142 (успешно реализовано)
 const STATUS_SOLD = 142;
-// Статус "Не продано, проект закрыт" — стандартный id=143
 const STATUS_NOT_SOLD = 143;
-// Значения кастомного поля "Статус проекта"
-const PROJECT_STATUS_ACTIVE = "Идут работы";
-const PROJECT_STATUS_COMPLETED = "Завершены";
 
 export interface AmoLeadCounts {
   sold: number;
@@ -76,20 +64,12 @@ async function amoFetch<T>(endpoint: string): Promise<T> {
 
 export interface AmoConfig {
   pipelineId: number;
-  /** Если задан — проекты фильтруются по этим status_id (вместо дефолтного STATUS_SOLD=142) */
   projectStatusIds?: number[];
-  /** Если задан — маржинальность берётся из этого поля (абс. значение), иначе считается как price - expensePlan */
   marginFieldId?: number;
-  /** Статус "успешная сделка" для конверсии (по умолчанию 142) */
   conversionSoldStatusId?: number;
-  /** Статус "неуспешная сделка" для конверсии (по умолчанию 143) */
   conversionNotSoldStatusId?: number;
 }
 
-/**
- * Список проектов с маржинальностью.
- * Фильтр: статус сделки "Продано" + дата акта в диапазоне.
- */
 export async function getProjectDetails(
   startDate: string,
   endDate: string,
@@ -101,7 +81,6 @@ export async function getProjectDetails(
     return [];
   }
 
-  // Если задан projectStatusIds — фильтруем по этим этапам, иначе дефолт STATUS_SOLD
   const statusIds = config?.projectStatusIds ?? [STATUS_SOLD];
 
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
@@ -123,7 +102,6 @@ export async function getProjectDetails(
     if (!data._embedded?.leads?.length) break;
 
     for (const lead of data._embedded.leads) {
-      // Фильтр по дате акта
       const actDateField = lead.custom_fields_values?.find(
         (f) => f.field_id === ACT_DATE_FIELD_ID,
       );
@@ -137,7 +115,6 @@ export async function getProjectDetails(
       let marginPercent = 0;
 
       if (config?.marginFieldId) {
-        // Маржа из кастомного поля (абс. значение в рублях)
         const marginField = lead.custom_fields_values?.find(
           (f) => f.field_id === config.marginFieldId,
         );
@@ -147,7 +124,6 @@ export async function getProjectDetails(
           ? Math.round((marginValue / price) * 1000) / 10
           : 0;
       } else {
-        // План расходов → маржа = price - expensePlan
         const expensePlanField = lead.custom_fields_values?.find(
           (f) => f.field_id === EXPENSE_PLAN_FIELD_ID,
         );
@@ -173,11 +149,6 @@ export async function getProjectDetails(
   return projects;
 }
 
-/**
- * Количество сделок по дате создания.
- * totalRequests — все лиды в воронке (все этапы).
- * sold/notSold — «Продано»/«Не продано, проект закрыт».
- */
 export async function getLeadCountsByCreatedDate(
   startDate: string,
   endDate: string,
@@ -194,7 +165,6 @@ export async function getLeadCountsByCreatedDate(
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
   const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
 
-  // 1) Все лиды в воронке за период (все этапы)
   let totalRequests = 0;
   {
     let page = 1;
@@ -217,7 +187,6 @@ export async function getLeadCountsByCreatedDate(
     }
   }
 
-  // 2) Sold + Not Sold (для конверсии) — по дате закрытия
   let sold = 0;
   let notSold = 0;
   let soldTotalPrice = 0;
