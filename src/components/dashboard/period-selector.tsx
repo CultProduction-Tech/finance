@@ -47,8 +47,8 @@ export function PeriodSelector({
   const isThisMonth = year === currentYear && startMonth === currentMonth && endMonth === currentMonth;
   const isThisYear = year === currentYear && startMonth === 0 && endMonth === 11;
 
-  const activeStyle = "rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors";
-  const inactiveStyle = "rounded-md border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors";
+  const activeStyle = "rounded-full bg-[#1d1d1f] px-4 py-1.5 text-[13px] font-medium text-white transition-all";
+  const inactiveStyle = "rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1d1d1f] hover:bg-white transition-all shadow-[0_1px_2px_rgba(0,0,0,0.06)]";
 
   return (
     <div className="flex items-center gap-2">

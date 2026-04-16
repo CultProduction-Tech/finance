@@ -172,7 +172,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
   if (!chartData.length) return null;
 
   return (
-    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
       <h3 className="text-lg font-bold mb-1 text-center">
         &#x1F4B8; Исполнение бюджета расходов
       </h3>

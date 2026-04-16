@@ -10,16 +10,16 @@ interface KpiCardProps {
 
 export function KpiCard({ icon, label, value, subtitle, variant = "default" }: KpiCardProps) {
   return (
-    <div className="rounded-xl bg-card/80 backdrop-blur-sm shadow-sm p-4">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-lg">{icon}</span>
-        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="text-base">{icon}</span>
+        <span className="text-[13px] font-medium text-muted-foreground">{label}</span>
       </div>
       <div
         className={cn(
-          "text-xl font-bold tracking-tight",
-          variant === "negative" && "text-red-600",
-          variant === "positive" && "text-emerald-600",
+          "text-2xl font-semibold tracking-tight",
+          variant === "negative" && "text-[#ff3b30]",
+          variant === "positive" && "text-[#34c759]",
         )}
       >
         {value}

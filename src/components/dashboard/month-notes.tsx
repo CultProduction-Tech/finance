@@ -72,7 +72,7 @@ export function MonthNotes({ entity, year, month }: MonthNotesProps) {
   };
 
   return (
-    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-bold">
           &#x1F4DD; Отчет — {label}

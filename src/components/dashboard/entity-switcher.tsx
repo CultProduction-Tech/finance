@@ -16,10 +16,10 @@ export function EntitySwitcher({ selected, onSelect }: EntitySwitcherProps) {
           key={entity.id}
           onClick={() => onSelect(entity.id)}
           className={cn(
-            "px-6 py-3 text-sm font-medium transition-colors border-t-2",
+            "px-6 py-3 text-[13px] font-medium transition-all border-b-2",
             selected === entity.id
-              ? "border-t-primary text-foreground bg-background"
-              : "border-transparent text-muted-foreground bg-muted/50 hover:bg-muted",
+              ? "border-b-[#1d1d1f] text-[#1d1d1f]"
+              : "border-transparent text-[#86868b] hover:text-[#1d1d1f]",
           )}
         >
           {entity.fullName}

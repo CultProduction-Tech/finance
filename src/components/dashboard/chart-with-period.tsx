@@ -107,7 +107,7 @@ export function ChartWithPeriod({
 
   if (!kpi) {
     return (
-      <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
         Загрузка...
       </div>
     );

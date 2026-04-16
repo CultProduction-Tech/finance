@@ -53,19 +53,19 @@ export function Dashboard() {
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
-      <header className="border-b bg-card sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 py-4 relative">
-          <form action="/api/auth/logout" method="POST" className="absolute right-4 top-4">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 py-4 relative">
+          <form action="/api/auth/logout" method="POST" className="absolute right-6 top-4">
             <button type="submit" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
               Выйти
             </button>
           </form>
           <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <span className="text-xl">✏️</span>
-              <h1 className="text-xl font-bold tracking-tight uppercase">{entityInfo.name}</h1>
+              <h1 className="text-lg font-semibold tracking-tight">{entityInfo.name}</h1>
               {useMock && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs rounded-full">
                   Demo-данные
                 </Badge>
               )}
@@ -83,13 +83,13 @@ export function Dashboard() {
       </header>
 
       {/* KPI карточки — ограниченная ширина */}
-      <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         {loading ? (
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[90px] rounded-xl bg-card/80 animate-pulse"
+                className="h-[90px] rounded-2xl bg-white/60 animate-pulse"
               />
             ))}
           </div>
@@ -100,8 +100,8 @@ export function Dashboard() {
 
       {/* Графики — широкий контейнер */}
       {kpi && (
-        <div className="px-4 pb-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="px-6 pb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
               {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} />}
             </ChartWithPeriod>
@@ -125,8 +125,8 @@ export function Dashboard() {
       )}
 
       {/* Переключение юрлиц — внизу */}
-      <footer className="sticky bottom-0 bg-card border-t z-50 shadow-lg">
-        <div className="max-w-5xl mx-auto px-4">
+      <footer className="sticky bottom-0 bg-white/80 backdrop-blur-xl border-t border-black/5 z-50">
+        <div className="max-w-5xl mx-auto px-6">
           <EntitySwitcher selected={entity} onSelect={setEntity} />
         </div>
       </footer>
