@@ -54,7 +54,12 @@ export function Dashboard() {
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
       <header className="border-b bg-card sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 py-4">
+        <div className="max-w-5xl mx-auto px-4 py-4 relative">
+          <form action="/api/auth/logout" method="POST" className="absolute right-4 top-4">
+            <button type="submit" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Выйти
+            </button>
+          </form>
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xl">✏️</span>
