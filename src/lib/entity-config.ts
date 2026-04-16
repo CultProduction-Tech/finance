@@ -14,7 +14,7 @@ const configs: Record<LegalEntity, EntityConfig> = {
     planfact: createPlanFactClient(process.env.PLANFACT_API_KEY || ""),
     amo: {
       pipelineId: Number(process.env.AMOCRM_PIPELINE_ID || "0"),
-      projectStatusIds: [84825134],
+      projectStatusIds: [84825134, 142],
       conversionSoldStatusId: 84825134,
       conversionNotSoldStatusId: 143,
     },
@@ -24,7 +24,7 @@ const configs: Record<LegalEntity, EntityConfig> = {
     planfact: createPlanFactClient(process.env.PLANFACT_API_KEY_CULT || ""),
     amo: {
       pipelineId: Number(process.env.AMOCRM_PIPELINE_ID_CULT || "0"),
-      projectStatusIds: [65069498, 65069502, 65069506, 65069510, 142],
+      projectStatusIds: [85003170, 85003174, 85003178, 85003182, 142],
       marginFieldId: 1569997,
     },
     budgetName: "Бюджет 2026",
