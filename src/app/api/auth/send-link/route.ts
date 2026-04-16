@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = generateToken(normalizedEmail);
-    const baseUrl = request.nextUrl.origin;
+    const baseUrl = process.env.BASE_URL || request.nextUrl.origin;
     const magicLink = `${baseUrl}/api/auth/verify?token=${token}`;
     const code = token.slice(-6).toUpperCase();
 
