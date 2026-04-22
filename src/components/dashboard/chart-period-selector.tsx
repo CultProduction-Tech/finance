@@ -14,7 +14,9 @@ interface ChartPeriodSelectorProps {
   hideMonthButton?: boolean;
 }
 
-const selectClass = "bg-muted/60 border border-border rounded-md px-1.5 py-0.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer";
+const selectBase = "rounded-md px-1.5 py-0.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer border";
+const selectInactive = "bg-muted/60 border-border text-foreground";
+const selectActive = "bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] border-[var(--accent-solid)]";
 
 export function ChartPeriodSelector({
   startMonth,
@@ -26,6 +28,9 @@ export function ChartPeriodSelector({
   hideMonthButton,
 }: ChartPeriodSelectorProps) {
   const btnBase = "rounded-md px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer border";
+  // Если ни один пресет не активен — интервал кастомный, подсвечиваем дропдауны
+  const isCustomInterval = activeQuick === null;
+  const selectClass = `${selectBase} ${isCustomInterval ? selectActive : selectInactive}`;
 
   return (
     <div className="flex items-center gap-1 text-xs shrink-0">

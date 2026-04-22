@@ -105,7 +105,7 @@ export function ChartWithPeriod({
     ? activeQuick
     : activeStart === activeEnd
       ? "month"
-      : activeStart === 0
+      : activeStart === 0 && activeEnd === 11
         ? "year"
         : null;
 

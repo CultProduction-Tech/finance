@@ -1,19 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  ReferenceLine,
-  LabelList,
-} from "recharts";
 import { MonthlyKpiData, LegalEntity } from "@/types/finance";
+import { CHART_COLORS } from "@/lib/chart-colors";
 
 interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
@@ -31,9 +20,6 @@ interface BarDataPoint {
 }
 
 
-const COLOR_NEGATIVE = "hsl(0, 70%, 75%)";
-const COLOR_POSITIVE = "hsl(210, 70%, 55%)";
-
 function computeDeviation(fact: number, budget: number): number {
   if (budget === 0) return 0;
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
@@ -47,34 +33,9 @@ function formatAmount(value: number): string {
   return `${sign}${Math.round(abs)}`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload?.length) return null;
-  const point = payload[0]?.payload as BarDataPoint;
-  if (!point) return null;
-
-  const factStr = point.isPercent ? `${Math.round(point.fact)}%` : formatAmount(point.fact);
-  const budgetStr = point.isPercent ? `${Math.round(point.budget)}%` : formatAmount(point.budget);
-
-  return (
-    <div
-      style={{
-        backgroundColor: "white",
-        border: "1px solid hsl(var(--border))",
-        borderRadius: 8,
-        padding: "8px 12px",
-        fontSize: 13,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-      }}
-    >
-      <p style={{ fontWeight: 600, marginBottom: 4 }}>{point.name}</p>
-      <p>Бюджет: {budgetStr}</p>
-      <p>Факт: {factStr}</p>
-      <p style={{ color: point.deviationLabel >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE, marginTop: 2 }}>
-        Отклонение: {point.deviationLabel}%
-      </p>
-    </div>
-  );
+function formatValue(value: number, isPercent: boolean): string {
+  if (isPercent) return `${Math.round(value)}%`;
+  return formatAmount(value);
 }
 
 
@@ -145,7 +106,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           ["Выручка", factRevenue, budgetRevenue, false, false],
           ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
           ["Маржа", factMargin, budgetMargin, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true],
+          ["Постоянные расходы", factFixed, budgetFixed, false, true],
           ["Прибыль", factProfit, budgetProfit, false, false],
         ]
       : [
@@ -156,7 +117,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           ["Выручка", factRevenue, budgetRevenue, false, false],
           ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
           ["Маржа", factMargin, budgetMargin, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true],
+          ["Постоянные расходы", factFixed, budgetFixed, false, true],
           ["Прибыль", factProfit, budgetProfit, false, false],
         ];
 
@@ -177,65 +138,87 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
 
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
-      <h3 className="text-lg font-bold mb-4 text-center">
-        &#x2696; Бизнес-уравнение
-      </h3>
-      {periodSelector && <div className="flex justify-start -mt-3 mb-2">{periodSelector}</div>}
-      <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={chartData} margin={{ top: 40, right: 10, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 13 }}
-            className="fill-muted-foreground"
-            interval={0}
-            angle={-25}
-            textAnchor="end"
-            height={70}
-          />
-          <YAxis
-            tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 12 }}
-            className="fill-muted-foreground"
-            width={58}
-            domain={[-120, 120]}
-          />
-          <ReferenceLine y={0} stroke="#a0a0a0" strokeDasharray="3 3" strokeWidth={2} />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="deviation" radius={[4, 4, 0, 0]} barSize={50} isAnimationActive={false}>
-            {chartData.map((entry, index) => (
-              <Cell
-                key={index}
-                fill={entry.deviationLabel >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE}
-              />
-            ))}
-            <LabelList
-              dataKey="deviationLabel"
-              position="top"
-              formatter={(v) => `${Number(v) > 0 ? "+" : ""}${v}%`}
-              style={{ fontSize: 13, fontWeight: 700 }}
-              offset={6}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h3 className="text-lg font-bold">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
+        {periodSelector}
+      </div>
 
-      {/* Абсолютные значения под графиком */}
       <div
-        className="mt-3 grid gap-2 text-center"
+        className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${chartData.length}, minmax(0, 1fr))` }}
       >
-        {chartData.map((entry) => (
-          <div key={entry.name} className="flex flex-col items-center">
-            <span className="text-[11px] text-muted-foreground leading-tight">{entry.name}</span>
-            <span
-              className="text-[13px] font-semibold leading-tight mt-0.5"
-              style={{ color: entry.deviationLabel >= 0 ? COLOR_POSITIVE : "#c93b3b" }}
+        {chartData.map((entry) => {
+          const isPositive = entry.deviationLabel >= 0;
+          const barColor = isPositive ? CHART_COLORS.positive : CHART_COLORS.negative;
+          const bgColor = isPositive ? CHART_COLORS.positiveBg : CHART_COLORS.negativeBg;
+          const textColor = isPositive ? CHART_COLORS.positive : CHART_COLORS.negative;
+          const arrow = entry.deviationLabel > 0 ? "▲" : entry.deviationLabel < 0 ? "▼" : "•";
+          // Высота бара 0–100% от половины области. Экстремумы обрезаются с индикатором.
+          const clamped = Math.min(Math.abs(entry.deviationLabel), 100);
+          const barHeightPct = clamped;
+          const isOverflow = Math.abs(entry.deviationLabel) > 100;
+          return (
+            <div
+              key={entry.name}
+              className="rounded-xl px-3 pt-3 pb-3 flex flex-col"
+              style={{ background: bgColor }}
             >
-              {entry.isPercent ? `${Math.round(entry.fact)}%` : formatAmount(entry.fact)}
-            </span>
-          </div>
-        ))}
+              {/* Название */}
+              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide leading-tight mb-2 min-h-[39px]">
+                {entry.name}
+              </div>
+
+              {/* Мини-бар от центральной линии */}
+              <div className="relative h-12 mb-2">
+                {/* Верхняя половина — положительные */}
+                <div className="absolute inset-x-0 top-0 bottom-1/2 flex items-end justify-center">
+                  {isPositive && entry.deviationLabel !== 0 && (
+                    <div
+                      className="rounded-t-sm w-[50%] transition-all"
+                      style={{ height: `${barHeightPct}%`, background: barColor }}
+                    />
+                  )}
+                </div>
+                {/* Центральная линия (0%) */}
+                <div className="absolute left-0 right-0 top-1/2 h-px bg-black/20 -translate-y-px" />
+                {/* Нижняя половина — отрицательные */}
+                <div className="absolute inset-x-0 bottom-0 top-1/2 flex items-start justify-center">
+                  {!isPositive && (
+                    <div
+                      className="rounded-b-sm w-[50%] transition-all"
+                      style={{ height: `${barHeightPct}%`, background: barColor }}
+                    />
+                  )}
+                </div>
+                {/* Индикатор переполнения */}
+                {isOverflow && (
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 text-[8px] font-bold"
+                    style={{ color: textColor, ...(isPositive ? { top: 0 } : { bottom: 0 }) }}
+                  >
+                    {isPositive ? "▲" : "▼"}
+                  </div>
+                )}
+              </div>
+
+              {/* Факт — основное значение */}
+              <div className="text-[16px] font-bold leading-none mb-1.5 tabular-nums">
+                {formatValue(entry.fact, entry.isPercent)}
+              </div>
+
+              {/* Отклонение + план — стек на две строки */}
+              <div className="text-[11px] tabular-nums leading-tight flex flex-col gap-0.5">
+                <div className="flex items-center gap-1 font-semibold" style={{ color: textColor }}>
+                  <span className="text-[9px]">{arrow}</span>
+                  {Math.abs(entry.deviationLabel)}%
+                </div>
+                <div className="text-muted-foreground text-[10px]">
+                  от {formatValue(entry.budget, entry.isPercent)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

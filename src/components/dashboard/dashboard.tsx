@@ -8,6 +8,7 @@ import { EntitySwitcher } from "./entity-switcher";
 import { KpiGrid } from "./kpi-grid";
 import { ProfitChart } from "./profit-chart";
 import { BusinessEquationChart } from "./business-equation-chart";
+import { DepartmentChart } from "./department-chart";
 import { ExpenseBudgetChart } from "./expense-budget-chart";
 import { MarginalityChart } from "./marginality-chart";
 import { MonthNotes } from "./month-notes";
@@ -54,16 +55,6 @@ export function Dashboard() {
     startMonth: 0,
     endMonth: 11,
   });
-
-  // Прогноз баланса через 3 месяца: текущие средства + среднее факт-прибыли за последние 3 факт-месяца × 3
-  const balanceIn3Months = (() => {
-    if (!fullYearKpi) return 0;
-    const past = fullYearKpi.monthly.filter((m) => m.isPast);
-    const last3 = past.slice(-3);
-    if (last3.length === 0) return fullYearKpi.cashOnHand;
-    const avgProfit = last3.reduce((s, m) => s + m.factProfit, 0) / last3.length;
-    return fullYearKpi.cashOnHand + avgProfit * 3;
-  })();
 
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
@@ -128,7 +119,7 @@ export function Dashboard() {
             ))}
           </div>
         ) : kpi ? (
-          <KpiGrid data={kpi} balanceIn3Months={balanceIn3Months} />
+          <KpiGrid data={kpi} />
         ) : null}
       </div>
 
@@ -140,25 +131,86 @@ export function Dashboard() {
               {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
-              {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
-            </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} />}
             </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
-              {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
-            </ChartWithPeriod>
+            <div className="lg:col-span-2">
+              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
+                {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
+              </ChartWithPeriod>
+            </div>
+            <div className="lg:col-span-2">
+              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
+                {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
+              </ChartWithPeriod>
+            </div>
           </div>
 
-          {/* Третий ряд — графики по отделам (заглушка) */}
-          <div className="mt-5 rounded-2xl bg-white/70 ring-1 ring-black/5 border border-dashed border-black/10 p-8 min-h-[200px] flex flex-col items-center justify-center text-center">
-            <div className="w-12 h-12 rounded-xl bg-black/5 flex items-center justify-center mb-3">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-muted-foreground/70">
-                <path d="M3 20h18M5 20V10m4 10V4m4 16V8m4 12v-6m4 6v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+          {/* Третий ряд — работа по отделам (мок-данные, весь год) */}
+          <div className="mt-6">
+            <h2 className="text-[13px] font-medium text-muted-foreground mb-3 px-1 uppercase tracking-wide">
+              Работа по отделам · весь год
+            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <DepartmentChart
+                title="Продажи"
+                icon="💼"
+                series={[
+                  {
+                    name: "Контакты с клиентами",
+                    data: [45, 52, 48, 61, 58, 67, 72, 68, 75, 82, 79, 88],
+                    color: "#0071e3",
+                  },
+                ]}
+              />
+              <DepartmentChart
+                title="Доки"
+                icon="📄"
+                series={[
+                  {
+                    name: "Платежки",
+                    data: [120, 135, 128, 145, 142, 158, 165, 155, 170, 180, 175, 190],
+                    color: "#34c759",
+                  },
+                  {
+                    name: "Комплекты документов",
+                    data: [85, 90, 92, 105, 100, 115, 118, 112, 125, 130, 128, 140],
+                    color: "#af52de",
+                  },
+                ]}
+              />
+              <DepartmentChart
+                title="Производство"
+                icon="🏭"
+                series={[
+                  {
+                    name: "Запросы",
+                    data: [25, 32, 28, 35, 38, 42, 45, 40, 48, 52, 50, 55],
+                    color: "#ff9500",
+                  },
+                  {
+                    name: "Проданные проекты",
+                    data: [8, 10, 9, 12, 11, 14, 15, 13, 16, 18, 17, 19],
+                    color: "#0071e3",
+                  },
+                ]}
+              />
+              <DepartmentChart
+                title="Пиар"
+                icon="📢"
+                series={[
+                  {
+                    name: "Инстаграм",
+                    data: [15000, 18000, 16500, 21000, 19500, 24000, 26000, 23500, 28000, 31000, 29500, 33000],
+                    color: "#e879c8",
+                  },
+                  {
+                    name: "Телеграм",
+                    data: [8000, 9500, 8800, 11000, 10500, 13000, 14500, 13500, 16000, 17500, 16800, 18500],
+                    color: "#5856d6",
+                  },
+                ]}
+              />
             </div>
-            <h3 className="text-[15px] font-semibold mb-1">Графики по отделам</h3>
-            <p className="text-[13px] text-muted-foreground">Скоро — данные по отделам подключаются</p>
           </div>
 
           {startMonth === endMonth && (

@@ -274,6 +274,31 @@ export function createPlanFactClient(apiKey: string) {
       return pfFetch<PaymentStructureResponse>("/api/v1/businessmetrics/paymentstructure", params);
     },
 
+    async getCashFlow(
+      startDate: string,
+      endDate: string,
+      options?: { standardPeriod?: "Day" | "Week" | "Month" | "Quarter" | "Year"; projectIds?: number[]; accountIds?: number[] },
+    ) {
+      const params: Record<string, string> = {
+        "filter.periodStartDate": startDate,
+        "filter.periodEndDate": endDate,
+      };
+      if (options?.standardPeriod) {
+        params["filter.standardPeriod"] = options.standardPeriod;
+      }
+      if (options?.projectIds?.length) {
+        options.projectIds.forEach((id, i) => {
+          params[`filter.projectId[${i}]`] = String(id);
+        });
+      }
+      if (options?.accountIds?.length) {
+        options.accountIds.forEach((id, i) => {
+          params[`filter.accountIds[${i}]`] = String(id);
+        });
+      }
+      return pfFetch<CashFlowResponse>("/api/v1/businessmetrics/cashflow", params);
+    },
+
     async getProjects(options?: { limit?: number }) {
       const params: Record<string, string> = {
         "paging.limit": String(options?.limit || 10000),

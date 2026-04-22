@@ -40,6 +40,12 @@ export function PeriodSelector({
   const activeStyle = "rounded-full bg-[var(--accent-solid)] px-4 py-1.5 text-[13px] font-medium text-[var(--accent-solid-foreground)] transition-all";
   const inactiveStyle = "rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1d1d1f] hover:bg-white transition-all shadow-[0_1px_2px_rgba(0,0,0,0.06)]";
 
+  // Если ни один пресет не активен — значит интервал кастомный, подсвечиваем дропдауны месяцев
+  const isCustomInterval = !isThisYear;
+  const monthSelectClass = isCustomInterval
+    ? "w-[140px] bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] border-[var(--accent-solid)] [&_svg]:text-[var(--accent-solid-foreground)]"
+    : "w-[140px]";
+
   return (
     <div className="flex items-center gap-2">
       <button
@@ -68,7 +74,7 @@ export function PeriodSelector({
           if (idx > endMonth) onEndMonthChange(idx);
         }}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className={monthSelectClass}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -91,7 +97,7 @@ export function PeriodSelector({
           if (idx < startMonth) onStartMonthChange(idx);
         }}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className={monthSelectClass}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -24,6 +24,7 @@ export interface KpiResponse {
   fixedExpenses: number;
   profit: number;
   cashOnHand: number;
+  cashflow3Months: number;
   projectsCount: number;
   monthly: MonthlyKpi[];
   expenseCategories: ExpenseCategory[];
@@ -77,11 +78,21 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    const [categories, budgets, accountBalance, allProjects] = await Promise.all([
+    // Прогноз кэшфлоу: 3 месяца вперёд от первого числа текущего месяца
+    const cfStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const cfEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    const cfStartStr = `${cfStart.getFullYear()}-${String(cfStart.getMonth() + 1).padStart(2, "0")}-01`;
+    const cfEndStr = `${cfEnd.getFullYear()}-${String(cfEnd.getMonth() + 1).padStart(2, "0")}-${String(cfEnd.getDate()).padStart(2, "0")}`;
+
+    const [categories, budgets, accountBalance, allProjects, cashFlow] = await Promise.all([
       pf.getOperationCategories(),
       pf.getBudgets({ budgetMethod: "Bdr" }),
       pf.getAccountBalance(now.toISOString()),
       config.excludeProjectIds?.length ? pf.getProjects() : Promise.resolve(null),
+      pf.getCashFlow(cfStartStr, cfEndStr, { standardPeriod: "Month" }).catch((e) => {
+        console.warn("CashFlow fetch failed:", e);
+        return null;
+      }),
     ]);
 
     const pfProjectIds = allProjects
@@ -471,6 +482,8 @@ export async function GET(request: NextRequest) {
       expenseCategories.sort((a, b) => b.fact - a.fact);
     }
 
+    const cashflow3Months = cashFlow?.planDifference ?? 0;
+
     const response: KpiResponse = {
       revenue: totalRevenue,
       variableExpenses: totalVariableExpenses,
@@ -479,6 +492,7 @@ export async function GET(request: NextRequest) {
       fixedExpenses: totalFixedExpenses,
       profit: totalProfit,
       cashOnHand: accountBalance.total,
+      cashflow3Months,
       projectsCount: Array.from(projectsByMonth.values()).reduce((sum, p) => sum + p.length, 0),
       monthly,
       expenseCategories,

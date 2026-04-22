@@ -54,6 +54,7 @@ export interface KpiData {
   fixedExpenses: number;      // Постоянные расходы
   profit: number;             // Чистая прибыль (Маржа - Пост. расходы)
   cashOnHand: number;         // На счетах
+  cashflow3Months: number;    // Плановый чистый кэшфлоу на 3 месяца вперёд (БДДС)
   projectsCount: number;      // Проектов
   monthly: MonthlyKpiData[];  // Помесячная разбивка
   expenseCategories: ExpenseCategoryData[];

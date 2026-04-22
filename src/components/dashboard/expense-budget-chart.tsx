@@ -8,11 +8,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   LabelList,
 } from "recharts";
 import { ExpenseCategoryData, LegalEntity } from "@/types/finance";
+import { CHART_COLORS } from "@/lib/chart-colors";
 
 interface ExpenseBudgetChartProps {
   expenseCategories: ExpenseCategoryData[];
@@ -31,9 +31,9 @@ interface ChartDataPoint {
   totalFact: number;
 }
 
-const COLOR_FACT = "hsl(210, 60%, 65%)";
-const COLOR_OVERSPEND = "hsl(0, 65%, 75%)";
-const COLOR_SAVINGS = "hsl(160, 50%, 65%)";
+const COLOR_FACT = CHART_COLORS.positive;
+const COLOR_OVERSPEND = CHART_COLORS.negative;
+const COLOR_SAVINGS = CHART_COLORS.neutral;
 
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
@@ -91,10 +91,9 @@ function DeviationLabel(props: any) {
   const cx = (x ?? viewBox?.x ?? 0) + (width ?? viewBox?.width ?? 0) / 2;
   const cy = (y ?? viewBox?.y ?? 0) - 14;
   const dev = value as number;
-  const color = dev > 0 ? COLOR_OVERSPEND : dev < 0 ? COLOR_SAVINGS : "hsl(var(--muted-foreground))";
 
   return (
-    <text x={cx} y={cy} textAnchor="middle" fontSize={13} fontWeight={700} fill={color}>
+    <text x={cx} y={cy} textAnchor="middle" fontSize={12} fontWeight={700} fill="#1d1d1f">
       {dev > 0 ? "+" : ""}{dev}%
     </text>
   );
@@ -173,22 +172,21 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
 
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
-      <h3 className="text-lg font-bold mb-1 text-center">
-        &#x1F4B8; Исполнение бюджета расходов
-      </h3>
-      <div className="flex items-center justify-between mb-2">
-        {periodSelector || <div />}
-        <div className="text-right">
-          <span className="text-lg font-bold">{formatFull(totalFact)}</span>
-          <span className="text-xs text-muted-foreground ml-1">{pctOfRevenue}% от выручки</span>
-        </div>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-lg font-bold whitespace-nowrap">
+          &#x1F4B8; Исполнение бюджета расходов
+          <span className="ml-2 text-sm font-medium text-muted-foreground" title="от выручки">
+            {formatFull(totalFact)} · {pctOfRevenue}%
+          </span>
+        </h3>
+        {periodSelector}
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={chartData} margin={{ top: 30, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             interval={0}
             angle={-30}
@@ -197,15 +195,11 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
           />
           <YAxis
             tickFormatter={(v) => formatAmount(v)}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             width={60}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend
-            wrapperStyle={{ fontSize: 13 }}
-            formatter={(value) => <span style={{ color: "hsl(var(--foreground))" }}>{value}</span>}
-          />
           <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} />
           <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]}>
             <LabelList dataKey="deviation" content={<DeviationLabel />} />
@@ -215,6 +209,17 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <div className="flex items-center justify-center flex-wrap gap-x-5 gap-y-1 mt-3 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_FACT }} /> Факт
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_OVERSPEND }} /> Перерасход
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_SAVINGS }} /> Экономия
+        </span>
+      </div>
     </div>
   );
 }

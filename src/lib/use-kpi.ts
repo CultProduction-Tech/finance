@@ -60,6 +60,7 @@ export function useKpi({ entity, year, startMonth, endMonth }: UseKpiOptions): U
         fixedExpenses: json.fixedExpenses,
         profit: json.profit,
         cashOnHand: json.cashOnHand,
+        cashflow3Months: json.cashflow3Months ?? 0,
         projectsCount: json.projectsCount,
         monthly: json.monthly || [],
         expenseCategories: json.expenseCategories || [],

@@ -6,10 +6,9 @@ import { KpiCard } from "./kpi-card";
 
 interface KpiGridProps {
   data: KpiData;
-  balanceIn3Months: number;
 }
 
-export function KpiGrid({ data, balanceIn3Months }: KpiGridProps) {
+export function KpiGrid({ data }: KpiGridProps) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {/* Ряд 1: Выручка | Маржа | Проектов | На счетах */}
@@ -44,16 +43,18 @@ export function KpiGrid({ data, balanceIn3Months }: KpiGridProps) {
         icon="📈"
         label="Марж-ть"
         value={formatMoney(data.marginPercent, "%")}
+        variant={data.marginPercent >= 44 ? "positive" : "negative"}
       />
       <KpiCard
         icon="💸"
-        label="Постоянные расходы"
+        label={"Постоянные\nрасходы"}
         value={formatMoney(data.fixedExpenses)}
       />
       <KpiCard
         icon="🔮"
-        label="Через 3 мес"
-        value={formatMoney(balanceIn3Months)}
+        label="Кэшфлоу 3 мес"
+        value={formatMoney(data.cashflow3Months)}
+        variant={data.cashflow3Months >= 0 ? "positive" : "negative"}
       />
     </div>
   );

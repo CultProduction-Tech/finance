@@ -55,6 +55,10 @@ export function calculateKpi(months: MonthlyFinancials[]): KpiData {
 
   const marginPercent = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
 
+  // Для моковых данных: прогноз кэшфлоу ≈ сумма бюджет-прибыли за 3 будущих месяца
+  const futureMonths = months.filter((m) => !m.isPast).slice(0, 3);
+  const cashflow3Months = futureMonths.reduce((s, m) => s + m.budgetProfit, 0);
+
   return {
     revenue,
     variableExpenses: revenue - margin, // Переменные = Выручка - Маржа
@@ -63,6 +67,7 @@ export function calculateKpi(months: MonthlyFinancials[]): KpiData {
     fixedExpenses: margin - profit, // Постоянные = Маржа - Прибыль
     profit,
     cashOnHand,
+    cashflow3Months,
     projectsCount,
     monthly: [],
     expenseCategories: [],
