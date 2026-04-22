@@ -10,14 +10,14 @@ interface KpiCardProps {
 
 export function KpiCard({ icon, label, value, subtitle, variant = "default" }: KpiCardProps) {
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-base">{icon}</span>
-        <span className="text-[13px] font-medium text-muted-foreground">{label}</span>
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-base shrink-0">{icon}</span>
+        <span className="text-[13px] font-medium text-muted-foreground truncate">{label}</span>
       </div>
       <div
         className={cn(
-          "text-2xl font-semibold tracking-tight",
+          "text-lg font-semibold tracking-tight shrink-0 tabular-nums",
           variant === "negative" && "text-[#ff3b30]",
           variant === "positive" && "text-[#34c759]",
         )}

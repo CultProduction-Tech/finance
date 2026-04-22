@@ -94,7 +94,7 @@ function DeviationLabel(props: any) {
   const color = dev > 0 ? COLOR_OVERSPEND : dev < 0 ? COLOR_SAVINGS : "hsl(var(--muted-foreground))";
 
   return (
-    <text x={cx} y={cy} textAnchor="middle" fontSize={11} fontWeight={500} fill={color}>
+    <text x={cx} y={cy} textAnchor="middle" fontSize={13} fontWeight={700} fill={color}>
       {dev > 0 ? "+" : ""}{dev}%
     </text>
   );
@@ -183,27 +183,27 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
           <span className="text-xs text-muted-foreground ml-1">{pctOfRevenue}% от выручки</span>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={chartData} margin={{ top: 30, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
             interval={0}
-            angle={-25}
+            angle={-30}
             textAnchor="end"
-            height={60}
+            height={80}
           />
           <YAxis
             tickFormatter={(v) => formatAmount(v)}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
-            width={55}
+            width={60}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend
-            wrapperStyle={{ fontSize: 12 }}
+            wrapperStyle={{ fontSize: 13 }}
             formatter={(value) => <span style={{ color: "hsl(var(--foreground))" }}>{value}</span>}
           />
           <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} />

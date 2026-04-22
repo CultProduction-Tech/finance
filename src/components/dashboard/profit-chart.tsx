@@ -145,27 +145,27 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
           />
           <YAxis
             yAxisId="left"
             tickFormatter={(v) => formatValue(v)}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
-            width={70}
+            width={75}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
-            width={55}
+            width={58}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend
-            wrapperStyle={{ fontSize: 12 }}
+            wrapperStyle={{ fontSize: 13 }}
             formatter={(value) => <span style={{ color: "hsl(var(--foreground))" }}>{value}</span>}
           />
           <Line

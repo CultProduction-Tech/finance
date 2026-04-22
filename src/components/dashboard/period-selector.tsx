@@ -26,38 +26,22 @@ export function PeriodSelector({
   onStartMonthChange,
   onEndMonthChange,
 }: PeriodSelectorProps) {
-  const handleThisMonth = () => {
-    const now = new Date();
-    onYearChange(now.getFullYear());
-    onStartMonthChange(now.getMonth());
-    onEndMonthChange(now.getMonth());
-  };
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  const isThisYear = year === currentYear && startMonth === 0 && endMonth === 11;
 
   const handleThisYear = () => {
-    const now = new Date();
-    onYearChange(now.getFullYear());
+    onYearChange(currentYear);
     onStartMonthChange(0);
     onEndMonthChange(11);
   };
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-
-  const isThisMonth = year === currentYear && startMonth === currentMonth && endMonth === currentMonth;
-  const isThisYear = year === currentYear && startMonth === 0 && endMonth === 11;
-
-  const activeStyle = "rounded-full bg-[#1d1d1f] px-4 py-1.5 text-[13px] font-medium text-white transition-all";
+  const activeStyle = "rounded-full bg-[var(--accent-solid)] px-4 py-1.5 text-[13px] font-medium text-[var(--accent-solid-foreground)] transition-all";
   const inactiveStyle = "rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1d1d1f] hover:bg-white transition-all shadow-[0_1px_2px_rgba(0,0,0,0.06)]";
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        onClick={handleThisMonth}
-        className={isThisMonth ? activeStyle : inactiveStyle}
-      >
-        Этот месяц
-      </button>
       <button
         onClick={handleThisYear}
         className={isThisYear ? activeStyle : inactiveStyle}

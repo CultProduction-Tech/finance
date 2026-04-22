@@ -114,7 +114,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
       if (m?.projects?.length) {
         for (const p of m.projects) {
           data.push({
-            name: p.name.length > 15 ? p.name.substring(0, 13) + "…" : p.name,
+            name: p.name,
             value: p.marginPercent,
             type: "project",
           });
@@ -123,7 +123,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
     } else if (monthly.length === 1 && monthly[0]?.projects?.length) {
       for (const p of monthly[0].projects) {
         data.push({
-          name: p.name.length > 15 ? p.name.substring(0, 13) + "…" : p.name,
+          name: p.name,
           value: p.marginPercent,
           type: "project",
         });
@@ -187,7 +187,14 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
             }}
           />
         )}
-      <ResponsiveContainer width="100%" height={220}>
+      {(() => {
+        const hasLongNames = chartData.some((d) => d.type === "project" && d.name.length > 8);
+        const xAxisHeight = hasLongNames ? 110 : 40;
+        const xAxisAngle = hasLongNames ? -45 : 0;
+        const xAxisAnchor = hasLongNames ? "end" : "middle";
+        const chartHeight = hasLongNames ? 280 : 220;
+        return (
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
           data={chartData}
           margin={{ top: 20, right: 10, left: 0, bottom: 5 }}
@@ -197,15 +204,18 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
             interval={0}
+            angle={xAxisAngle}
+            textAnchor={xAxisAnchor}
+            height={xAxisHeight}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
-            width={55}
+            width={58}
             domain={[0, (max: number) => Math.max(max + 5, budgetLine + 5)]}
           />
           {budgetLine > 0 && (
@@ -217,7 +227,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               label={{
                 value: `Марж-ть ${budgetLine}%`,
                 position: "insideBottomLeft",
-                fontSize: 11,
+                fontSize: 12,
                 fill: COLOR_CUMULATIVE,
                 offset: 5,
               }}
@@ -247,11 +257,13 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               dataKey="value"
               position="top"
               formatter={(v) => `${v}%`}
-              style={{ fontSize: 10, fontWeight: 500 }}
+              style={{ fontSize: 12, fontWeight: 600 }}
             />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+        );
+      })()}
       <div className="flex items-center justify-center gap-5 mt-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_CUMULATIVE }} /> НИ

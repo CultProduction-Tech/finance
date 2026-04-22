@@ -11,8 +11,12 @@ interface ChartWithPeriodProps {
   globalStartMonth: number;
   globalEndMonth: number;
   globalKpi: KpiData;
+  /** Инкрементится на каждое взаимодействие с верхней панелью периода */
+  periodVersion: number;
   /** Всегда запрашивать данные с января (для графиков с нарастающим итогом) */
   alwaysFromJanuary?: boolean;
+  /** Скрыть кнопку "Месяц" в локальном селекторе */
+  hideMonthButton?: boolean;
   children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode) => ReactNode;
 }
 
@@ -22,24 +26,26 @@ export function ChartWithPeriod({
   globalStartMonth,
   globalEndMonth,
   globalKpi,
+  periodVersion,
   alwaysFromJanuary,
+  hideMonthButton,
   children,
 }: ChartWithPeriodProps) {
   const [localStart, setLocalStart] = useState<number | null>(null);
   const [localEnd, setLocalEnd] = useState<number | null>(null);
   const [activeQuick, setActiveQuick] = useState<QuickPeriod>(null);
 
-  // Сброс локального периода при смене глобального
-  const prevGlobal = useRef({ globalYear, globalStartMonth, globalEndMonth });
+  // Сброс локального периода на любое взаимодействие с верхней панелью
+  const firstRender = useRef(true);
   useEffect(() => {
-    const prev = prevGlobal.current;
-    if (prev.globalYear !== globalYear || prev.globalStartMonth !== globalStartMonth || prev.globalEndMonth !== globalEndMonth) {
-      setLocalStart(null);
-      setLocalEnd(null);
-      setActiveQuick(null);
-      prevGlobal.current = { globalYear, globalStartMonth, globalEndMonth };
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
     }
-  }, [globalYear, globalStartMonth, globalEndMonth]);
+    setLocalStart(null);
+    setLocalEnd(null);
+    setActiveQuick(null);
+  }, [periodVersion]);
 
   const hasLocal = localStart !== null && localEnd !== null;
 
@@ -94,14 +100,24 @@ export function ChartWithPeriod({
     if (localStart === null) setLocalStart(globalStartMonth);
   }, [localStart, globalStartMonth]);
 
+  // Выводим пресет из активного периода, если локальный пресет не задан
+  const derivedQuick: QuickPeriod = activeQuick
+    ? activeQuick
+    : activeStart === activeEnd
+      ? "month"
+      : activeStart === 0
+        ? "year"
+        : null;
+
   const periodSelector = (
     <ChartPeriodSelector
       startMonth={activeStart}
       endMonth={activeEnd}
-      activeQuick={activeQuick}
+      activeQuick={derivedQuick}
       onStartMonthChange={handleStartChange}
       onEndMonthChange={handleEndChange}
       onQuickPeriod={handleQuickPeriod}
+      hideMonthButton={hideMonthButton}
     />
   );
 

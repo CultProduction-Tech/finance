@@ -51,6 +51,8 @@
 :root {
   --background: #f5f5f7;
   --foreground: #1d1d1f;
+  --accent-solid: #1d1d1f;
+  --accent-solid-foreground: #ffffff;
   --card: #ffffff;
   --card-foreground: #1d1d1f;
   --popover: #ffffff;
@@ -128,24 +130,36 @@
   html {
     @apply font-sans;
   }
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  [role="menuitem"]:not(:disabled),
+  [role="tab"]:not(:disabled),
+  [role="combobox"]:not(:disabled),
+  a[href] {
+    cursor: pointer;
+  }
 }
 
 .dashboard-bg-blaster {
-  background-color: #f5f5f7;
+  background-color: #f2f3f5;
+  background-image: radial-gradient(ellipse at top, rgba(120, 130, 145, 0.08), transparent 60%);
 }
 
 /* Тема Культ */
 .theme-cult {
-  --background: #f5f5f7;
-  --primary: #af52de;
+  --background: #fbeff6;
+  --primary: #e879c8;
   --primary-foreground: #ffffff;
-  --ring: #af52de;
-  accent-color: #af52de;
-  --accent: #bf5af2;
+  --accent-solid: #e879c8;
+  --accent-solid-foreground: #ffffff;
+  --ring: #e879c8;
+  accent-color: #e879c8;
+  --accent: #f190d2;
   --accent-foreground: #ffffff;
-  --border: #d2d2d7;
-  --input: #d2d2d7;
-  --muted: #f5f5f7;
-  --secondary: #f5f5f7;
-  background-color: #f5f5f7;
+  --border: #f0d8e6;
+  --input: #f0d8e6;
+  --muted: #fbeff6;
+  --secondary: #fbeff6;
+  background-color: #fbeff6;
+  background-image: radial-gradient(ellipse at top, rgba(244, 125, 201, 0.12), transparent 60%);
 }

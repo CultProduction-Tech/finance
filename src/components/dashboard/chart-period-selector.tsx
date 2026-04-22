@@ -11,6 +11,7 @@ interface ChartPeriodSelectorProps {
   onStartMonthChange: (month: number) => void;
   onEndMonthChange: (month: number) => void;
   onQuickPeriod: (period: QuickPeriod) => void;
+  hideMonthButton?: boolean;
 }
 
 const selectClass = "bg-muted/60 border border-border rounded-md px-1.5 py-0.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer";
@@ -22,26 +23,29 @@ export function ChartPeriodSelector({
   onStartMonthChange,
   onEndMonthChange,
   onQuickPeriod,
+  hideMonthButton,
 }: ChartPeriodSelectorProps) {
   const btnBase = "rounded-md px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer border";
 
   return (
     <div className="flex items-center gap-1 text-xs shrink-0">
-      <button
-        onClick={() => onQuickPeriod(activeQuick === "month" ? null : "month")}
-        className={`${btnBase} ${
-          activeQuick === "month"
-            ? "bg-primary text-primary-foreground border-primary"
-            : "bg-muted/60 border-border text-foreground hover:bg-muted"
-        }`}
-      >
-        Месяц
-      </button>
+      {!hideMonthButton && (
+        <button
+          onClick={() => onQuickPeriod(activeQuick === "month" ? null : "month")}
+          className={`${btnBase} ${
+            activeQuick === "month"
+              ? "bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] border-[var(--accent-solid)]"
+              : "bg-muted/60 border-border text-foreground hover:bg-muted"
+          }`}
+        >
+          Месяц
+        </button>
+      )}
       <button
         onClick={() => onQuickPeriod(activeQuick === "year" ? null : "year")}
         className={`${btnBase} ${
           activeQuick === "year"
-            ? "bg-primary text-primary-foreground border-primary"
+            ? "bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] border-[var(--accent-solid)]"
             : "bg-muted/60 border-border text-foreground hover:bg-muted"
         }`}
       >

@@ -77,6 +77,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   );
 }
 
+
 export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
   const chartData = useMemo<BarDataPoint[]>(() => {
     let factRevenue = 0, budgetRevenue = 0;
@@ -180,28 +181,28 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         &#x2696; Бизнес-уравнение
       </h3>
       {periodSelector && <div className="flex justify-start -mt-3 mb-2">{periodSelector}</div>}
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={chartData} margin={{ top: 40, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
             interval={0}
             angle={-25}
             textAnchor="end"
-            height={60}
+            height={70}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 12 }}
             className="fill-muted-foreground"
-            width={55}
+            width={58}
             domain={[-120, 120]}
           />
           <ReferenceLine y={0} stroke="#a0a0a0" strokeDasharray="3 3" strokeWidth={2} />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="deviation" radius={[4, 4, 0, 0]} barSize={50}>
+          <Bar dataKey="deviation" radius={[4, 4, 0, 0]} barSize={50} isAnimationActive={false}>
             {chartData.map((entry, index) => (
               <Cell
                 key={index}
@@ -212,12 +213,30 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
               dataKey="deviationLabel"
               position="top"
               formatter={(v) => `${Number(v) > 0 ? "+" : ""}${v}%`}
-              style={{ fontSize: 11, fontWeight: 600 }}
-              offset={4}
+              style={{ fontSize: 13, fontWeight: 700 }}
+              offset={6}
             />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {/* Абсолютные значения под графиком */}
+      <div
+        className="mt-3 grid gap-2 text-center"
+        style={{ gridTemplateColumns: `repeat(${chartData.length}, minmax(0, 1fr))` }}
+      >
+        {chartData.map((entry) => (
+          <div key={entry.name} className="flex flex-col items-center">
+            <span className="text-[11px] text-muted-foreground leading-tight">{entry.name}</span>
+            <span
+              className="text-[13px] font-semibold leading-tight mt-0.5"
+              style={{ color: entry.deviationLabel >= 0 ? COLOR_POSITIVE : "#c93b3b" }}
+            >
+              {entry.isPercent ? `${Math.round(entry.fact)}%` : formatAmount(entry.fact)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
