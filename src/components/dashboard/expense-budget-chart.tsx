@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { ExpenseCategoryData, LegalEntity } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
+import { BarCursor } from "./chart-cursor";
 
 interface ExpenseBudgetChartProps {
   expenseCategories: ExpenseCategoryData[];
@@ -171,13 +172,12 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
   if (!chartData.length) return null;
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h3 className="text-lg font-bold whitespace-nowrap">
-          &#x1F4B8; Исполнение бюджета расходов
-          <span className="ml-2 text-sm font-medium text-muted-foreground" title="от выручки">
-            {formatFull(totalFact)} · {pctOfRevenue}%
-          </span>
+        <h3 className="text-lg font-bold whitespace-nowrap flex items-baseline gap-2">
+          <span>&#x1F4B8; Исполнение бюджета расходов</span>
+          <span className="text-xl font-bold tabular-nums">{formatFull(totalFact)}</span>
+          <span className="text-sm font-medium text-muted-foreground">· {pctOfRevenue}% от выручки</span>
         </h3>
         {periodSelector}
       </div>
@@ -199,12 +199,12 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
             className="fill-muted-foreground"
             width={60}
           />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} />
-          <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]}>
+          <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
+          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             <LabelList dataKey="deviation" content={<DeviationLabel />} />
           </Bar>
-          <Bar dataKey="savings" name="Экономия" stackId="a" fill={COLOR_SAVINGS} radius={[4, 4, 0, 0]}>
+          <Bar dataKey="savings" name="Экономия" stackId="a" fill={COLOR_SAVINGS} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             <LabelList dataKey="deviation" content={<DeviationLabel />} />
           </Bar>
         </BarChart>

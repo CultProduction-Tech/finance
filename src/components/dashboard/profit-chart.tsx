@@ -128,14 +128,14 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
 
   if (!chartData.length) {
     return (
-      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
         Нет данных
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
         {periodSelector}

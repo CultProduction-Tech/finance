@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { MONTHS_RU } from "@/types/finance";
+import { BarCursor } from "./chart-cursor";
 
 interface DepartmentSeries {
   name: string;
@@ -65,7 +66,7 @@ export function DepartmentChart({ title, icon, series }: DepartmentChartProps) {
   });
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="text-lg font-bold">
           {icon} {title}
@@ -84,7 +85,7 @@ export function DepartmentChart({ title, icon, series }: DepartmentChartProps) {
             tickFormatter={formatNumber}
             className="fill-muted-foreground"
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+          <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
           {series.map((s) => (
             <Bar
               key={s.name}

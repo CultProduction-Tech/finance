@@ -137,7 +137,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
   }, [monthly, entity]);
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h3 className="text-lg font-bold">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
         {periodSelector}
@@ -160,7 +160,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           return (
             <div
               key={entry.name}
-              className="rounded-xl px-3 pt-3 pb-3 flex flex-col"
+              className="rounded-xl px-3 pt-3 pb-3 flex flex-col shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-shadow duration-200"
               style={{ background: bgColor }}
             >
               {/* Название */}

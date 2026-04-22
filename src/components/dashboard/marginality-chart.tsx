@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
+import { BarCursor } from "./chart-cursor";
 
 
 interface MarginalityChartProps {
@@ -127,18 +128,34 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
 
   const chartData = useMemo(() => {
     const monthsWithProjects = monthly.filter((m) => m.projects?.length);
+    const hasProjects = monthsWithProjects.length > 0;
 
-    let cumPrice = 0;
-    let cumExpense = 0;
-    for (const m of monthsWithProjects) {
-      for (const p of m.projects!) {
-        cumPrice += p.price;
-        cumExpense += p.expensePlan;
+    // Кумулятивная маржинальность: из проектов (AmoCRM) если есть, иначе — из P&L
+    let cumMarginPercent = 0;
+    if (hasProjects) {
+      let cumPrice = 0;
+      let cumExpense = 0;
+      for (const m of monthsWithProjects) {
+        for (const p of m.projects!) {
+          cumPrice += p.price;
+          cumExpense += p.expensePlan;
+        }
       }
+      cumMarginPercent = cumPrice > 0
+        ? Math.round(((cumPrice - cumExpense) / cumPrice) * 1000) / 10
+        : 0;
+    } else {
+      let cumRevenue = 0;
+      let cumMargin = 0;
+      for (const m of monthly) {
+        if (!m.isPast) continue;
+        cumRevenue += m.revenue;
+        cumMargin += m.margin;
+      }
+      cumMarginPercent = cumRevenue > 0
+        ? Math.round((cumMargin / cumRevenue) * 1000) / 10
+        : 0;
     }
-    const cumMarginPercent = cumPrice > 0
-      ? Math.round(((cumPrice - cumExpense) / cumPrice) * 1000) / 10
-      : 0;
 
     const data: BarDataPoint[] = [{
       name: "НИ",
@@ -165,7 +182,8 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           type: "project",
         });
       }
-    } else {
+    } else if (hasProjects) {
+      // Помесячно из проектов (Blaster)
       for (const m of monthly) {
         if (!m.projects?.length) continue;
         const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
@@ -173,6 +191,19 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
         data.push({
           name: label,
           value: calcProjectsMargin(m.projects),
+          type: "month",
+          monthKey: m.month,
+        });
+      }
+    } else {
+      // Помесячно из P&L (Культ и подобные — нет проектной детализации)
+      for (const m of monthly) {
+        if (!m.isPast) continue;
+        const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
+        const label = MONTHS_RU[monthIndex]?.substring(0, 3) || m.month;
+        data.push({
+          name: label,
+          value: m.marginPercent,
           type: "month",
           monthKey: m.month,
         });
@@ -196,7 +227,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
     : null;
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="text-lg font-bold">
           &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
@@ -271,7 +302,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               label={<BudgetBadge value={`${budgetLine}%`} />}
             />
           )}
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
           <Bar
             dataKey="value"
             radius={[4, 4, 0, 0]}
