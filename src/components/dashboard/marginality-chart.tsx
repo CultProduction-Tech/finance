@@ -197,15 +197,15 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
             interval={0}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
-            width={55}
+            width={60}
             domain={[0, (max: number) => Math.max(max + 5, budgetLine + 5)]}
           />
           {budgetLine > 0 && (
@@ -217,7 +217,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               label={{
                 value: `Марж-ть ${budgetLine}%`,
                 position: "insideBottomLeft",
-                fontSize: 11,
+                fontSize: 13,
                 fill: COLOR_CUMULATIVE,
                 offset: 5,
               }}
@@ -247,7 +247,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               dataKey="value"
               position="top"
               formatter={(v) => `${v}%`}
-              style={{ fontSize: 10, fontWeight: 500 }}
+              style={{ fontSize: 13, fontWeight: 500 }}
             />
           </Bar>
         </BarChart>

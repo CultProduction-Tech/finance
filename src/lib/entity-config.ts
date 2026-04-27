@@ -15,7 +15,7 @@ const configs: Record<LegalEntity, EntityConfig> = {
     amo: {
       pipelineId: Number(process.env.AMOCRM_PIPELINE_ID || "0"),
       projectStatusIds: [84825134, 142],
-      conversionSoldStatusId: 84825134,
+      conversionSoldStatusIds: [84825134, 142],
       conversionNotSoldStatusId: 143,
     },
     budgetName: "Бюджет 26",

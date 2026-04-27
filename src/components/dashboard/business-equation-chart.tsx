@@ -185,7 +185,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
             interval={0}
             angle={-25}
@@ -194,9 +194,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 13 }}
             className="fill-muted-foreground"
-            width={55}
+            width={60}
             domain={[-120, 120]}
           />
           <ReferenceLine y={0} stroke="#a0a0a0" strokeDasharray="3 3" strokeWidth={2} />
@@ -212,7 +212,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
               dataKey="deviationLabel"
               position="top"
               formatter={(v) => `${Number(v) > 0 ? "+" : ""}${v}%`}
-              style={{ fontSize: 11, fontWeight: 600 }}
+              style={{ fontSize: 13, fontWeight: 600 }}
               offset={4}
             />
           </Bar>

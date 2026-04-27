@@ -66,7 +66,7 @@ export interface AmoConfig {
   pipelineId: number;
   projectStatusIds?: number[];
   marginFieldId?: number;
-  conversionSoldStatusId?: number;
+  conversionSoldStatusIds?: number[];
   conversionNotSoldStatusId?: number;
 }
 
@@ -155,8 +155,9 @@ export async function getLeadCountsByCreatedDate(
   config?: AmoConfig,
 ): Promise<AmoLeadCounts> {
   const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
-  const soldId = config?.conversionSoldStatusId ?? STATUS_SOLD;
+  const soldIds = config?.conversionSoldStatusIds ?? [STATUS_SOLD];
   const notSoldId = config?.conversionNotSoldStatusId ?? STATUS_NOT_SOLD;
+  const allStatusIds = [...soldIds, notSoldId];
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
     return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 };
@@ -195,20 +196,20 @@ export async function getLeadCountsByCreatedDate(
     let hasMore = true;
     while (hasMore) {
       const params = new URLSearchParams({
-        "filter[statuses][0][pipeline_id]": String(pipelineId),
-        "filter[statuses][0][status_id]": String(soldId),
-        "filter[statuses][1][pipeline_id]": String(pipelineId),
-        "filter[statuses][1][status_id]": String(notSoldId),
-        "filter[closed_at][from]": String(startTs),
-        "filter[closed_at][to]": String(endTs),
+        "filter[created_at][from]": String(startTs),
+        "filter[created_at][to]": String(endTs),
         limit: "250",
         page: String(page),
+      });
+      allStatusIds.forEach((sid, i) => {
+        params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
+        params.set(`filter[statuses][${i}][status_id]`, String(sid));
       });
       const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
       if (!data._embedded?.leads?.length) break;
       for (const lead of data._embedded.leads) {
         if (lead.pipeline_id !== pipelineId) continue;
-        if (lead.status_id === soldId) {
+        if (soldIds.includes(lead.status_id)) {
           sold++;
           soldTotalPrice += lead.price || 0;
         } else if (lead.status_id === notSoldId) {

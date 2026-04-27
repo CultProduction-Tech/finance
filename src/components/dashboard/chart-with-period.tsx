@@ -13,6 +13,8 @@ interface ChartWithPeriodProps {
   globalKpi: KpiData;
   /** Всегда запрашивать данные с января (для графиков с нарастающим итогом) */
   alwaysFromJanuary?: boolean;
+  /** Скрыть кнопку "Месяц" в селекторе периода */
+  hideMonthButton?: boolean;
   children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode) => ReactNode;
 }
 
@@ -23,6 +25,7 @@ export function ChartWithPeriod({
   globalEndMonth,
   globalKpi,
   alwaysFromJanuary,
+  hideMonthButton,
   children,
 }: ChartWithPeriodProps) {
   const [localStart, setLocalStart] = useState<number | null>(null);
@@ -102,6 +105,7 @@ export function ChartWithPeriod({
       onStartMonthChange={handleStartChange}
       onEndMonthChange={handleEndChange}
       onQuickPeriod={handleQuickPeriod}
+      hideMonthButton={hideMonthButton}
     />
   );
 
