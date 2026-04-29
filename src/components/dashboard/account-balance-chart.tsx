@@ -14,6 +14,7 @@ import {
 import { useAccountBalance } from "@/lib/use-account-balance";
 import { LegalEntity } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
+import { ChartCardSkeleton } from "./loading-skeletons";
 
 interface AccountBalanceChartProps {
   entity: LegalEntity;
@@ -82,6 +83,8 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
     }));
   }, [data]);
 
+  if (loading) return <ChartCardSkeleton variant="line" height={240} />;
+
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
@@ -103,11 +106,7 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
         )}
       </div>
 
-      {loading ? (
-        <div className="h-[240px] flex items-center justify-center text-sm text-muted-foreground">
-          Загрузка остатков…
-        </div>
-      ) : error ? (
+      {error ? (
         <div className="h-[240px] flex items-center justify-center text-sm text-red-600/80">
           Не удалось загрузить данные: {error}
         </div>

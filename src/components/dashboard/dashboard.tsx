@@ -14,6 +14,7 @@ import { MarginalityChart } from "./marginality-chart";
 import { MonthNotes } from "./month-notes";
 import { ChartWithPeriod } from "./chart-with-period";
 import { AccountBalanceChart } from "./account-balance-chart";
+import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 // import { SERIES_COLORS } from "@/lib/chart-colors"; // скрыто вместе с блоком «Работа по отделам»
 
@@ -112,17 +113,24 @@ export function Dashboard() {
       {/* KPI карточки — ограниченная ширина */}
       <div className="max-w-7xl mx-auto px-6 pt-5 pb-6">
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[58px] rounded-2xl bg-white/60 animate-pulse"
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex justify-start mb-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-12 rounded-full animate-pulse bg-black/[0.06]" />
+                <div className="h-7 w-24 rounded-full animate-pulse bg-black/[0.06]" />
+                <span className="text-[#86868b] text-xs">—</span>
+                <div className="h-7 w-24 rounded-full animate-pulse bg-black/[0.06]" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <KpiCardSkeleton key={i} />
+              ))}
+            </div>
+          </>
         ) : kpi ? (
           <>
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-start mb-2">
               <PeriodSelector
                 year={year}
                 startMonth={startMonth}
@@ -137,6 +145,21 @@ export function Dashboard() {
           </>
         ) : null}
       </div>
+
+      {/* Графики — скелетоны во время загрузки чтобы layout не прыгал */}
+      {loading && !kpi && (
+        <div className="px-6 pb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <ChartCardSkeleton variant="line" />
+            <ChartCardSkeleton variant="bar" />
+            <ChartCardSkeleton variant="bar" />
+            <ChartCardSkeleton variant="bar" />
+          </div>
+          <div className="mt-5">
+            <ChartCardSkeleton variant="line" height={240} />
+          </div>
+        </div>
+      )}
 
       {/* Графики — широкий контейнер */}
       {kpi && (

@@ -41,6 +41,15 @@ function formatValue(value: number): string {
   return `${sign}${abs}`;
 }
 
+/** Формат с явным знаком: для месячного прироста, чтобы было понятно +/- */
+function formatDelta(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)} тыс`;
+  return `${sign}${abs}`;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (!active || !payload?.length) return null;
@@ -62,12 +71,12 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <p style={{ fontWeight: 600, marginBottom: 4 }}>{label}</p>
       <p style={{ color: COLOR_BUDGET }}>
         Бюджет НИ: {formatValue(point.budgetCum)}{" "}
-        ({formatValue(point.budgetMonthly)})
+        ({formatDelta(point.budgetMonthly)})
       </p>
       {point.factCum !== null && (
         <p style={{ color: COLOR_FACT }}>
           Факт НИ: {formatValue(point.factCum)}{" "}
-          ({formatValue(point.factMonthly)})
+          ({formatDelta(point.factMonthly)})
         </p>
       )}
       {point.profitabilityCum !== null && (

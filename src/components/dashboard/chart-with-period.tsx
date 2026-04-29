@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { KpiData, LegalEntity } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
 import { ChartPeriodSelector, QuickPeriod } from "./chart-period-selector";
+import { ChartCardSkeleton } from "./loading-skeletons";
 
 interface ChartWithPeriodProps {
   entity: LegalEntity;
@@ -122,11 +123,7 @@ export function ChartWithPeriod({
   );
 
   if (!kpi) {
-    return (
-      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-        Загрузка...
-      </div>
-    );
+    return <ChartCardSkeleton />;
   }
 
   return <>{children(kpi, loading, periodSelector)}</>;
