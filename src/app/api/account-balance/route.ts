@@ -18,7 +18,7 @@ export interface AccountBalanceSeriesResponse {
 }
 
 const WEEK_SECONDS = 60 * 60 * 24 * 7;
-const STEP_DAYS = 3;
+const STEP_DAYS = 1;
 
 const MONTHS_RU_FULL = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -79,8 +79,10 @@ async function loadSeriesForEntity(entity: LegalEntity): Promise<AccountBalanceS
   });
   balanceMap.set(fmt(today), currentBalance.total);
 
-  // План помесячно: берём актуальный БДДС-бюджет, покрывающий наш период
+  // План: берём БДДС-бюджет, покрывающий наш период; собираем как помесячно
+  // (для дней без явной плановой даты), так и поадрено по датам (для пиков)
   const planByMonth: Record<string, number> = {};
+  const planByDay: Record<string, number> = {};
   const targetBudget = bdds?.items.find(
     (b) => b.budgetStatus !== "Closed" && b.startDate <= fmt(end) && b.endDate >= fmt(start),
   );
@@ -89,13 +91,19 @@ async function loadSeriesForEntity(entity: LegalEntity): Promise<AccountBalanceS
       const detail = await pf.getBudgetDetail(targetBudget.budgetId);
       for (const version of detail.versions) {
         for (const item of version.info.items) {
+          const dayKey = item.date.substring(0, 10); // YYYY-MM-DD
           const monthKey = item.date.substring(0, 7);
-          // Тип берём из категории (item.operationType иногда null)
           const type = categoryType.get(item.operationCategoryId) ?? item.operationType;
-          if (type === "Income") {
-            planByMonth[monthKey] = (planByMonth[monthKey] ?? 0) + item.value;
-          } else if (type === "Outcome") {
-            planByMonth[monthKey] = (planByMonth[monthKey] ?? 0) - Math.abs(item.value);
+          let signed = 0;
+          if (type === "Income") signed = item.value;
+          else if (type === "Outcome") signed = -Math.abs(item.value);
+          else continue;
+
+          planByMonth[monthKey] = (planByMonth[monthKey] ?? 0) + signed;
+          // Только если день не совпадает с 1-м числом — записываем как «дневной»
+          // план. Items на 1-е число обычно агрегаты на месяц.
+          if (!dayKey.endsWith("-01")) {
+            planByDay[dayKey] = (planByDay[dayKey] ?? 0) + signed;
           }
         }
       }
@@ -104,15 +112,40 @@ async function loadSeriesForEntity(entity: LegalEntity): Promise<AccountBalanceS
     }
   }
 
+  // Сколько плана уже привязано к конкретным датам в каждом месяце —
+  // нужно чтобы остаток (агрегатные items на 1-е) распределить только по
+  // дням без своих транзакций.
+  const dayBoundPlanByMonth: Record<string, { totalSigned: number; daysWithPlan: Set<string> }> = {};
+  for (const [day, val] of Object.entries(planByDay)) {
+    const month = day.substring(0, 7);
+    if (!dayBoundPlanByMonth[month]) dayBoundPlanByMonth[month] = { totalSigned: 0, daysWithPlan: new Set() };
+    dayBoundPlanByMonth[month].totalSigned += val;
+    dayBoundPlanByMonth[month].daysWithPlan.add(day);
+  }
+
   let running = currentBalance.total;
   const cursor = new Date(today);
   while (cursor < end) {
     cursor.setDate(cursor.getDate() + 1);
+    const dayKey = fmt(cursor);
     const monthKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
     const monthPlan = planByMonth[monthKey] ?? 0;
+    const dayBound = dayBoundPlanByMonth[monthKey];
+    const remainder = monthPlan - (dayBound?.totalSigned ?? 0);
     const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-    running += monthPlan / daysInMonth;
-    balanceMap.set(fmt(cursor), running);
+    const daysBoundCount = dayBound?.daysWithPlan.size ?? 0;
+    const daysFree = Math.max(daysInMonth - daysBoundCount, 1);
+
+    let dailyDelta: number;
+    if (planByDay[dayKey] !== undefined) {
+      // У этого дня есть собственная плановая транзакция
+      dailyDelta = planByDay[dayKey];
+    } else {
+      // Распределяем остаток равномерно по «свободным» дням
+      dailyDelta = remainder / daysFree;
+    }
+    running += dailyDelta;
+    balanceMap.set(dayKey, running);
   }
 
   const series: AccountBalancePoint[] = samples.map((d) => {
@@ -138,7 +171,7 @@ async function loadSeriesForEntity(entity: LegalEntity): Promise<AccountBalanceS
 
 const cachedLoad = unstable_cache(
   loadSeriesForEntity,
-  ["account-balance-series-v2"],
+  ["account-balance-series-v4"],
   { revalidate: WEEK_SECONDS, tags: ["account-balance"] },
 );
 

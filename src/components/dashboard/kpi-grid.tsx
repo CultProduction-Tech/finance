@@ -86,7 +86,7 @@ export function KpiGrid({ data }: KpiGridProps) {
       />
       <BudgetKpiCard
         icon="📊"
-        label="Маржин-ть"
+        label="Маржинальность"
         factValue={a.factMarginPercent}
         budgetValue={a.budgetMarginPercent}
         isPercent

@@ -20,11 +20,21 @@ interface AccountBalanceChartProps {
   entity: LegalEntity;
 }
 
-const COLOR = CHART_COLORS.neutral; // зелёный
+const COLOR = CHART_COLORS.neutral; // зелёный (положительный)
+const COLOR_NEG = CHART_COLORS.negative; // красный (для значений ниже нуля)
 
 function formatMoney(value: number): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)} тыс`;
+  return `${sign}${Math.round(abs)}`;
+}
+
+/** Формат с явным знаком: для тултипа, чтобы знак был всегда виден */
+function formatMoneyWithSign(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
   if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)} тыс`;
   return `${sign}${Math.round(abs)}`;
@@ -61,7 +71,15 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
         {formatDateRu(point.date)}
         {point.isPlan && <span style={{ color: "#86868b", fontWeight: 400, marginLeft: 6 }}>план</span>}
       </div>
-      <div style={{ color: COLOR, marginTop: 2 }}>{formatMoney(point.balance)} ₽</div>
+      <div
+        style={{
+          color: point.balance < 0 ? COLOR_NEG : COLOR,
+          fontWeight: 600,
+          marginTop: 2,
+        }}
+      >
+        {formatMoneyWithSign(point.balance)} ₽
+      </div>
     </div>
   );
 }
@@ -82,6 +100,57 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
       planBalance: p.isPlan || i === lastFactIdx ? p.balance : null,
     }));
   }, [data]);
+
+  // Позиция нуля в градиенте — считается ОТДЕЛЬНО для каждой серии (fact/plan),
+  // потому что SVG-градиент мапится на bbox конкретного Area. Если считать
+  // глобально, у короткой серии (например, всё позитивный факт) граница
+  // зелёного и красного смещается внутрь bbox, и положительные значения
+  // окрашиваются в красный.
+  const calcZeroPos = (vals: number[]): number => {
+    if (vals.length === 0) return 1;
+    // baseValue={0} включает 0 в bbox области заливки
+    const top = Math.max(...vals, 0);
+    const bot = Math.min(...vals, 0);
+    if (top === bot) return 1;
+    if (bot >= 0) return 1; // всё положительное → только зелёный
+    if (top <= 0) return 0; // всё отрицательное → только красный
+    return top / (top - bot);
+  };
+
+  const factZeroPos = useMemo(() => {
+    if (!data) return 1;
+    return calcZeroPos(stitched.filter((p) => p.factBalance !== null).map((p) => p.factBalance!));
+  }, [data, stitched]);
+
+  const planZeroPos = useMemo(() => {
+    if (!data) return 1;
+    return calcZeroPos(stitched.filter((p) => p.planBalance !== null).map((p) => p.planBalance!));
+  }, [data, stitched]);
+
+  const factZeroPct = `${(factZeroPos * 100).toFixed(2)}%`;
+  const planZeroPct = `${(planZeroPos * 100).toFixed(2)}%`;
+
+  // Линия (stroke) использует bbox самой линии, без baseline.
+  // Если все значения одного знака — используем сплошной цвет.
+  const factLineMode = useMemo(() => {
+    if (!data) return { mode: "solid" as const, color: COLOR };
+    const vals = stitched.filter((p) => p.factBalance !== null).map((p) => p.factBalance!);
+    if (vals.length < 2) return { mode: "solid" as const, color: COLOR };
+    const min = Math.min(...vals), max = Math.max(...vals);
+    if (min >= 0) return { mode: "solid" as const, color: COLOR };
+    if (max <= 0) return { mode: "solid" as const, color: COLOR_NEG };
+    return { mode: "gradient" as const, zeroPct: `${(max / (max - min) * 100).toFixed(2)}%` };
+  }, [data, stitched]);
+
+  const planLineMode = useMemo(() => {
+    if (!data) return { mode: "solid" as const, color: COLOR };
+    const vals = stitched.filter((p) => p.planBalance !== null).map((p) => p.planBalance!);
+    if (vals.length < 2) return { mode: "solid" as const, color: COLOR };
+    const min = Math.min(...vals), max = Math.max(...vals);
+    if (min >= 0) return { mode: "solid" as const, color: COLOR };
+    if (max <= 0) return { mode: "solid" as const, color: COLOR_NEG };
+    return { mode: "gradient" as const, zeroPct: `${(max / (max - min) * 100).toFixed(2)}%` };
+  }, [data, stitched]);
 
   if (loading) return <ChartCardSkeleton variant="line" height={240} />;
 
@@ -118,14 +187,38 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={stitched} margin={{ top: 5, right: 12, left: 0, bottom: 0 }}>
             <defs>
+              {/* Жёсткий cut на нуле: цвет полностью прозрачный у самой нулевой
+                  линии, чёткое разделение зон без перетекания. Каждая серия
+                  имеет свой zeroPct, потому что SVG-градиент мапится к bbox
+                  конкретной Area. */}
               <linearGradient id="balanceGradientFact" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={COLOR} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={COLOR} stopOpacity={0.04} />
+                <stop offset="0%" stopColor={COLOR} stopOpacity={0.4} />
+                <stop offset={factZeroPct} stopColor={COLOR} stopOpacity={0} />
+                <stop offset={factZeroPct} stopColor={COLOR_NEG} stopOpacity={0} />
+                <stop offset="100%" stopColor={COLOR_NEG} stopOpacity={0.4} />
               </linearGradient>
               <linearGradient id="balanceGradientPlan" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={COLOR} stopOpacity={0.18} />
-                <stop offset="100%" stopColor={COLOR} stopOpacity={0.02} />
+                <stop offset="0%" stopColor={COLOR} stopOpacity={0.2} />
+                <stop offset={planZeroPct} stopColor={COLOR} stopOpacity={0} />
+                <stop offset={planZeroPct} stopColor={COLOR_NEG} stopOpacity={0} />
+                <stop offset="100%" stopColor={COLOR_NEG} stopOpacity={0.2} />
               </linearGradient>
+              {factLineMode.mode === "gradient" && (
+                <linearGradient id="balanceStrokeFact" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLOR} />
+                  <stop offset={factLineMode.zeroPct} stopColor={COLOR} />
+                  <stop offset={factLineMode.zeroPct} stopColor={COLOR_NEG} />
+                  <stop offset="100%" stopColor={COLOR_NEG} />
+                </linearGradient>
+              )}
+              {planLineMode.mode === "gradient" && (
+                <linearGradient id="balanceStrokePlan" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLOR} />
+                  <stop offset={planLineMode.zeroPct} stopColor={COLOR} />
+                  <stop offset={planLineMode.zeroPct} stopColor={COLOR_NEG} />
+                  <stop offset="100%" stopColor={COLOR_NEG} />
+                </linearGradient>
+              )}
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
             <XAxis
@@ -144,6 +237,8 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
               width={56}
             />
             <Tooltip content={<CustomTooltip />} />
+            {/* Видимая нулевая линия — точка отсчёта между плюсом и минусом */}
+            <ReferenceLine y={0} stroke="#1d1d1f" strokeOpacity={0.35} strokeWidth={1} />
             <ReferenceLine
               x={data.todayDate}
               stroke="#bbb"
@@ -156,21 +251,23 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
               }}
             />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="factBalance"
-              stroke={COLOR}
+              stroke={factLineMode.mode === "solid" ? factLineMode.color : "url(#balanceStrokeFact)"}
               strokeWidth={2}
               fill="url(#balanceGradientFact)"
+              baseValue={0}
               connectNulls
               isAnimationActive={false}
             />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="planBalance"
-              stroke={COLOR}
+              stroke={planLineMode.mode === "solid" ? planLineMode.color : "url(#balanceStrokePlan)"}
               strokeWidth={2}
               strokeDasharray="5 4"
               fill="url(#balanceGradientPlan)"
+              baseValue={0}
               connectNulls
               isAnimationActive={false}
             />
