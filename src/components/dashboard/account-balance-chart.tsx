@@ -51,9 +51,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
         backgroundColor: "white",
         border: "1px solid hsl(var(--border))",
         borderRadius: 8,
-        padding: "6px 10px",
-        fontSize: 12,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
+        padding: "8px 12px",
+        fontSize: 13,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
       }}
     >
       <div style={{ fontWeight: 600, color: "#1d1d1f" }}>
@@ -83,12 +83,10 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
   }, [data]);
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)] transition-shadow p-5">
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h3 className="text-base font-semibold tracking-tight">
-            💰 Остатки на счетах
-          </h3>
+          <h3 className="text-lg font-bold">🏦 Остатки на счетах</h3>
           {data && (
             <span className="text-xl font-semibold tabular-nums text-[#1d1d1f]">
               {formatMoney(data.totalBalance)} ₽
@@ -133,14 +131,14 @@ export function AccountBalanceChart({ entity }: AccountBalanceChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: "#86868b" }}
+              tick={{ fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={formatTickDate}
               minTickGap={48}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "#86868b" }}
+              tick={{ fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={formatMoney}

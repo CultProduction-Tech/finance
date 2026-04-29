@@ -78,14 +78,14 @@ export function KpiGrid({ data }: KpiGridProps) {
         goal="more"
       />
       <BudgetKpiCard
-        icon="📊"
+        icon="💵"
         label="Маржа"
         factValue={a.factMargin}
         budgetValue={a.budgetMargin}
         goal="more"
       />
       <BudgetKpiCard
-        icon="📈"
+        icon="📊"
         label="Маржин-ть"
         factValue={a.factMarginPercent}
         budgetValue={a.budgetMarginPercent}

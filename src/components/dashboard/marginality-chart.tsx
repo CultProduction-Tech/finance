@@ -236,9 +236,12 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           {drillMonth && (
             <button
               onClick={() => setDrillMonth(null)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 h-6 text-[11px] font-medium text-[#1d1d1f] ring-1 ring-black/[0.08] shadow-[0_1px_1px_rgba(0,0,0,0.04)] hover:ring-black/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.07)] transition-all"
             >
-              ← Назад
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Назад
             </button>
           )}
           {periodSelector}
