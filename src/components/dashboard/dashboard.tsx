@@ -8,13 +8,14 @@ import { EntitySwitcher } from "./entity-switcher";
 import { KpiGrid } from "./kpi-grid";
 import { ProfitChart } from "./profit-chart";
 import { BusinessEquationChart } from "./business-equation-chart";
-import { DepartmentChart } from "./department-chart";
+// import { DepartmentChart } from "./department-chart"; // скрыто вместе с блоком «Работа по отделам»
 import { ExpenseBudgetChart } from "./expense-budget-chart";
 import { MarginalityChart } from "./marginality-chart";
 import { MonthNotes } from "./month-notes";
 import { ChartWithPeriod } from "./chart-with-period";
+import { AccountBalanceChart } from "./account-balance-chart";
 import { Badge } from "@/components/ui/badge";
-import { SERIES_COLORS } from "@/lib/chart-colors";
+// import { SERIES_COLORS } from "@/lib/chart-colors"; // скрыто вместе с блоком «Работа по отделам»
 
 export function Dashboard() {
   const [entity, setEntity] = useState<LegalEntity>("blaster");
@@ -109,18 +110,31 @@ export function Dashboard() {
       </header>
 
       {/* KPI карточки — ограниченная ширина */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-6 pt-5 pb-6">
         {loading ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[52px] rounded-2xl bg-white/60 animate-pulse"
+                className="h-[58px] rounded-2xl bg-white/60 animate-pulse"
               />
             ))}
           </div>
         ) : kpi ? (
-          <KpiGrid data={kpi} />
+          <>
+            <div className="flex justify-end mb-2">
+              <PeriodSelector
+                year={year}
+                startMonth={startMonth}
+                endMonth={endMonth}
+                onYearChange={handleYearChange}
+                onStartMonthChange={handleStartMonthChange}
+                onEndMonthChange={handleEndMonthChange}
+                hideYear
+              />
+            </div>
+            <KpiGrid data={kpi} />
+          </>
         ) : null}
       </div>
 
@@ -128,91 +142,56 @@ export function Dashboard() {
       {kpi && (
         <div className="px-6 pb-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Сверху-слева: Чистая прибыль и рентабельность */}
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion} hideMonthButton>
               {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} />}
             </ChartWithPeriod>
+            {/* Сверху-справа: Бизнес-уравнение */}
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
+              {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
+            </ChartWithPeriod>
+            {/* Снизу-слева: Маржинальность */}
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} />}
             </ChartWithPeriod>
-            <div className="lg:col-span-2">
-              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
-                {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
-              </ChartWithPeriod>
-            </div>
-            <div className="lg:col-span-2">
-              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
-                {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
-              </ChartWithPeriod>
-            </div>
+            {/* Снизу-справа: Исполнение бюджета расходов */}
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} periodVersion={periodVersion}>
+              {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
+            </ChartWithPeriod>
           </div>
 
-          {/* Третий ряд — работа по отделам (мок-данные, весь год) */}
-          <div className="mt-6">
-            <h2 className="text-[13px] font-medium text-muted-foreground mb-3 px-1 uppercase tracking-wide">
-              Работа по отделам · весь год
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <DepartmentChart
-                title="Продажи"
-                icon="💼"
-                series={[
-                  {
-                    name: "Контакты с клиентами",
-                    data: [45, 52, 48, 61, 58, 67, 72, 68, 75, 82, 79, 88],
-                    color: SERIES_COLORS[0],
-                  },
-                ]}
-              />
-              <DepartmentChart
-                title="Доки"
-                icon="📄"
-                series={[
-                  {
-                    name: "Платежки",
-                    data: [120, 135, 128, 145, 142, 158, 165, 155, 170, 180, 175, 190],
-                    color: SERIES_COLORS[1],
-                  },
-                  {
-                    name: "Комплекты документов",
-                    data: [85, 90, 92, 105, 100, 115, 118, 112, 125, 130, 128, 140],
-                    color: SERIES_COLORS[2],
-                  },
-                ]}
-              />
-              <DepartmentChart
-                title="Производство"
-                icon="🏭"
-                series={[
-                  {
-                    name: "Запросы",
-                    data: [25, 32, 28, 35, 38, 42, 45, 40, 48, 52, 50, 55],
-                    color: SERIES_COLORS[3],
-                  },
-                  {
-                    name: "Проданные проекты",
-                    data: [8, 10, 9, 12, 11, 14, 15, 13, 16, 18, 17, 19],
-                    color: SERIES_COLORS[0],
-                  },
-                ]}
-              />
-              <DepartmentChart
-                title="Пиар"
-                icon="📢"
-                series={[
-                  {
-                    name: "Инстаграм",
-                    data: [15000, 18000, 16500, 21000, 19500, 24000, 26000, 23500, 28000, 31000, 29500, 33000],
-                    color: SERIES_COLORS[4],
-                  },
-                  {
-                    name: "Телеграм",
-                    data: [8000, 9500, 8800, 11000, 10500, 13000, 14500, 13500, 16000, 17500, 16800, 18500],
-                    color: SERIES_COLORS[5],
-                  },
-                ]}
-              />
-            </div>
+          {/* Остатки на счетах — занимает всю ширину под основной 2×2 сеткой */}
+          <div className="mt-5">
+            <AccountBalanceChart entity={entity} />
           </div>
+
+          {/*
+            Скрыто: блок «Работа по отделам · весь год» — 4 виджета на мок-данных.
+            Чтобы вернуть, раскомментируйте секцию (импорты DepartmentChart и SERIES_COLORS уже на месте).
+
+            <div className="mt-6">
+              <h2 className="text-[13px] font-medium text-muted-foreground mb-3 px-1 uppercase tracking-wide">
+                Работа по отделам · весь год
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <DepartmentChart title="Продажи" icon="💼" series={[
+                  { name: "Контакты с клиентами", data: [45,52,48,61,58,67,72,68,75,82,79,88], color: SERIES_COLORS[0] },
+                ]} />
+                <DepartmentChart title="Доки" icon="📄" series={[
+                  { name: "Платежки", data: [120,135,128,145,142,158,165,155,170,180,175,190], color: SERIES_COLORS[1] },
+                  { name: "Комплекты документов", data: [85,90,92,105,100,115,118,112,125,130,128,140], color: SERIES_COLORS[2] },
+                ]} />
+                <DepartmentChart title="Производство" icon="🏭" series={[
+                  { name: "Запросы", data: [25,32,28,35,38,42,45,40,48,52,50,55], color: SERIES_COLORS[3] },
+                  { name: "Проданные проекты", data: [8,10,9,12,11,14,15,13,16,18,17,19], color: SERIES_COLORS[0] },
+                ]} />
+                <DepartmentChart title="Пиар" icon="📢" series={[
+                  { name: "Инстаграм", data: [15000,18000,16500,21000,19500,24000,26000,23500,28000,31000,29500,33000], color: SERIES_COLORS[4] },
+                  { name: "Телеграм", data: [8000,9500,8800,11000,10500,13000,14500,13500,16000,17500,16800,18500], color: SERIES_COLORS[5] },
+                ]} />
+              </div>
+            </div>
+          */}
 
           {startMonth === endMonth && (
             <div className="mt-4 max-w-7xl mx-auto">

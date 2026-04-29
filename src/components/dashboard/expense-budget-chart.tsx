@@ -90,7 +90,7 @@ function DeviationLabel(props: any) {
   const { x, y, width, height, value, viewBox } = props;
   if (!height || Math.abs(height) < 1) return null;
   const cx = (x ?? viewBox?.x ?? 0) + (width ?? viewBox?.width ?? 0) / 2;
-  const cy = (y ?? viewBox?.y ?? 0) - 14;
+  const cy = (y ?? viewBox?.y ?? 0) - 6;
   const dev = value as number;
 
   return (

@@ -16,6 +16,8 @@ interface PeriodSelectorProps {
   onYearChange: (year: number) => void;
   onStartMonthChange: (month: number) => void;
   onEndMonthChange: (month: number) => void;
+  /** Скрыть селектор года (для компактного варианта) */
+  hideYear?: boolean;
 }
 
 export function PeriodSelector({
@@ -25,6 +27,7 @@ export function PeriodSelector({
   onYearChange,
   onStartMonthChange,
   onEndMonthChange,
+  hideYear = false,
 }: PeriodSelectorProps) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -37,33 +40,37 @@ export function PeriodSelector({
     onEndMonthChange(11);
   };
 
-  const activeStyle = "rounded-full bg-[var(--accent-solid)] px-4 py-1.5 text-[13px] font-medium text-[var(--accent-solid-foreground)] transition-all";
-  const inactiveStyle = "rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1d1d1f] hover:bg-white transition-all shadow-[0_1px_2px_rgba(0,0,0,0.06)]";
+  const pillBase = "inline-flex items-center justify-center rounded-full px-4 h-7 text-[13px] font-medium transition-all";
+  const activeStyle = `${pillBase} bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.12)]`;
+  const inactiveStyle = `${pillBase} bg-white text-[#1d1d1f] ring-1 ring-black/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:ring-black/[0.14] hover:shadow-[0_1px_3px_rgba(0,0,0,0.07)]`;
 
   // Если ни один пресет не активен — значит интервал кастомный, подсвечиваем дропдауны месяцев
   const isCustomInterval = !isThisYear;
-  const monthSelectClass = isCustomInterval
-    ? "w-[140px] bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] border-[var(--accent-solid)] [&_svg]:text-[var(--accent-solid-foreground)]"
-    : "w-[140px]";
+  const monthAccent = isCustomInterval
+    ? "bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] ring-0 shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:ring-0 hover:shadow-[0_1px_2px_rgba(0,0,0,0.12)] [&_svg]:text-[var(--accent-solid-foreground)]"
+    : "";
 
   return (
     <div className="flex items-center gap-2">
       <button
         onClick={handleThisYear}
         className={isThisYear ? activeStyle : inactiveStyle}
+        title="Нарастающим итогом — весь год"
       >
-        Этот год
+        НИ
       </button>
-      <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
-        <SelectTrigger className="w-[100px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="2025">2025</SelectItem>
-          <SelectItem value="2026">2026</SelectItem>
-          <SelectItem value="2027">2027</SelectItem>
-        </SelectContent>
-      </Select>
+      {!hideYear && (
+        <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
+          <SelectTrigger size="pill" className="w-[88px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="2025">2025</SelectItem>
+            <SelectItem value="2026">2026</SelectItem>
+            <SelectItem value="2027">2027</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
 
       <Select
         value={MONTHS_RU[startMonth]}
@@ -74,7 +81,7 @@ export function PeriodSelector({
           if (idx > endMonth) onEndMonthChange(idx);
         }}
       >
-        <SelectTrigger className={monthSelectClass}>
+        <SelectTrigger size="pill" className={`w-[124px] ${monthAccent}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -86,7 +93,7 @@ export function PeriodSelector({
         </SelectContent>
       </Select>
 
-      <span className="text-muted-foreground">—</span>
+      <span className="text-[#86868b] text-xs">—</span>
 
       <Select
         value={MONTHS_RU[endMonth]}
@@ -97,7 +104,7 @@ export function PeriodSelector({
           if (idx < startMonth) onStartMonthChange(idx);
         }}
       >
-        <SelectTrigger className={monthSelectClass}>
+        <SelectTrigger size="pill" className={`w-[124px] ${monthAccent}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

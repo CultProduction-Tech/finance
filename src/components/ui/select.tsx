@@ -34,7 +34,7 @@ function SelectTrigger({
   children,
   ...props
 }: SelectPrimitive.Trigger.Props & {
-  size?: "sm" | "default"
+  size?: "sm" | "default" | "pill" | "pillSm"
 }) {
   return (
     <SelectPrimitive.Trigger
@@ -42,6 +42,10 @@ function SelectTrigger({
       data-size={size}
       className={cn(
         "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        size === "pill" &&
+          "rounded-full border-0 bg-white px-3.5 py-0 h-7 text-[13px] font-medium text-[#1d1d1f] ring-1 ring-black/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:ring-black/[0.14] hover:shadow-[0_1px_3px_rgba(0,0,0,0.07)] transition-all",
+        size === "pillSm" &&
+          "rounded-full border-0 bg-white px-2.5 py-0 h-6 text-[11px] font-medium text-[#1d1d1f] ring-1 ring-black/[0.08] shadow-[0_1px_1px_rgba(0,0,0,0.04)] hover:ring-black/[0.14] transition-all",
         className
       )}
       {...props}
@@ -49,7 +53,12 @@ function SelectTrigger({
       {children}
       <SelectPrimitive.Icon
         render={
-          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+          <ChevronDownIcon
+            className={cn(
+              "pointer-events-none size-4 text-muted-foreground",
+              size === "pillSm" && "size-3 text-[#86868b]"
+            )}
+          />
         }
       />
     </SelectPrimitive.Trigger>
