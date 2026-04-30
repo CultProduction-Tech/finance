@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
   const pf = config.planfact;
 
   try {
-    const now = new Date();
+    const raw = new Date();
+    const now = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
     const todayStr = fmt(now);
 
     // Диапазон: начало текущего месяца → конец +3 месяцев
@@ -40,10 +41,9 @@ export async function GET(request: NextRequest) {
       ),
     );
 
-    // ===== 3. Будущее: ежедневный planDiff от текущего баланса =====
+    // ===== 3. Будущее: ежедневный planDiff, накопление от сегодня (включая сегодняшние плановые операции) =====
     const futureDates: Date[] = [];
     const fd = new Date(now);
-    fd.setDate(fd.getDate() + 1);
     while (fd <= rangeEnd) {
       futureDates.push(new Date(fd));
       fd.setDate(fd.getDate() + 1);
@@ -60,14 +60,16 @@ export async function GET(request: NextRequest) {
     );
 
     let runningBalance = balance.total;
-    const futurePoints = dailyCashflows.map((day) => {
+    const futurePoints: { date: string; balance: number; type: "plan" }[] = [];
+    for (const day of dailyCashflows) {
       runningBalance += day.planDifference;
-      return {
+      if (day.date === todayStr) continue; // сегодня уже есть в pastBalances как факт
+      futurePoints.push({
         date: day.date,
         balance: runningBalance,
-        type: "plan" as const,
-      };
-    });
+        type: "plan",
+      });
+    }
 
     const points = [...pastBalances, ...futurePoints];
 
