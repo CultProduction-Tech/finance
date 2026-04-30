@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { PaymentStructureResponse } from "@/lib/planfact-client";
-import { getProjectDetails, getLeadCountsByCreatedDate } from "@/lib/amocrm-client";
+import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts } from "@/lib/amocrm-client";
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 
 
 const REQUESTS_PLAN_2026 = [7, 19, 22, 11, 14, 20, 20, 30, 30, 32, 16, 0];
 const PROJECTS_PLAN = 10;
+
+// Cult plan values
+const CULT_REQUESTS_PLAN = 7; // per month
+const CULT_CONVERSION_PLAN = 16; // %
+const CULT_PROJECTS_PLAN = 2; // per month
+const CULT_AVG_CHECK_PLAN = 9_000_000;
 
 export interface ExpenseCategory {
   id: number;
@@ -138,21 +144,36 @@ export async function GET(request: NextRequest) {
       return getProjectDetails(mStart, mEnd, amoConfig);
     });
 
+    const isCult = entity === "cult";
+
     const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
       if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 });
       return getLeadCountsByCreatedDate(mStart, mEnd, amoConfig);
     });
 
-    const [projectResults, leadCountResults] = await Promise.all([
+    // Cult: system-created lead counts for requests & conversion
+    const cultLeadPromises = isCult
+      ? monthRanges.map(({ m, mStart, mEnd }) => {
+          if (m > currentMonth) return Promise.resolve({ totalRequests: 0, takenToWork: 0 });
+          return getSystemCreatedLeadCounts(mStart, mEnd, amoConfig);
+        })
+      : null;
+
+    const [projectResults, leadCountResults, cultLeadResults] = await Promise.all([
       Promise.all(projectPromises),
       Promise.all(leadCountPromises),
+      cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
     ]);
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number }>();
+    const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
+      if (cultLeadResults) {
+        cultLeadsByMonth.set(months[i], cultLeadResults[i]);
+      }
     }
 
     const psPromises = pastMonths.map((m) => {
@@ -311,12 +332,20 @@ export async function GET(request: NextRequest) {
           expensePlan: p.expensePlan,
           marginPercent: p.marginPercent,
         })),
-        requestsFact: leadCountsByMonth.get(monthKey)?.totalRequests ?? 0,
-        requestsPlan: REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0,
-        projectsSoldFact: leadCountsByMonth.get(monthKey)?.sold ?? 0,
-        projectsNotSoldFact: leadCountsByMonth.get(monthKey)?.notSold ?? 0,
+        requestsFact: isCult
+          ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
+          : (leadCountsByMonth.get(monthKey)?.totalRequests ?? 0),
+        requestsPlan: isCult
+          ? CULT_REQUESTS_PLAN
+          : (REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
+        projectsSoldFact: isCult
+          ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
+          : (leadCountsByMonth.get(monthKey)?.sold ?? 0),
+        projectsNotSoldFact: isCult
+          ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
+          : (leadCountsByMonth.get(monthKey)?.notSold ?? 0),
         projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
-        projectsPlan: PROJECTS_PLAN,
+        projectsPlan: isCult ? CULT_PROJECTS_PLAN : PROJECTS_PLAN,
       });
 
       totalRevenue += m.revenue;

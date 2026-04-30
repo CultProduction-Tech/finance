@@ -8,11 +8,12 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   LabelList,
 } from "recharts";
 import { ExpenseCategoryData, LegalEntity } from "@/types/finance";
+import { CHART_COLORS } from "@/lib/chart-colors";
+import { BarCursor } from "./chart-cursor";
 
 interface ExpenseBudgetChartProps {
   expenseCategories: ExpenseCategoryData[];
@@ -31,9 +32,9 @@ interface ChartDataPoint {
   totalFact: number;
 }
 
-const COLOR_FACT = "hsl(210, 60%, 65%)";
-const COLOR_OVERSPEND = "hsl(0, 65%, 75%)";
-const COLOR_SAVINGS = "hsl(160, 50%, 65%)";
+const COLOR_FACT = CHART_COLORS.positive;
+const COLOR_OVERSPEND = CHART_COLORS.negative;
+const COLOR_SAVINGS = CHART_COLORS.neutral;
 
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
@@ -89,12 +90,11 @@ function DeviationLabel(props: any) {
   const { x, y, width, height, value, viewBox } = props;
   if (!height || Math.abs(height) < 1) return null;
   const cx = (x ?? viewBox?.x ?? 0) + (width ?? viewBox?.width ?? 0) / 2;
-  const cy = (y ?? viewBox?.y ?? 0) - 14;
+  const cy = (y ?? viewBox?.y ?? 0) - 6;
   const dev = value as number;
-  const color = dev > 0 ? COLOR_OVERSPEND : dev < 0 ? COLOR_SAVINGS : "hsl(var(--muted-foreground))";
 
   return (
-    <text x={cx} y={cy} textAnchor="middle" fontSize={13} fontWeight={500} fill={color}>
+    <text x={cx} y={cy} textAnchor="middle" fontSize={12} fontWeight={700} fill="#1d1d1f">
       {dev > 0 ? "+" : ""}{dev}%
     </text>
   );
@@ -172,49 +172,54 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
   if (!chartData.length) return null;
 
   return (
-    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
-      <h3 className="text-lg font-bold mb-1 text-center">
-        &#x1F4B8; Исполнение бюджета расходов
-      </h3>
-      <div className="flex items-center justify-between mb-2">
-        {periodSelector || <div />}
-        <div className="text-right">
-          <span className="text-lg font-bold">{formatFull(totalFact)}</span>
-          <span className="text-xs text-muted-foreground ml-1">{pctOfRevenue}% от выручки</span>
-        </div>
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-lg font-bold whitespace-nowrap flex items-baseline gap-2">
+          <span>&#x1F4B8; Бюджет расходов</span>
+          <span className="text-xl font-bold tabular-nums">{formatFull(totalFact)}</span>
+          <span className="text-sm font-medium text-muted-foreground">· {pctOfRevenue}% от выручки</span>
+        </h3>
+        {periodSelector}
       </div>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={chartData} margin={{ top: 30, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             interval={0}
-            angle={-25}
+            angle={-30}
             textAnchor="end"
-            height={60}
+            height={80}
           />
           <YAxis
             tickFormatter={(v) => formatAmount(v)}
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             width={60}
           />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend
-            wrapperStyle={{ fontSize: 14 }}
-            formatter={(value) => <span style={{ color: "hsl(var(--foreground))" }}>{value}</span>}
-          />
-          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} />
-          <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]}>
+          <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
+          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             <LabelList dataKey="deviation" content={<DeviationLabel />} />
           </Bar>
-          <Bar dataKey="savings" name="Экономия" stackId="a" fill={COLOR_SAVINGS} radius={[4, 4, 0, 0]}>
+          <Bar dataKey="savings" name="Экономия" stackId="a" fill={COLOR_SAVINGS} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             <LabelList dataKey="deviation" content={<DeviationLabel />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <div className="flex items-center justify-center flex-wrap gap-x-5 gap-y-1 mt-3 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_FACT }} /> Факт
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_OVERSPEND }} /> Перерасход
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_SAVINGS }} /> Экономия
+        </span>
+      </div>
     </div>
   );
 }

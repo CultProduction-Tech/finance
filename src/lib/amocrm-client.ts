@@ -68,6 +68,13 @@ export interface AmoConfig {
   marginFieldId?: number;
   conversionSoldStatusIds?: number[];
   conversionNotSoldStatusId?: number;
+  /** Cult-specific: system user ID for counting requests */
+  systemCreatedByUserId?: number;
+  /** Cult-specific: "Первичный контакт" status ID */
+  primaryContactStatusId?: number;
+  /** Cult-specific: "Взяли в работу" custom field ID and enum value */
+  takenToWorkFieldId?: number;
+  takenToWorkEnumId?: number;
 }
 
 export async function getProjectDetails(
@@ -222,4 +229,64 @@ export async function getLeadCountsByCreatedDate(
   }
 
   return { sold, notSold, soldTotalPrice, totalRequests };
+}
+
+/**
+ * Подсчёт запросов для Культа: лиды, созданные «Системой» в указанном периоде.
+ * Возвращает общее количество и количество «взятых в работу» (ушедших из Первичного контакта).
+ */
+export async function getSystemCreatedLeadCounts(
+  startDate: string,
+  endDate: string,
+  config: AmoConfig,
+): Promise<{ totalRequests: number; takenToWork: number }> {
+  const pipelineId = config.pipelineId;
+  const createdByUserId = config.systemCreatedByUserId;
+  const primaryContactStatusId = config.primaryContactStatusId;
+  const takenFieldId = config.takenToWorkFieldId;
+  const takenEnumId = config.takenToWorkEnumId;
+
+  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !createdByUserId || !primaryContactStatusId) {
+    return { totalRequests: 0, takenToWork: 0 };
+  }
+
+  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
+  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
+
+  // Запросы: лиды от Системы, в "Первичный контакт", созданные в периоде
+  // + считаем "взяли в работу" по кастомному полю
+  let totalRequests = 0;
+  let takenToWork = 0;
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const params = new URLSearchParams({
+      "filter[pipeline_id]": String(pipelineId),
+      "filter[created_by]": String(createdByUserId),
+      "filter[created_at][from]": String(startTs),
+      "filter[created_at][to]": String(endTs),
+      "filter[statuses][0][pipeline_id]": String(pipelineId),
+      "filter[statuses][0][status_id]": String(primaryContactStatusId),
+      limit: "250",
+      page: String(page),
+    });
+    const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
+    if (!data._embedded?.leads?.length) break;
+    for (const lead of data._embedded.leads) {
+      if (lead.pipeline_id !== pipelineId) continue;
+      totalRequests++;
+      // Проверяем кастомное поле "Взяли в работу" = "Да"
+      if (takenFieldId && takenEnumId && lead.custom_fields_values) {
+        const field = lead.custom_fields_values.find((f) => f.field_id === takenFieldId);
+        if (field?.values?.some((v) => v.value === "Да" || (v as { enum_id?: number }).enum_id === takenEnumId)) {
+          takenToWork++;
+        }
+      }
+    }
+    hasMore = !!data._links?.next;
+    page++;
+  }
+
+  return { totalRequests, takenToWork };
 }

@@ -16,6 +16,7 @@ interface UseKpiOptions {
   year: number;
   startMonth: number;
   endMonth: number;
+  refreshKey?: number;
 }
 
 interface UseKpiResult {
@@ -25,7 +26,7 @@ interface UseKpiResult {
   useMock: boolean;
 }
 
-export function useKpi({ entity, year, startMonth, endMonth }: UseKpiOptions): UseKpiResult {
+export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKpiOptions): UseKpiResult {
   const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +79,8 @@ export function useKpi({ entity, year, startMonth, endMonth }: UseKpiOptions): U
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, entity, year, startMonth, endMonth]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, entity, year, startMonth, endMonth, refreshKey]);
 
   useEffect(() => {
     fetchData();

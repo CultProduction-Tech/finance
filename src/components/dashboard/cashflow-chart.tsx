@@ -1,0 +1,207 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
+import { CHART_COLORS } from "@/lib/chart-colors";
+import type { LegalEntity } from "@/types/finance";
+
+interface CashflowPoint {
+  date: string;
+  balance: number;
+  type: "fact" | "plan";
+}
+
+interface CashflowData {
+  currentBalance: number;
+  points: CashflowPoint[];
+}
+
+interface CashflowChartProps {
+  entity: LegalEntity;
+  refreshKey?: number;
+  onLastBalance?: (balance: number | null) => void;
+}
+
+function formatValue(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
+  if (abs >= 1_000) return `${sign}${Math.round(abs / 1_000)} тыс`;
+  return `${sign}${Math.round(abs)}`;
+}
+
+function formatDate(dateStr: string): string {
+  const [, m, d] = dateStr.split("-");
+  const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  return `${parseInt(d)} ${months[parseInt(m) - 1]}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload as { date: string; balance: number; type: string } | undefined;
+  if (!point) return null;
+
+  return (
+    <div
+      style={{
+        backgroundColor: "white",
+        border: "1px solid hsl(var(--border))",
+        borderRadius: 8,
+        padding: "8px 12px",
+        fontSize: 13,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+      }}
+    >
+      <p style={{ fontWeight: 600, marginBottom: 4 }}>{formatDate(point.date)}</p>
+      <p style={{ color: point.balance >= 0 ? CHART_COLORS.neutral : CHART_COLORS.negative }}>
+        Остаток: {formatValue(point.balance)}
+      </p>
+      <p style={{ color: "#86868b", fontSize: 11, marginTop: 2 }}>
+        {point.type === "fact" ? "Факт" : "Прогноз"}
+      </p>
+    </div>
+  );
+}
+
+export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowChartProps) {
+  const [data, setData] = useState<CashflowData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/cashflow?entity=${entity}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.points) {
+          setData(d);
+          if (onLastBalance && d.points.length) {
+            onLastBalance(d.points[d.points.length - 1].balance);
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [entity, refreshKey, onLastBalance]);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+        Загрузка...
+      </div>
+    );
+  }
+
+  if (!data?.points?.length) {
+    return (
+      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+        Нет данных
+      </div>
+    );
+  }
+
+  const chartData = data.points.map((p) => ({
+    date: p.date,
+    label: formatDate(p.date),
+    balance: Math.round(p.balance),
+    type: p.type,
+  }));
+
+  const hasNegative = chartData.some((d) => d.balance < 0);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
+
+  // Подписи дат
+  const monthsShort = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+  const today = new Date();
+  const dataAsOf = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
+  const startDate = chartData[0]?.date;
+  const endDate = chartData[chartData.length - 1]?.date;
+  const periodLabel = startDate && endDate
+    ? `${monthsShort[parseInt(startDate.split("-")[1]) - 1]} — ${monthsShort[parseInt(endDate.split("-")[1]) - 1]} ${endDate.split("-")[0]}`
+    : "";
+
+  return (
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-baseline gap-3">
+          <h3 className="text-lg font-bold">&#x1F4B0; Кэшфлоу</h3>
+          <span className="text-[13px] font-medium text-muted-foreground">{periodLabel}</span>
+        </div>
+        <span className="text-xs text-muted-foreground">Данные на {dataAsOf}</span>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <defs>
+            <linearGradient id="cashflowGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={CHART_COLORS.positive} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={CHART_COLORS.positive} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11 }}
+            className="fill-muted-foreground"
+            interval={tickInterval}
+          />
+          <YAxis
+            tickFormatter={(v) => formatValue(v)}
+            tick={{ fontSize: 13 }}
+            className="fill-muted-foreground"
+            width={75}
+          />
+          {hasNegative && (
+            <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 4" strokeWidth={1.5} />
+          )}
+          <Tooltip content={<CustomTooltip />} />
+          <Area
+            type="monotone"
+            dataKey="balance"
+            stroke={CHART_COLORS.positive}
+            strokeWidth={2}
+            fill="url(#cashflowGradient)"
+            dot={(props) => {
+              const { cx, cy, payload } = props;
+              if (payload.date !== todayStr) return <circle key={payload.date} r={0} />;
+              return (
+                <circle
+                  key={payload.date}
+                  cx={cx}
+                  cy={cy}
+                  r={5}
+                  fill={CHART_COLORS.positive}
+                  stroke="white"
+                  strokeWidth={2}
+                />
+              );
+            }}
+            activeDot={{ r: 5, fill: CHART_COLORS.positive, stroke: "white", strokeWidth: 2 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+      <div className="flex items-center justify-center gap-5 mt-3 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS.positive }} /> Остаток
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: CHART_COLORS.positive }} /> Сегодня
+        </span>
+        {hasNegative && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block border-t-2 border-dashed border-red-400" style={{ width: 14 }} /> Кассовый разрыв
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}

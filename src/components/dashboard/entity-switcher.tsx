@@ -16,12 +16,20 @@ export function EntitySwitcher({ selected, onSelect }: EntitySwitcherProps) {
           key={entity.id}
           onClick={() => onSelect(entity.id)}
           className={cn(
-            "px-6 py-3 text-sm font-medium transition-colors border-t-2",
+            "px-6 py-3 text-[13px] font-medium transition-all border-b-2 flex items-center gap-2",
             selected === entity.id
-              ? "border-t-primary text-foreground bg-background"
-              : "border-transparent text-muted-foreground bg-muted/50 hover:bg-muted",
+              ? "border-b-[var(--accent-solid)] text-foreground"
+              : "border-transparent text-[#86868b] hover:text-foreground",
           )}
         >
+          <img
+            src={`/logos/${entity.id}.jpg`}
+            alt=""
+            className={cn(
+              "w-5 h-5 rounded-md object-cover transition-opacity",
+              selected === entity.id ? "opacity-100" : "opacity-50",
+            )}
+          />
           {entity.fullName}
         </button>
       ))}

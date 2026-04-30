@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { KpiData, LegalEntity } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
 import { ChartPeriodSelector, QuickPeriod } from "./chart-period-selector";
+import { ChartCardSkeleton } from "./loading-skeletons";
 
 interface ChartWithPeriodProps {
   entity: LegalEntity;
@@ -11,9 +12,11 @@ interface ChartWithPeriodProps {
   globalStartMonth: number;
   globalEndMonth: number;
   globalKpi: KpiData;
+  /** Инкрементится на каждое взаимодействие с верхней панелью периода */
+  periodVersion: number;
   /** Всегда запрашивать данные с января (для графиков с нарастающим итогом) */
   alwaysFromJanuary?: boolean;
-  /** Скрыть кнопку "Месяц" в селекторе периода */
+  /** Скрыть кнопку "Месяц" в локальном селекторе */
   hideMonthButton?: boolean;
   children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode) => ReactNode;
 }
@@ -24,6 +27,7 @@ export function ChartWithPeriod({
   globalStartMonth,
   globalEndMonth,
   globalKpi,
+  periodVersion,
   alwaysFromJanuary,
   hideMonthButton,
   children,
@@ -32,17 +36,17 @@ export function ChartWithPeriod({
   const [localEnd, setLocalEnd] = useState<number | null>(null);
   const [activeQuick, setActiveQuick] = useState<QuickPeriod>(null);
 
-  // Сброс локального периода при смене глобального
-  const prevGlobal = useRef({ globalYear, globalStartMonth, globalEndMonth });
+  // Сброс локального периода на любое взаимодействие с верхней панелью
+  const firstRender = useRef(true);
   useEffect(() => {
-    const prev = prevGlobal.current;
-    if (prev.globalYear !== globalYear || prev.globalStartMonth !== globalStartMonth || prev.globalEndMonth !== globalEndMonth) {
-      setLocalStart(null);
-      setLocalEnd(null);
-      setActiveQuick(null);
-      prevGlobal.current = { globalYear, globalStartMonth, globalEndMonth };
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
     }
-  }, [globalYear, globalStartMonth, globalEndMonth]);
+    setLocalStart(null);
+    setLocalEnd(null);
+    setActiveQuick(null);
+  }, [periodVersion]);
 
   const hasLocal = localStart !== null && localEnd !== null;
 
@@ -97,11 +101,20 @@ export function ChartWithPeriod({
     if (localStart === null) setLocalStart(globalStartMonth);
   }, [localStart, globalStartMonth]);
 
+  // Выводим пресет из активного периода, если локальный пресет не задан
+  const derivedQuick: QuickPeriod = activeQuick
+    ? activeQuick
+    : activeStart === activeEnd
+      ? "month"
+      : activeStart === 0 && activeEnd === 11
+        ? "year"
+        : null;
+
   const periodSelector = (
     <ChartPeriodSelector
       startMonth={activeStart}
       endMonth={activeEnd}
-      activeQuick={activeQuick}
+      activeQuick={derivedQuick}
       onStartMonthChange={handleStartChange}
       onEndMonthChange={handleEndChange}
       onQuickPeriod={handleQuickPeriod}
@@ -110,11 +123,7 @@ export function ChartWithPeriod({
   );
 
   if (!kpi) {
-    return (
-      <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-        Загрузка...
-      </div>
-    );
+    return <ChartCardSkeleton />;
   }
 
   return <>{children(kpi, loading, periodSelector)}</>;

@@ -8,10 +8,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
+import { CHART_COLORS } from "@/lib/chart-colors";
 
 interface ProfitChartProps {
   monthly: MonthlyKpiData[];
@@ -29,13 +29,22 @@ interface ChartDataPoint {
   budgetMonthly: number;
 }
 
-const COLOR_BUDGET = "hsl(210, 70%, 55%)";
-const COLOR_FACT = "hsl(175, 65%, 45%)";
-const COLOR_PROFITABILITY = "hsl(45, 90%, 45%)";
+const COLOR_BUDGET = CHART_COLORS.positive;
+const COLOR_FACT = CHART_COLORS.neutral;
+const COLOR_PROFITABILITY = CHART_COLORS.accent;
 
 function formatValue(value: number): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)} тыс`;
+  return `${sign}${abs}`;
+}
+
+/** Формат с явным знаком: для месячного прироста, чтобы было понятно +/- */
+function formatDelta(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
   if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)} тыс`;
   return `${sign}${abs}`;
@@ -62,12 +71,12 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <p style={{ fontWeight: 600, marginBottom: 4 }}>{label}</p>
       <p style={{ color: COLOR_BUDGET }}>
         Бюджет НИ: {formatValue(point.budgetCum)}{" "}
-        ({formatValue(point.budgetMonthly)})
+        ({formatDelta(point.budgetMonthly)})
       </p>
       {point.factCum !== null && (
         <p style={{ color: COLOR_FACT }}>
           Факт НИ: {formatValue(point.factCum)}{" "}
-          ({formatValue(point.factMonthly)})
+          ({formatDelta(point.factMonthly)})
         </p>
       )}
       {point.profitabilityCum !== null && (
@@ -128,30 +137,30 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
 
   if (!chartData.length) {
     return (
-      <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5 h-[280px] flex items-center justify-center text-muted-foreground text-sm">
         Нет данных
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
-      <h3 className="text-lg font-bold mb-4 text-center">
-        &#x1F4C8; Чистая прибыль и рентабельность
-      </h3>
-      {periodSelector && <div className="flex justify-end -mt-3 mb-2">{periodSelector}</div>}
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
+        {periodSelector}
+      </div>
       <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 14 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
           />
           <YAxis
             yAxisId="left"
             tickFormatter={(v) => formatValue(v)}
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             width={75}
           />
@@ -159,15 +168,11 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
             yAxisId="right"
             orientation="right"
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
-            width={60}
+            width={58}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend
-            wrapperStyle={{ fontSize: 14 }}
-            formatter={(value) => <span style={{ color: "hsl(var(--foreground))" }}>{value}</span>}
-          />
           <Line
             yAxisId="left"
             type="monotone"
@@ -203,6 +208,17 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
           />
         </ComposedChart>
       </ResponsiveContainer>
+      <div className="flex items-center justify-center flex-wrap gap-x-5 gap-y-1 mt-3 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_BUDGET }} /> Бюджет НИ
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_FACT }} /> Факт НИ
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block border-t-2 border-dashed" style={{ borderColor: COLOR_PROFITABILITY, width: 14 }} /> Рентабельность
+        </span>
+      </div>
     </div>
   );
 }

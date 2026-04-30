@@ -14,6 +14,8 @@ import {
   LabelList,
 } from "recharts";
 import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
+import { CHART_COLORS } from "@/lib/chart-colors";
+import { BarCursor } from "./chart-cursor";
 
 
 interface MarginalityChartProps {
@@ -28,9 +30,45 @@ interface BarDataPoint {
   monthKey?: string;
 }
 
-const COLOR_CUMULATIVE = "hsl(221, 83%, 53%)";
-const COLOR_ABOVE = "hsl(142, 71%, 45%)";
-const COLOR_BELOW = "hsl(0, 70%, 75%)";
+const COLOR_CUMULATIVE = CHART_COLORS.positive;
+const COLOR_ABOVE = CHART_COLORS.neutral;
+const COLOR_BELOW = CHART_COLORS.negative;
+
+// Плашка-бейдж для подписи на ReferenceLine
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function BudgetBadge(props: any) {
+  const { viewBox, value } = props;
+  if (!viewBox) return null;
+  const padX = 7;
+  const approxWidth = String(value).length * 6.5 + padX * 2;
+  // Максимально вправо — правый край бейджа совпадает с правым краем plot area
+  const x = viewBox.x + viewBox.width - approxWidth;
+  const y = viewBox.y - 10;
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={approxWidth}
+        height={20}
+        rx={10}
+        fill="white"
+        stroke={CHART_COLORS.positive}
+        strokeWidth={1.5}
+      />
+      <text
+        x={x + approxWidth / 2}
+        y={y + 14}
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={700}
+        fill={CHART_COLORS.positive}
+      >
+        {value}
+      </text>
+    </g>
+  );
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
@@ -90,18 +128,34 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
 
   const chartData = useMemo(() => {
     const monthsWithProjects = monthly.filter((m) => m.projects?.length);
+    const hasProjects = monthsWithProjects.length > 0;
 
-    let cumPrice = 0;
-    let cumExpense = 0;
-    for (const m of monthsWithProjects) {
-      for (const p of m.projects!) {
-        cumPrice += p.price;
-        cumExpense += p.expensePlan;
+    // Кумулятивная маржинальность: из проектов (AmoCRM) если есть, иначе — из P&L
+    let cumMarginPercent = 0;
+    if (hasProjects) {
+      let cumPrice = 0;
+      let cumExpense = 0;
+      for (const m of monthsWithProjects) {
+        for (const p of m.projects!) {
+          cumPrice += p.price;
+          cumExpense += p.expensePlan;
+        }
       }
+      cumMarginPercent = cumPrice > 0
+        ? Math.round(((cumPrice - cumExpense) / cumPrice) * 1000) / 10
+        : 0;
+    } else {
+      let cumRevenue = 0;
+      let cumMargin = 0;
+      for (const m of monthly) {
+        if (!m.isPast) continue;
+        cumRevenue += m.revenue;
+        cumMargin += m.margin;
+      }
+      cumMarginPercent = cumRevenue > 0
+        ? Math.round((cumMargin / cumRevenue) * 1000) / 10
+        : 0;
     }
-    const cumMarginPercent = cumPrice > 0
-      ? Math.round(((cumPrice - cumExpense) / cumPrice) * 1000) / 10
-      : 0;
 
     const data: BarDataPoint[] = [{
       name: "НИ",
@@ -114,7 +168,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
       if (m?.projects?.length) {
         for (const p of m.projects) {
           data.push({
-            name: p.name.length > 15 ? p.name.substring(0, 13) + "…" : p.name,
+            name: p.name,
             value: p.marginPercent,
             type: "project",
           });
@@ -123,12 +177,13 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
     } else if (monthly.length === 1 && monthly[0]?.projects?.length) {
       for (const p of monthly[0].projects) {
         data.push({
-          name: p.name.length > 15 ? p.name.substring(0, 13) + "…" : p.name,
+          name: p.name,
           value: p.marginPercent,
           type: "project",
         });
       }
-    } else {
+    } else if (hasProjects) {
+      // Помесячно из проектов (Blaster)
       for (const m of monthly) {
         if (!m.projects?.length) continue;
         const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
@@ -136,6 +191,19 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
         data.push({
           name: label,
           value: calcProjectsMargin(m.projects),
+          type: "month",
+          monthKey: m.month,
+        });
+      }
+    } else {
+      // Помесячно из P&L (Культ и подобные — нет проектной детализации)
+      for (const m of monthly) {
+        if (!m.isPast) continue;
+        const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
+        const label = MONTHS_RU[monthIndex]?.substring(0, 3) || m.month;
+        data.push({
+          name: label,
+          value: m.marginPercent,
           type: "month",
           monthKey: m.month,
         });
@@ -159,35 +227,51 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
     : null;
 
   return (
-    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
-      <h3 className="text-lg font-bold mb-1 text-center">
-        &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
-      </h3>
-      <div className="flex items-center justify-between mb-2">
-        {drillMonth ? (
-          <button
-            onClick={() => setDrillMonth(null)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Назад
-          </button>
-        ) : (
-          <div />
-        )}
-        {periodSelector}
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-lg font-bold">
+          &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
+        </h3>
+        <div className="flex items-center gap-2">
+          {drillMonth && (
+            <button
+              onClick={() => setDrillMonth(null)}
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 h-6 text-[11px] font-medium text-[#1d1d1f] ring-1 ring-black/[0.08] shadow-[0_1px_1px_rgba(0,0,0,0.04)] hover:ring-black/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.07)] transition-all"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Назад
+            </button>
+          )}
+          {periodSelector}
+        </div>
       </div>
+      {(() => {
+        const hasLongNames = chartData.some((d) => d.type === "project" && d.name.length > 8);
+        const xAxisHeight = hasLongNames ? 110 : 40;
+        const xAxisAngle = hasLongNames ? -45 : 0;
+        const xAxisAnchor = hasLongNames ? "end" : "middle";
+        const chartHeight = hasLongNames ? 280 : 220;
+        // Полоска-разделитель: по высоте ось Y, снизу выступает как ось-тик (~6px)
+        // top = margin.top (20), bottom = xAxisHeight - 6
+        const separatorTop = 20;
+        const separatorBottom = xAxisHeight - 6;
+        return (
       <div className="relative">
         {chartData.length > 1 && (
           <div
-            className="absolute top-[25px] bottom-[5px] z-10"
+            className="absolute z-10"
             style={{
+              top: `${separatorTop}px`,
+              bottom: `${separatorBottom}px`,
               width: 2,
               backgroundColor: "#888",
               left: `calc(55px + (100% - 55px - 20px) * ${1 / chartData.length})`,
             }}
           />
         )}
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
           data={chartData}
           margin={{ top: 20, right: 10, left: 0, bottom: 5 }}
@@ -197,15 +281,19 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
             interval={0}
+            angle={xAxisAngle}
+            textAnchor={xAxisAnchor}
+            height={xAxisHeight}
+            tickFormatter={(v: string) => (v.length > 18 ? `${v.substring(0, 17)}…` : v)}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
-            width={60}
+            width={58}
             domain={[0, (max: number) => Math.max(max + 5, budgetLine + 5)]}
           />
           {budgetLine > 0 && (
@@ -214,22 +302,17 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               stroke={COLOR_CUMULATIVE}
               strokeDasharray="6 3"
               strokeWidth={2}
-              label={{
-                value: `Марж-ть ${budgetLine}%`,
-                position: "insideBottomLeft",
-                fontSize: 13,
-                fill: COLOR_CUMULATIVE,
-                offset: 5,
-              }}
+              label={<BudgetBadge value={`${budgetLine}%`} />}
             />
           )}
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
           <Bar
             dataKey="value"
             radius={[4, 4, 0, 0]}
             barSize={60}
             onClick={handleBarClick}
             style={{ cursor: "pointer" }}
+            isAnimationActive={false}
           >
             {chartData.map((entry, index) => (
               <Cell
@@ -247,12 +330,15 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
               dataKey="value"
               position="top"
               formatter={(v) => `${v}%`}
-              style={{ fontSize: 13, fontWeight: 500 }}
+              style={{ fontSize: 12, fontWeight: 700, fill: "#1d1d1f" }}
             />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <div className="flex items-center justify-center gap-5 mt-2 text-xs text-muted-foreground">
+      </div>
+        );
+      })()}
+      <div className="flex items-center justify-center flex-wrap gap-x-5 gap-y-1 mt-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_CUMULATIVE }} /> НИ
         </span>
@@ -263,9 +349,8 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_BELOW }} /> Ниже
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-0 border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Бюджет
+          <span className="inline-block border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Норма маржинальности
         </span>
-      </div>
       </div>
     </div>
   );

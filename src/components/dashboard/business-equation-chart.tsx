@@ -7,13 +7,15 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  ReferenceLine,
   ResponsiveContainer,
   Cell,
-  ReferenceLine,
   LabelList,
+  Tooltip,
 } from "recharts";
 import { MonthlyKpiData, LegalEntity } from "@/types/finance";
+import { CHART_COLORS } from "@/lib/chart-colors";
+import { BarCursor } from "./chart-cursor";
 
 interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
@@ -23,16 +25,18 @@ interface BusinessEquationChartProps {
 
 interface BarDataPoint {
   name: string;
+  /** Отклонение, обрезанное под визуальную шкалу (±120) */
   deviation: number;
+  /** Сырое отклонение для подписи и тултипа */
   deviationLabel: number;
   fact: number;
   budget: number;
   isPercent: boolean;
 }
 
-
-const COLOR_NEGATIVE = "hsl(0, 70%, 75%)";
-const COLOR_POSITIVE = "hsl(210, 70%, 55%)";
+const CHART_DOMAIN = 145;
+const CHART_TICKS = [-120, -60, 0, 60, 120];
+const Y_AXIS_WIDTH = 56;
 
 function computeDeviation(fact: number, budget: number): number {
   if (budget === 0) return 0;
@@ -47,15 +51,65 @@ function formatAmount(value: number): string {
   return `${sign}${Math.round(abs)}`;
 }
 
+function formatValue(value: number, isPercent: boolean): string {
+  if (isPercent) return `${Math.round(value)}%`;
+  return formatAmount(value);
+}
+
+// Кастомный shape: бар + чёрная подпись над/под ним.
+// Используем shape вместо LabelList — у LabelList для отрицательных баров
+// y/height приходят как для нулевой высоты, и подпись клеится к 0-линии.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function BarWithLabel(props: any) {
+  const { x, y, width, height, fill, payload } = props;
+  if (typeof x !== "number" || typeof y !== "number" || typeof width !== "number") return null;
+  const dev: number = payload?.deviationLabel ?? 0;
+  const isNeg = dev < 0;
+  // Recharts передаёт для отрицательных баров y = нижняя точка, height < 0 (вверх к 0-линии).
+  // Для положительных: y = верх бара, height > 0 (вниз к 0-линии).
+  // Нормализуем для <rect>: rectY = min(y, y+height), absH = |height|.
+  const rectY = Math.min(y, y + height);
+  const absH = Math.abs(height);
+  const labelY = isNeg ? y + 14 : y - 6;
+  const sign = dev > 0 ? "+" : "";
+  const radius = 3;
+  return (
+    <g>
+      <rect
+        x={x}
+        y={rectY}
+        width={width}
+        height={absH}
+        fill={fill}
+        rx={radius}
+        ry={radius}
+      />
+      {dev !== 0 && (
+        <text
+          x={x + width / 2}
+          y={labelY}
+          textAnchor="middle"
+          fontSize={12}
+          fontWeight={700}
+          fill="#1d1d1f"
+        >
+          {sign}{dev}%
+        </text>
+      )}
+    </g>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
   if (!active || !payload?.length) return null;
-  const point = payload[0]?.payload as BarDataPoint;
-  if (!point) return null;
-
-  const factStr = point.isPercent ? `${Math.round(point.fact)}%` : formatAmount(point.fact);
-  const budgetStr = point.isPercent ? `${Math.round(point.budget)}%` : formatAmount(point.budget);
-
+  const p = payload[0]?.payload as BarDataPoint;
+  if (!p) return null;
+  const devColor = p.deviationLabel > 0
+    ? CHART_COLORS.positive
+    : p.deviationLabel < 0
+      ? CHART_COLORS.negative
+      : "#888";
   return (
     <div
       style={{
@@ -67,11 +121,11 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
         boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
       }}
     >
-      <p style={{ fontWeight: 600, marginBottom: 4 }}>{point.name}</p>
-      <p>Бюджет: {budgetStr}</p>
-      <p>Факт: {factStr}</p>
-      <p style={{ color: point.deviationLabel >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE, marginTop: 2 }}>
-        Отклонение: {point.deviationLabel}%
+      <p style={{ fontWeight: 600, marginBottom: 4 }}>{p.name}</p>
+      <p style={{ color: "#888" }}>Бюджет: {formatValue(p.budget, p.isPercent)}</p>
+      <p style={{ fontWeight: 600 }}>Факт: {formatValue(p.fact, p.isPercent)}</p>
+      <p style={{ marginTop: 4, color: devColor, fontWeight: 600 }}>
+        {p.deviationLabel > 0 ? "+" : ""}{p.deviationLabel}%
       </p>
     </div>
   );
@@ -83,29 +137,24 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let factMargin = 0, budgetMargin = 0;
     let factFixed = 0, budgetFixed = 0;
     let factProfit = 0, budgetProfit = 0;
-    let pastCount = 0;
     let totalRequestsFact = 0, totalRequestsPlan = 0;
     let totalProjectsSoldFact = 0, totalProjectsNotSoldFact = 0;
-    let totalProjectsByActs = 0, totalProjectsByActsRevenue = 0;
+    let totalProjectsByActs = 0;
     let amoProjectsPrice = 0, amoProjectsExpense = 0;
 
     for (const m of monthly) {
-
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;
       totalProjectsSoldFact += m.projectsSoldFact;
       totalProjectsNotSoldFact += m.projectsNotSoldFact;
 
-
       if (m.projects) {
         totalProjectsByActs += m.projects.length;
         for (const p of m.projects) {
-          totalProjectsByActsRevenue += p.price;
           amoProjectsPrice += p.price;
           amoProjectsExpense += p.expensePlan;
         }
       }
-
 
       if (!m.isPast) continue;
       factRevenue += m.revenue;
@@ -116,31 +165,38 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       budgetFixed += m.budgetFixedExpenses;
       factProfit += m.factProfit;
       budgetProfit += m.budgetProfit;
-      pastCount++;
     }
-
 
     const avgFactMarginPct = amoProjectsPrice > 0
       ? ((amoProjectsPrice - amoProjectsExpense) / amoProjectsPrice) * 100
       : 0;
-
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
-
-
-    const BUDGET_AVG_CHECK = 647500;
-    const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
-
 
     const totalDecided = totalProjectsSoldFact + totalProjectsNotSoldFact;
     const factConversion = totalDecided > 0 ? (totalProjectsSoldFact / totalDecided) * 100 : 0;
-    const budgetConversion = 50;
+    const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
 
+    let pastCount = 0;
+    for (const m of monthly) {
+      if (m.isPast) pastCount++;
+    }
 
-    const budgetProjects = BUDGET_AVG_CHECK > 0 ? budgetRevenue / BUDGET_AVG_CHECK : 0;
+    // Blaster plan values
+    const BLASTER_BUDGET_AVG_CHECK = 647500;
+    const BLASTER_BUDGET_CONVERSION = 50;
+    const blasterBudgetProjects = BLASTER_BUDGET_AVG_CHECK > 0 ? budgetRevenue / BLASTER_BUDGET_AVG_CHECK : 0;
 
+    // Cult plan values
+    const CULT_BUDGET_AVG_CHECK = 9_000_000;
+    const CULT_BUDGET_CONVERSION = 16;
+    const CULT_BUDGET_PROJECTS = pastCount * 2;
 
     const items: [string, number, number, boolean, boolean][] = entity === "cult"
       ? [
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
+          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false],
+          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false],
+          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, false, false],
           ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
           ["Маржа", factMargin, budgetMargin, false, false],
@@ -149,9 +205,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         ]
       : [
           ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          ["Конверсия", factConversion, budgetConversion, true, false],
-          ["Проекты", totalProjectsByActs, budgetProjects, false, false],
-          ["Средний чек", factAvgCheck, BUDGET_AVG_CHECK, false, false],
+          ["Конверсия", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
+          ["Проекты", totalProjectsByActs, blasterBudgetProjects, false, false],
+          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, false, false],
           ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
           ["Маржа", factMargin, budgetMargin, false, false],
@@ -161,12 +217,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
 
     return items.map(([name, fact, budget, isPercent, isExpense]) => {
       const rawDev = computeDeviation(fact, budget);
-
       const dev = isExpense ? -rawDev : rawDev;
       return {
         name,
         deviationLabel: dev,
-        deviation: Math.max(-100, Math.min(100, dev)),
+        deviation: Math.max(-120, Math.min(120, dev)),
         fact,
         budget,
         isPercent,
@@ -175,46 +230,93 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
   }, [monthly, entity]);
 
   return (
-    <div className="rounded-xl border-0 bg-card/80 backdrop-blur-sm shadow-sm p-4">
-      <h3 className="text-lg font-bold mb-4 text-center">
-        &#x2696; Бизнес-уравнение
-      </h3>
-      {periodSelector && <div className="flex justify-start -mt-3 mb-2">{periodSelector}</div>}
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} margin={{ top: 25, right: 10, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+    <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h3 className="text-lg font-bold">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
+        {periodSelector}
+      </div>
+
+      {/* Таблица: Было / Стало */}
+      <div
+        className="grid items-center mb-1"
+        style={{
+          gridTemplateColumns: `${Y_AXIS_WIDTH}px repeat(${chartData.length}, minmax(0, 1fr))`,
+        }}
+      >
+        <div className="text-[12px] italic text-muted-foreground text-right pr-2">Бюджет</div>
+        {chartData.map((d) => (
+          <div
+            key={`b-${d.name}`}
+            className="text-center text-[13px] text-muted-foreground tabular-nums"
+          >
+            {formatValue(d.budget, d.isPercent)}
+          </div>
+        ))}
+
+        <div className="text-[12px] italic font-bold text-right pr-2">Факт</div>
+        {chartData.map((d) => (
+          <div
+            key={`f-${d.name}`}
+            className={`text-center text-[13px] font-bold tabular-nums ${
+              d.fact < 0 ? "text-[#ff3b30]" : ""
+            }`}
+          >
+            {formatValue(d.fact, d.isPercent)}
+          </div>
+        ))}
+      </div>
+
+      {/* Подложка-разделитель между таблицей и графиком */}
+      <div className="h-px bg-black/5 mb-2" />
+
+      {/* График отклонений */}
+      <ResponsiveContainer width="100%" height={310}>
+        <BarChart
+          data={chartData}
+          margin={{ top: 22, right: 0, left: 0, bottom: 0 }}
+          barCategoryGap="22%"
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
-            interval={0}
-            angle={-25}
+            angle={-22}
             textAnchor="end"
-            height={60}
+            height={70}
+            interval={0}
+            axisLine={false}
+            tickLine={false}
           />
           <YAxis
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 11 }}
             className="fill-muted-foreground"
-            width={60}
-            domain={[-120, 120]}
+            domain={[-CHART_DOMAIN, CHART_DOMAIN]}
+            ticks={CHART_TICKS}
+            width={Y_AXIS_WIDTH}
+            axisLine={false}
+            tickLine={false}
           />
-          <ReferenceLine y={0} stroke="#a0a0a0" strokeDasharray="3 3" strokeWidth={2} />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="deviation" radius={[4, 4, 0, 0]} barSize={50}>
-            {chartData.map((entry, index) => (
+          <ReferenceLine y={0} stroke="#bbb" strokeDasharray="3 3" />
+          <Tooltip content={() => null} cursor={<BarCursor />} />
+          <Bar
+            dataKey="deviation"
+            shape={<BarWithLabel />}
+            isAnimationActive={false}
+          >
+            {chartData.map((entry, i) => (
               <Cell
-                key={index}
-                fill={entry.deviationLabel >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE}
+                key={i}
+                fill={
+                  entry.deviationLabel > 0
+                    ? CHART_COLORS.positive
+                    : entry.deviationLabel < 0
+                      ? CHART_COLORS.negative
+                      : "#bbb"
+                }
               />
             ))}
-            <LabelList
-              dataKey="deviationLabel"
-              position="top"
-              formatter={(v) => `${Number(v) > 0 ? "+" : ""}${v}%`}
-              style={{ fontSize: 13, fontWeight: 600 }}
-              offset={4}
-            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

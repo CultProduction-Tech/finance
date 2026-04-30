@@ -284,6 +284,21 @@ export function createPlanFactClient(apiKey: string) {
     async getCompanies() {
       return pfFetch<CompaniesResponse>("/api/v1/companies");
     },
+
+    async getCashFlow(
+      startDate: string,
+      endDate: string,
+      options?: { standardPeriod?: "Day" | "Week" | "Month" | "Quarter" | "Year" },
+    ) {
+      const params: Record<string, string> = {
+        "filter.periodStartDate": startDate,
+        "filter.periodEndDate": endDate,
+      };
+      if (options?.standardPeriod) {
+        params["filter.standardPeriod"] = options.standardPeriod;
+      }
+      return pfFetch<CashFlowResponse>("/api/v1/businessmetrics/cashflow", params);
+    },
   };
 }
 

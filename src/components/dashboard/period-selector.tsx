@@ -16,6 +16,8 @@ interface PeriodSelectorProps {
   onYearChange: (year: number) => void;
   onStartMonthChange: (month: number) => void;
   onEndMonthChange: (month: number) => void;
+  /** Скрыть селектор года (для компактного варианта) */
+  hideYear?: boolean;
 }
 
 export function PeriodSelector({
@@ -25,55 +27,59 @@ export function PeriodSelector({
   onYearChange,
   onStartMonthChange,
   onEndMonthChange,
+  hideYear = false,
 }: PeriodSelectorProps) {
-  const handleThisMonth = () => {
-    const now = new Date();
-    onYearChange(now.getFullYear());
-    onStartMonthChange(now.getMonth());
-    onEndMonthChange(now.getMonth());
-  };
-
-  const handleThisYear = () => {
-    const now = new Date();
-    onYearChange(now.getFullYear());
-    onStartMonthChange(0);
-    onEndMonthChange(11);
-  };
-
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
 
-  const isThisMonth = year === currentYear && startMonth === currentMonth && endMonth === currentMonth;
   const isThisYear = year === currentYear && startMonth === 0 && endMonth === 11;
 
-  const activeStyle = "rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors";
-  const inactiveStyle = "rounded-md border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors";
+  const handleNIToggle = () => {
+    if (isThisYear) {
+      // Активный НИ → переключаем на "этот месяц"
+      const currentMonth = now.getMonth();
+      onYearChange(currentYear);
+      onStartMonthChange(currentMonth);
+      onEndMonthChange(currentMonth);
+    } else {
+      // Неактивный → НИ за весь год
+      onYearChange(currentYear);
+      onStartMonthChange(0);
+      onEndMonthChange(11);
+    }
+  };
+
+  const pillBase = "inline-flex items-center justify-center rounded-full px-4 h-7 text-[13px] font-medium transition-all";
+  const activeStyle = `${pillBase} bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.12)]`;
+  const inactiveStyle = `${pillBase} bg-white text-[#1d1d1f] ring-1 ring-black/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:ring-black/[0.14] hover:shadow-[0_1px_3px_rgba(0,0,0,0.07)]`;
+
+  // Если ни один пресет не активен — значит интервал кастомный, подсвечиваем дропдауны месяцев
+  const isCustomInterval = !isThisYear;
+  const monthAccent = isCustomInterval
+    ? "bg-[var(--accent-solid)] text-[var(--accent-solid-foreground)] ring-0 shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:ring-0 hover:shadow-[0_1px_2px_rgba(0,0,0,0.12)] [&_svg]:text-[var(--accent-solid-foreground)]"
+    : "";
 
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={handleThisMonth}
-        className={isThisMonth ? activeStyle : inactiveStyle}
-      >
-        Этот месяц
-      </button>
-      <button
-        onClick={handleThisYear}
+        onClick={handleNIToggle}
         className={isThisYear ? activeStyle : inactiveStyle}
+        title={isThisYear ? "Снять — переключиться на текущий месяц" : "Нарастающим итогом — весь год"}
       >
-        Этот год
+        НИ
       </button>
-      <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
-        <SelectTrigger className="w-[100px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="2025">2025</SelectItem>
-          <SelectItem value="2026">2026</SelectItem>
-          <SelectItem value="2027">2027</SelectItem>
-        </SelectContent>
-      </Select>
+      {!hideYear && (
+        <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
+          <SelectTrigger size="pill" className="w-[88px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="2025">2025</SelectItem>
+            <SelectItem value="2026">2026</SelectItem>
+            <SelectItem value="2027">2027</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
 
       <Select
         value={MONTHS_RU[startMonth]}
@@ -84,7 +90,7 @@ export function PeriodSelector({
           if (idx > endMonth) onEndMonthChange(idx);
         }}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger size="pill" className={`w-[124px] ${monthAccent}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -96,7 +102,7 @@ export function PeriodSelector({
         </SelectContent>
       </Select>
 
-      <span className="text-muted-foreground">—</span>
+      <span className="text-[#86868b] text-xs">—</span>
 
       <Select
         value={MONTHS_RU[endMonth]}
@@ -107,7 +113,7 @@ export function PeriodSelector({
           if (idx < startMonth) onStartMonthChange(idx);
         }}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger size="pill" className={`w-[124px] ${monthAccent}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

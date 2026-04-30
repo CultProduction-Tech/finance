@@ -12,14 +12,63 @@ import { ExpenseBudgetChart } from "./expense-budget-chart";
 import { MarginalityChart } from "./marginality-chart";
 import { MonthNotes } from "./month-notes";
 import { ChartWithPeriod } from "./chart-with-period";
+import { CashflowChart } from "./cashflow-chart";
+import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
-  const [entity, setEntity] = useState<LegalEntity>("blaster");
+  const [entity, setEntityState] = useState<LegalEntity>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dashboard-entity");
+      if (saved === "blaster" || saved === "cult") return saved;
+    }
+    return "blaster";
+  });
+  const setEntity = (e: LegalEntity) => {
+    setEntityState(e);
+    localStorage.setItem("dashboard-entity", e);
+  };
+
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [startMonth, setStartMonth] = useState(0);
-  const [endMonth, setEndMonth] = useState(now.getMonth()); // Январь — текущий месяц
+  const [endMonth, setEndMonth] = useState(11); // По умолчанию — весь год
+  const [periodVersion, setPeriodVersion] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Локальный период для KPI виджетов (null = используем глобальный)
+  const [kpiLocalStart, setKpiLocalStart] = useState<number | null>(null);
+  const [kpiLocalEnd, setKpiLocalEnd] = useState<number | null>(null);
+
+  const handleYearChange = (y: number) => {
+    setYear(y);
+    setPeriodVersion((v) => v + 1);
+    setKpiLocalStart(null);
+    setKpiLocalEnd(null);
+  };
+  const handleStartMonthChange = (m: number) => {
+    setStartMonth(m);
+    setPeriodVersion((v) => v + 1);
+    setKpiLocalStart(null);
+    setKpiLocalEnd(null);
+  };
+  const handleEndMonthChange = (m: number) => {
+    setEndMonth(m);
+    setPeriodVersion((v) => v + 1);
+    setKpiLocalStart(null);
+    setKpiLocalEnd(null);
+  };
+
+  // Активный период для KPI: локальный если задан, иначе глобальный
+  const kpiStart = kpiLocalStart ?? startMonth;
+  const kpiEnd = kpiLocalEnd ?? endMonth;
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setRefreshKey((k) => k + 1);
+    setTimeout(() => setRefreshing(false), 1000);
+  };
 
   const entityInfo = LEGAL_ENTITIES.find((e) => e.id === entity)!;
 
@@ -35,11 +84,22 @@ export function Dashboard() {
     return () => html.classList.remove("theme-cult");
   }, [entity]);
 
+  // KPI виджеты — используют свой локальный период
   const { data: kpi, loading, useMock } = useKpi({
+    entity,
+    year,
+    startMonth: kpiStart,
+    endMonth: kpiEnd,
+    refreshKey,
+  });
+
+  // Графики — используют глобальный период (как стартовая точка)
+  const { data: globalKpi } = useKpi({
     entity,
     year,
     startMonth,
     endMonth,
+    refreshKey,
   });
 
   // Полный год для кумулятива в графике прибыли
@@ -48,72 +108,156 @@ export function Dashboard() {
     year,
     startMonth: 0,
     endMonth: 11,
+    refreshKey,
   });
+
+  // Кэшфлоу 3 мес — последняя точка прогноза
+  const [cashflow3m, setCashflow3m] = useState<number | null>(null);
 
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
-      <header className="border-b bg-card sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 py-4 relative">
-          <form action="/api/auth/logout" method="POST" className="absolute right-4 top-4">
-            <button type="submit" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Выйти
-            </button>
-          </form>
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">✏️</span>
-              <h1 className="text-xl font-bold tracking-tight uppercase">{entityInfo.name}</h1>
-              {useMock && (
-                <Badge variant="secondary" className="text-xs">
-                  Demo-данные
-                </Badge>
-              )}
+      <header className="bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+          {/* Слева: логотип + название */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-white shrink-0 shadow-sm ring-1 ring-black/5 overflow-hidden flex items-center justify-center">
+              <img
+                src={`/logos/${entity}.jpg`}
+                alt={entityInfo.name}
+                className="w-full h-full object-cover"
+              />
             </div>
+            <h1 className="text-xl font-semibold tracking-tight">{entityInfo.name}</h1>
+            {useMock && (
+              <Badge variant="secondary" className="text-xs rounded-full">
+                Demo-данные
+              </Badge>
+            )}
+          </div>
+
+          {/* Центр: селектор периода */}
+          <div className="flex-1 flex justify-center">
             <PeriodSelector
               year={year}
               startMonth={startMonth}
               endMonth={endMonth}
-              onYearChange={setYear}
-              onStartMonthChange={setStartMonth}
-              onEndMonthChange={setEndMonth}
+              onYearChange={handleYearChange}
+              onStartMonthChange={handleStartMonthChange}
+              onEndMonthChange={handleEndMonthChange}
             />
+          </div>
+
+          {/* Справа: обновить + выйти */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+              </svg>
+              Обновить
+            </button>
+            <form action="/api/auth/logout" method="POST">
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Выйти
+              </button>
+            </form>
           </div>
         </div>
       </header>
 
       {/* KPI карточки — ограниченная ширина */}
-      <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="max-w-7xl mx-auto px-6 pt-5 pb-6">
         {loading ? (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[90px] rounded-xl bg-card/80 animate-pulse"
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex justify-start mb-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-12 rounded-full animate-pulse bg-black/[0.06]" />
+                <div className="h-7 w-24 rounded-full animate-pulse bg-black/[0.06]" />
+                <span className="text-[#86868b] text-xs">—</span>
+                <div className="h-7 w-24 rounded-full animate-pulse bg-black/[0.06]" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <KpiCardSkeleton key={i} />
+              ))}
+            </div>
+          </>
         ) : kpi ? (
-          <KpiGrid data={kpi} />
+          <>
+            <div className="flex justify-start mb-2">
+              <PeriodSelector
+                year={year}
+                startMonth={kpiStart}
+                endMonth={kpiEnd}
+                onYearChange={() => {}}
+                onStartMonthChange={(m) => {
+                  setKpiLocalStart(m);
+                  if (kpiLocalEnd === null) setKpiLocalEnd(endMonth);
+                  if (m > kpiEnd) setKpiLocalEnd(m);
+                }}
+                onEndMonthChange={(m) => {
+                  setKpiLocalEnd(m);
+                  if (kpiLocalStart === null) setKpiLocalStart(startMonth);
+                  if (m < kpiStart) setKpiLocalStart(m);
+                }}
+                hideYear
+              />
+            </div>
+            <KpiGrid data={kpi} cashflow3m={cashflow3m} />
+          </>
         ) : null}
       </div>
 
+      {/* Графики — скелетоны во время загрузки чтобы layout не прыгал */}
+      {!globalKpi && (
+        <div className="px-6 pb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <ChartCardSkeleton variant="line" />
+            <ChartCardSkeleton variant="bar" />
+            <ChartCardSkeleton variant="bar" />
+            <ChartCardSkeleton variant="bar" />
+          </div>
+          <div className="mt-5">
+            <ChartCardSkeleton variant="line" height={240} />
+          </div>
+        </div>
+      )}
+
       {/* Графики — широкий контейнер */}
-      {kpi && (
-        <div className="px-4 pb-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi} hideMonthButton>
+      {globalKpi && (
+        <div className="px-6 pb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} hideMonthButton>
               {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} />}
             </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} />}
             </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={kpi}>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
+          </div>
+
+          {/* Кэшфлоу — занимает всю ширину под основной 2×2 сеткой */}
+          <div className="mt-5">
+            <CashflowChart entity={entity} refreshKey={refreshKey} onLastBalance={setCashflow3m} />
           </div>
 
           {startMonth === endMonth && (
@@ -125,8 +269,8 @@ export function Dashboard() {
       )}
 
       {/* Переключение юрлиц — внизу */}
-      <footer className="sticky bottom-0 bg-card border-t z-50 shadow-lg">
-        <div className="max-w-5xl mx-auto px-4">
+      <footer className="sticky bottom-0 bg-white/80 backdrop-blur-xl border-t border-black/5 z-50">
+        <div className="max-w-5xl mx-auto px-6">
           <EntitySwitcher selected={entity} onSelect={setEntity} />
         </div>
       </footer>
