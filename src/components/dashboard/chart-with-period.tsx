@@ -101,14 +101,14 @@ export function ChartWithPeriod({
     if (localStart === null) setLocalStart(globalStartMonth);
   }, [localStart, globalStartMonth]);
 
-  // Выводим пресет из активного периода, если локальный пресет не задан
+  // Выводим пресет из активного периода, если локальный пресет не задан.
+  // "Месяц" подсвечиваем только при явном клике пользователя (activeQuick === "month"),
+  // иначе одноразовый период (start === end) визуально читается как промежуток в дропдаунах.
   const derivedQuick: QuickPeriod = activeQuick
     ? activeQuick
-    : activeStart === activeEnd
-      ? "month"
-      : activeStart === 0 && activeEnd === 11
-        ? "year"
-        : null;
+    : activeStart === 0 && activeEnd === 11
+      ? "year"
+      : null;
 
   const periodSelector = (
     <ChartPeriodSelector

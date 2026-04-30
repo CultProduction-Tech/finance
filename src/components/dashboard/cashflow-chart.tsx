@@ -33,7 +33,7 @@ interface CashflowChartProps {
 
 function formatValue(value: number): string {
   const abs = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
+  const sign = value < 0 ? "−" : value > 0 ? "+" : "";
   if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
   if (abs >= 1_000) return `${sign}${Math.round(abs / 1_000)} тыс`;
   return `${sign}${Math.round(abs)}`;
@@ -72,6 +72,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
     </div>
   );
 }
+
+const POSITIVE = CHART_COLORS.neutral;
+const NEGATIVE = CHART_COLORS.negative;
 
 export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowChartProps) {
   const [data, setData] = useState<CashflowData | null>(null);
@@ -120,6 +123,13 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   const todayStr = new Date().toISOString().slice(0, 10);
   const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
 
+  // Зеро-кроссинг градиента: SVG-offset, на котором цвет переключается с зелёного на красный.
+  // Bbox области заливки расширяется до y=0 (baseValue Recharts), поэтому считаем относительно [min(0, yMin)..max(0, yMax)].
+  const yMax = Math.max(0, ...chartData.map((d) => d.balance));
+  const yMin = Math.min(0, ...chartData.map((d) => d.balance));
+  const yRange = yMax - yMin || 1;
+  const zeroOffset = yMax / yRange; // 0 — всё красное; 1 — всё зелёное
+
   // Подписи дат
   const monthsShort = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
   const today = new Date();
@@ -134,7 +144,13 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-baseline gap-3">
-          <h3 className="text-lg font-bold">&#x1F4B0; Кэшфлоу</h3>
+          <h3 className="text-lg font-bold">&#x1F3E6; Остатки на счетах</h3>
+          <span
+            className="text-[15px] font-semibold tabular-nums"
+            style={{ color: data.currentBalance >= 0 ? POSITIVE : NEGATIVE }}
+          >
+            {formatValue(data.currentBalance)}
+          </span>
           <span className="text-[13px] font-medium text-muted-foreground">{periodLabel}</span>
         </div>
         <span className="text-xs text-muted-foreground">Данные на {dataAsOf}</span>
@@ -142,9 +158,17 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <defs>
-            <linearGradient id="cashflowGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={CHART_COLORS.positive} stopOpacity={0.15} />
-              <stop offset="95%" stopColor={CHART_COLORS.positive} stopOpacity={0} />
+            <linearGradient id="cashflowStroke" x1="0" y1="0" x2="0" y2="1">
+              <stop offset={0} stopColor={POSITIVE} stopOpacity={1} />
+              <stop offset={zeroOffset} stopColor={POSITIVE} stopOpacity={1} />
+              <stop offset={zeroOffset} stopColor={NEGATIVE} stopOpacity={1} />
+              <stop offset={1} stopColor={NEGATIVE} stopOpacity={1} />
+            </linearGradient>
+            <linearGradient id="cashflowFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset={0} stopColor={POSITIVE} stopOpacity={0.20} />
+              <stop offset={zeroOffset} stopColor={POSITIVE} stopOpacity={0} />
+              <stop offset={zeroOffset} stopColor={NEGATIVE} stopOpacity={0} />
+              <stop offset={1} stopColor={NEGATIVE} stopOpacity={0.20} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -167,9 +191,10 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
           <Area
             type="monotone"
             dataKey="balance"
-            stroke={CHART_COLORS.positive}
+            stroke="url(#cashflowStroke)"
             strokeWidth={2}
-            fill="url(#cashflowGradient)"
+            fill="url(#cashflowFill)"
+            baseValue={0}
             dot={(props) => {
               const { cx, cy, payload } = props;
               if (payload.date !== todayStr) return <circle key={payload.date} r={0} />;
@@ -179,22 +204,35 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
                   cx={cx}
                   cy={cy}
                   r={5}
-                  fill={CHART_COLORS.positive}
+                  fill={payload.balance >= 0 ? POSITIVE : NEGATIVE}
                   stroke="white"
                   strokeWidth={2}
                 />
               );
             }}
-            activeDot={{ r: 5, fill: CHART_COLORS.positive, stroke: "white", strokeWidth: 2 }}
+            activeDot={(props) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const { cx, cy, payload } = props as any;
+              return (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={5}
+                  fill={payload.balance >= 0 ? POSITIVE : NEGATIVE}
+                  stroke="white"
+                  strokeWidth={2}
+                />
+              );
+            }}
           />
         </AreaChart>
       </ResponsiveContainer>
       <div className="flex items-center justify-center gap-5 mt-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS.positive }} /> Остаток
+          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: POSITIVE }} /> Остаток
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: CHART_COLORS.positive }} /> Сегодня
+          <span className="inline-block w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: POSITIVE }} /> Сегодня
         </span>
         {hasNegative && (
           <span className="flex items-center gap-1.5">

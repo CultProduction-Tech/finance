@@ -36,7 +36,7 @@ export function PeriodSelector({
 
   const handleNIToggle = () => {
     if (isThisYear) {
-      // Активный НИ → переключаем на "этот месяц"
+      // Активный НИ → переключаем на текущий месяц
       const currentMonth = now.getMonth();
       onYearChange(currentYear);
       onStartMonthChange(currentMonth);

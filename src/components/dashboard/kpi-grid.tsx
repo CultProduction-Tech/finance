@@ -9,6 +9,8 @@ interface KpiGridProps {
   cashflow3m?: number | null;
 }
 
+const SHOW_EXTRA_KPIS = false;
+
 function deviation(fact: number, budget: number): number {
   if (budget === 0) return 0;
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
@@ -24,7 +26,6 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      {/* Ряд 1: Выручка | Маржа | Проектов | На счетах */}
       <KpiCard
         icon="🔁"
         label="Выручка"
@@ -35,7 +36,7 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
         } : undefined}
       />
       <KpiCard
-        icon="📊"
+        icon="💵"
         label="Маржа"
         value={formatMoney(data.margin)}
         comparison={budgetMargin > 0 ? {
@@ -44,16 +45,14 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
         } : undefined}
       />
       <KpiCard
-        icon="📋"
-        label="Проектов"
-        value={String(data.projectsCount)}
+        icon="📊"
+        label="Маржинальность"
+        value={formatMoney(data.marginPercent, "%")}
+        comparison={budgetMarginPercent > 0 ? {
+          deviationPercent: deviation(data.marginPercent, budgetMarginPercent),
+          budgetLabel: formatMoney(budgetMarginPercent, "%"),
+        } : undefined}
       />
-      <KpiCard
-        icon="🏦"
-        label="На счетах"
-        value={formatMoney(data.cashOnHand)}
-      />
-      {/* Ряд 2: Прибыль | Марж-ть | Кэшфлоу 3 мес */}
       <KpiCard
         icon="💰"
         label={data.profit >= 0 ? "Прибыль" : "Убыток"}
@@ -64,22 +63,20 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
           budgetLabel: formatMoney(budgetProfit),
         } : undefined}
       />
-      <KpiCard
-        icon="📈"
-        label="Марж-ть"
-        value={formatMoney(data.marginPercent, "%")}
-        comparison={budgetMarginPercent > 0 ? {
-          deviationPercent: deviation(data.marginPercent, budgetMarginPercent),
-          budgetLabel: formatMoney(budgetMarginPercent, "%"),
-        } : undefined}
-      />
-      {cashflow3m !== null && cashflow3m !== undefined && (
-        <KpiCard
-          icon="🔮"
-          label="Кэшфлоу 3 мес"
-          value={formatMoney(cashflow3m)}
-          variant={cashflow3m >= 0 ? "positive" : "negative"}
-        />
+
+      {SHOW_EXTRA_KPIS && (
+        <>
+          <KpiCard icon="📋" label="Проектов" value={String(data.projectsCount)} />
+          <KpiCard icon="🏦" label="На счетах" value={formatMoney(data.cashOnHand)} />
+          {cashflow3m !== null && cashflow3m !== undefined && (
+            <KpiCard
+              icon="🔮"
+              label="Кэшфлоу 3 мес"
+              value={formatMoney(cashflow3m)}
+              variant={cashflow3m >= 0 ? "positive" : "negative"}
+            />
+          )}
+        </>
       )}
     </div>
   );
