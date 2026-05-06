@@ -2,14 +2,17 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 
 const SECRET = process.env.AUTH_SECRET || "default-secret-change-me";
-const ALLOWED_DOMAINS = (process.env.AUTH_ALLOWED_DOMAINS || "").split(",").map((d) => d.trim()).filter(Boolean);
+const ALLOWED_DOMAINS = (process.env.AUTH_ALLOWED_DOMAINS || "").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
+const ALLOWED_EMAILS = (process.env.AUTH_ALLOWED_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 const TOKEN_TTL = 15 * 60 * 1000;
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
 
 const pendingTokens = new Map<string, { email: string; expires: number }>();
 
 export function isEmailAllowed(email: string): boolean {
-  const domain = email.split("@")[1]?.toLowerCase();
+  const normalized = email.toLowerCase();
+  if (ALLOWED_EMAILS.includes(normalized)) return true;
+  const domain = normalized.split("@")[1];
   return ALLOWED_DOMAINS.some((d) => domain === d);
 }
 
