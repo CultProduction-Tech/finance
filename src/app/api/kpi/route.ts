@@ -33,6 +33,7 @@ export interface KpiResponse {
   projectsCount: number;
   monthly: MonthlyKpi[];
   expenseCategories: ExpenseCategory[];
+  budgetLabel: string;
 }
 
 export interface MonthlyKpi {
@@ -54,6 +55,7 @@ export interface MonthlyKpi {
   budgetFixedExpenses: number;
   isPast: boolean;
   projects?: { id: number; name: string; price: number; expensePlan: number; marginPercent: number }[];
+  marginalityProjects?: { id: number; name: string; price: number; expensePlan: number; marginPercent: number }[];
   requestsFact: number;
   requestsPlan: number;
   projectsSoldFact: number;
@@ -139,12 +141,22 @@ export async function GET(request: NextRequest) {
       return { m, mStart, mEnd };
     });
 
+    const isCult = entity === "cult";
+
+    // Бластер: проекты — по «Дате акта». Культ: для подсчёта количества — по created_at.
+    const projectsDateMode: "act" | "created" = isCult ? "created" : "act";
     const projectPromises = monthRanges.map(({ m, mStart, mEnd }) => {
       if (m > currentMonth) return Promise.resolve([]);
-      return getProjectDetails(mStart, mEnd, amoConfig);
+      return getProjectDetails(mStart, mEnd, amoConfig, projectsDateMode);
     });
 
-    const isCult = entity === "cult";
+    // Культ: дополнительно фетчим проекты по «Бриф получен» — для графика маржинальности
+    const marginalityProjectsPromises = isCult
+      ? monthRanges.map(({ m, mStart, mEnd }) => {
+          if (m > currentMonth) return Promise.resolve([]);
+          return getProjectDetails(mStart, mEnd, amoConfig, "brief");
+        })
+      : null;
 
     const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
       if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 });
@@ -159,18 +171,23 @@ export async function GET(request: NextRequest) {
         })
       : null;
 
-    const [projectResults, leadCountResults, cultLeadResults] = await Promise.all([
+    const [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults] = await Promise.all([
       Promise.all(projectPromises),
+      marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
       Promise.all(leadCountPromises),
       cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
     ]);
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
+    const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
     const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number }>();
     const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
+      if (marginalityProjectResults) {
+        marginalityProjectsByMonth.set(months[i], marginalityProjectResults[i]);
+      }
       if (cultLeadResults) {
         cultLeadsByMonth.set(months[i], cultLeadResults[i]);
       }
@@ -251,11 +268,44 @@ export async function GET(request: NextRequest) {
       monthlyMap.set(monthKey, entry);
     }
 
-    const targetBudget = budgets.items.find((b) =>
-      b.budgetStatus !== "Closed" && b.startDate <= endDate && b.endDate >= startDate,
+    // Выбираем два целевых бюджета по имени (PlanFact иногда хранит имя с пробелом по краям) и склеиваем элементы по месяцу:
+    //   месяцы < cutoffMonth -> старый бюджет; месяцы >= cutoffMonth -> новый.
+    const cutoffMonth = config.budgets.cutoffMonth; // "YYYY-MM"
+    const findByName = (n: string) => budgets.items.find(
+      (b) => b.budgetStatus !== "Closed" && (b.title?.trim() ?? "") === n.trim(),
     );
+    const oldBudget = findByName(config.budgets.old.name);
+    const newBudget = findByName(config.budgets.new.name);
 
-    const budgetDetail = targetBudget ? await pf.getBudgetDetail(targetBudget.budgetId) : null;
+    const [oldBudgetDetail, newBudgetDetail] = await Promise.all([
+      oldBudget ? pf.getBudgetDetail(oldBudget.budgetId) : Promise.resolve(null),
+      newBudget ? pf.getBudgetDetail(newBudget.budgetId) : Promise.resolve(null),
+    ]);
+
+    type BudgetDetailResp = NonNullable<typeof oldBudgetDetail>;
+    type BudgetVer = BudgetDetailResp["versions"][number];
+    const mergedVersions: BudgetVer[] = [];
+    if (oldBudgetDetail) {
+      for (const v of oldBudgetDetail.versions) {
+        const items = v.info.items.filter((i) => i.date.substring(0, 7) < cutoffMonth);
+        if (items.length) mergedVersions.push({ ...v, info: { ...v.info, items } });
+      }
+    }
+    if (newBudgetDetail) {
+      for (const v of newBudgetDetail.versions) {
+        const items = v.info.items.filter((i) => i.date.substring(0, 7) >= cutoffMonth);
+        if (items.length) mergedVersions.push({ ...v, info: { ...v.info, items } });
+      }
+    }
+    const sourceDetail = oldBudgetDetail ?? newBudgetDetail;
+    const budgetDetail: BudgetDetailResp | null = sourceDetail && mergedVersions.length > 0
+      ? { ...sourceDetail, versions: mergedVersions }
+      : null;
+
+    // Лейбл для шапки выбираем по концу выбранного периода: если он попадает в "новую" зону — показываем новый.
+    const budgetLabel = endDate >= `${cutoffMonth}-01`
+      ? config.budgets.new.label
+      : config.budgets.old.label;
 
     if (budgetDetail) {
 
@@ -326,6 +376,13 @@ export async function GET(request: NextRequest) {
         budgetFixedExpenses: m.budgetFixedExpenses,
         isPast: monthKey <= currentMonth,
         projects: projectsByMonth.get(monthKey)?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          expensePlan: p.expensePlan,
+          marginPercent: p.marginPercent,
+        })),
+        marginalityProjects: marginalityProjectsByMonth.get(monthKey)?.map((p) => ({
           id: p.id,
           name: p.name,
           price: p.price,
@@ -511,6 +568,7 @@ export async function GET(request: NextRequest) {
       projectsCount: Array.from(projectsByMonth.values()).reduce((sum, p) => sum + p.length, 0),
       monthly,
       expenseCategories,
+      budgetLabel,
     };
 
     return NextResponse.json(response);

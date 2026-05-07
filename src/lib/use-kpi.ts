@@ -64,6 +64,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
         projectsCount: json.projectsCount,
         monthly: json.monthly || [],
         expenseCategories: json.expenseCategories || [],
+        budgetLabel: json.budgetLabel,
       });
       setUseMock(false);
     } catch (err) {

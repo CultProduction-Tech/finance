@@ -172,8 +172,12 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       : 0;
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
-    const totalDecided = totalProjectsSoldFact + totalProjectsNotSoldFact;
-    const factConversion = totalDecided > 0 ? (totalProjectsSoldFact / totalDecided) * 100 : 0;
+    // Конверсия = обработанные (m.projectsSoldFact) / запросы (m.requestsFact) × 100%
+    // Бластер: обработанные = Продажа + Реализовано + Закрыто и не реализовано; запросы = 6 статусов
+    // Культ: обработанные = takenToWork; запросы = totalRequests от Системы
+    const factConversion = totalRequestsFact > 0
+      ? (totalProjectsSoldFact / totalRequestsFact) * 100
+      : 0;
     const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
 
     let pastCount = 0;

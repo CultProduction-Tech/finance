@@ -68,6 +68,10 @@ export interface AmoConfig {
   marginFieldId?: number;
   conversionSoldStatusIds?: number[];
   conversionNotSoldStatusId?: number;
+  /** Если задан — totalRequests считается только по этим статусам (вместо «все лиды воронки») */
+  requestStatusIds?: number[];
+  /** Custom-поле «Бриф получен» (для bucketing проектов в графике маржинальности у Культа) */
+  briefDateFieldId?: number;
   /** Cult-specific: system user ID for counting requests */
   systemCreatedByUserId?: number;
   /** Cult-specific: "Первичный контакт" status ID */
@@ -77,10 +81,13 @@ export interface AmoConfig {
   takenToWorkEnumId?: number;
 }
 
+export type ProjectDateMode = "act" | "created" | "brief";
+
 export async function getProjectDetails(
   startDate: string,
   endDate: string,
   config?: AmoConfig,
+  dateMode: ProjectDateMode = "act",
 ): Promise<AmoProjectDetail[]> {
   const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
 
@@ -97,24 +104,45 @@ export async function getProjectDetails(
   let page = 1;
   let hasMore = true;
 
+  // Какое поле использовать как дату для bucketing проектов по месяцу:
+  //  - 'act'     — custom-поле «Дата акта» (исторический дефолт для Бластера)
+  //  - 'created' — created_at лида (Культ, кол-во проектов)
+  //  - 'brief'   — custom-поле «Бриф получен» (Культ, маржинальность)
+  const briefFieldId = dateMode === "brief" ? config?.briefDateFieldId : undefined;
+
   while (hasMore) {
     const params = new URLSearchParams({ limit: "250", page: String(page) });
     statusIds.forEach((sid, i) => {
       params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
       params.set(`filter[statuses][${i}][status_id]`, String(sid));
     });
+    if (dateMode === "created") {
+      params.set("filter[created_at][from]", String(startTs));
+      params.set("filter[created_at][to]", String(endTs));
+    }
 
     const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
 
     if (!data._embedded?.leads?.length) break;
 
     for (const lead of data._embedded.leads) {
-      const actDateField = lead.custom_fields_values?.find(
-        (f) => f.field_id === ACT_DATE_FIELD_ID,
-      );
-      if (!actDateField?.values?.[0]?.value) continue;
-      const actDateTs = Number(actDateField.values[0].value);
-      if (actDateTs < startTs || actDateTs > endTs) continue;
+      if (dateMode === "act") {
+        const actDateField = lead.custom_fields_values?.find(
+          (f) => f.field_id === ACT_DATE_FIELD_ID,
+        );
+        if (!actDateField?.values?.[0]?.value) continue;
+        const actDateTs = Number(actDateField.values[0].value);
+        if (actDateTs < startTs || actDateTs > endTs) continue;
+      } else if (dateMode === "brief") {
+        if (!briefFieldId) continue;
+        const briefField = lead.custom_fields_values?.find(
+          (f) => f.field_id === briefFieldId,
+        );
+        if (!briefField?.values?.[0]?.value) continue;
+        const briefTs = Number(briefField.values[0].value);
+        if (briefTs < startTs || briefTs > endTs) continue;
+      }
+      // dateMode === 'created' — фильтр по created_at уже применён на серверной стороне
 
       const price = lead.price || 0;
 
@@ -163,8 +191,9 @@ export async function getLeadCountsByCreatedDate(
 ): Promise<AmoLeadCounts> {
   const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
   const soldIds = config?.conversionSoldStatusIds ?? [STATUS_SOLD];
-  const notSoldId = config?.conversionNotSoldStatusId ?? STATUS_NOT_SOLD;
-  const allStatusIds = [...soldIds, notSoldId];
+  const notSoldId = config?.conversionNotSoldStatusId;
+  const allStatusIds = notSoldId !== undefined ? [...soldIds, notSoldId] : [...soldIds];
+  const requestStatusIds = config?.requestStatusIds;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
     return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 };
@@ -179,12 +208,21 @@ export async function getLeadCountsByCreatedDate(
     let hasMore = true;
     while (hasMore) {
       const params = new URLSearchParams({
-        "filter[pipeline_id]": String(pipelineId),
         "filter[created_at][from]": String(startTs),
         "filter[created_at][to]": String(endTs),
         limit: "250",
         page: String(page),
       });
+      if (requestStatusIds?.length) {
+        // Фильтр по конкретным статусам воронки (учитывает только лиды, дошедшие до этих этапов)
+        requestStatusIds.forEach((sid, i) => {
+          params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
+          params.set(`filter[statuses][${i}][status_id]`, String(sid));
+        });
+      } else {
+        // Без фильтра по статусам — все лиды воронки
+        params.set("filter[pipeline_id]", String(pipelineId));
+      }
       const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
       if (!data._embedded?.leads?.length) break;
       for (const lead of data._embedded.leads) {
@@ -219,7 +257,7 @@ export async function getLeadCountsByCreatedDate(
         if (soldIds.includes(lead.status_id)) {
           sold++;
           soldTotalPrice += lead.price || 0;
-        } else if (lead.status_id === notSoldId) {
+        } else if (notSoldId !== undefined && lead.status_id === notSoldId) {
           notSold++;
         }
       }

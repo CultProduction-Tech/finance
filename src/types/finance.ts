@@ -22,6 +22,8 @@ export interface MonthlyKpiData {
   budgetFixedExpenses: number;
   isPast: boolean;
   projects?: ProjectMarginality[];
+  /** Проекты, отбакетенные по другой дате (у Культа — по «Бриф получен»). Если undefined — график маржинальности падает на m.projects. */
+  marginalityProjects?: ProjectMarginality[];
   // Бизнес-уравнение: Запросы, Конверсия, Проекты
   requestsFact: number;
   requestsPlan: number;
@@ -57,6 +59,7 @@ export interface KpiData {
   projectsCount: number;      // Проектов
   monthly: MonthlyKpiData[];  // Помесячная разбивка
   expenseCategories: ExpenseCategoryData[];
+  budgetLabel?: string;       // Подпись текущей версии бюджета (для шапки)
 }
 
 export interface MonthlyFinancials extends MonthlyData {

@@ -128,7 +128,12 @@ export function Dashboard() {
                 className="w-full h-full object-cover"
               />
             </div>
-            <h1 className="text-xl font-semibold tracking-tight">{entityInfo.name}</h1>
+            <div className="flex flex-col leading-tight">
+              <h1 className="text-xl font-semibold tracking-tight">{entityInfo.name}</h1>
+              {globalKpi?.budgetLabel && (
+                <span className="text-[11px] text-muted-foreground">{globalKpi.budgetLabel}</span>
+              )}
+            </div>
             {useMock && (
               <Badge variant="secondary" className="text-xs rounded-full">
                 Demo-данные

@@ -127,7 +127,10 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
   }, []);
 
   const chartData = useMemo(() => {
-    const monthsWithProjects = monthly.filter((m) => m.projects?.length);
+    // Для маржинальности проекты отбакетены отдельно (Культ — по «Бриф получен»). Если такого набора нет — fallback на m.projects (Бластер — по «Дате акта»).
+    const projsOf = (m: typeof monthly[number]) => m.marginalityProjects ?? m.projects;
+
+    const monthsWithProjects = monthly.filter((m) => projsOf(m)?.length);
     const hasProjects = monthsWithProjects.length > 0;
 
     // Кумулятивная маржинальность: из проектов (AmoCRM) если есть, иначе — из P&L
@@ -136,7 +139,7 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
       let cumPrice = 0;
       let cumExpense = 0;
       for (const m of monthsWithProjects) {
-        for (const p of m.projects!) {
+        for (const p of projsOf(m)!) {
           cumPrice += p.price;
           cumExpense += p.expensePlan;
         }
@@ -165,8 +168,9 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
 
     if (drillMonth) {
       const m = monthly.find((m) => m.month === drillMonth);
-      if (m?.projects?.length) {
-        for (const p of m.projects) {
+      const projs = m ? projsOf(m) : undefined;
+      if (projs?.length) {
+        for (const p of projs) {
           data.push({
             name: p.name,
             value: p.marginPercent,
@@ -174,8 +178,8 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
           });
         }
       }
-    } else if (monthly.length === 1 && monthly[0]?.projects?.length) {
-      for (const p of monthly[0].projects) {
+    } else if (monthly.length === 1 && projsOf(monthly[0])?.length) {
+      for (const p of projsOf(monthly[0])!) {
         data.push({
           name: p.name,
           value: p.marginPercent,
@@ -183,14 +187,15 @@ export function MarginalityChart({ monthly, periodSelector }: MarginalityChartPr
         });
       }
     } else if (hasProjects) {
-      // Помесячно из проектов (Blaster)
+      // Помесячно из проектов
       for (const m of monthly) {
-        if (!m.projects?.length) continue;
+        const projs = projsOf(m);
+        if (!projs?.length) continue;
         const monthIndex = parseInt(m.month.split("-")[1], 10) - 1;
         const label = MONTHS_RU[monthIndex]?.substring(0, 3) || m.month;
         data.push({
           name: label,
-          value: calcProjectsMargin(m.projects),
+          value: calcProjectsMargin(projs),
           type: "month",
           monthKey: m.month,
         });
