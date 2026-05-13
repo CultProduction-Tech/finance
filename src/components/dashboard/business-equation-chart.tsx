@@ -84,18 +84,16 @@ function BarWithLabel(props: any) {
         rx={radius}
         ry={radius}
       />
-      {dev !== 0 && (
-        <text
-          x={x + width / 2}
-          y={labelY}
-          textAnchor="middle"
-          fontSize={12}
-          fontWeight={700}
-          fill="#1d1d1f"
-        >
-          {sign}{dev}%
-        </text>
-      )}
+      <text
+        x={x + width / 2}
+        y={labelY}
+        textAnchor="middle"
+        fontSize={12}
+        fontWeight={700}
+        fill="#1d1d1f"
+      >
+        {sign}{dev}%
+      </text>
     </g>
   );
 }
