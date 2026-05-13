@@ -214,9 +214,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         ]
       : [
           ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
           // Победы — лиды в Продаже+Реализовано по дате создания (отдельный счётчик m.winsFact); план = запросы × 30%
           ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false],
+          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
           ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
           ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, false, false],
