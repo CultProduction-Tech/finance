@@ -140,11 +140,15 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let totalRequestsFact = 0, totalRequestsPlan = 0;
     let totalProjectsSoldFact = 0, totalProjectsNotSoldFact = 0;
     let totalProjectsByActs = 0;
+    let totalProjectsPlan = 0;
+    let totalWinsFact = 0;
     let amoProjectsPrice = 0, amoProjectsExpense = 0;
 
     for (const m of monthly) {
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;
+      totalProjectsPlan += m.projectsPlan;
+      totalWinsFact += m.winsFact ?? 0;
       totalProjectsSoldFact += m.projectsSoldFact;
       totalProjectsNotSoldFact += m.projectsNotSoldFact;
 
@@ -186,9 +190,10 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     }
 
     // Blaster plan values
-    const BLASTER_BUDGET_AVG_CHECK = 647500;
+    const BLASTER_BUDGET_AVG_CHECK = 900_000;
     const BLASTER_BUDGET_CONVERSION = 50;
-    const blasterBudgetProjects = BLASTER_BUDGET_AVG_CHECK > 0 ? budgetRevenue / BLASTER_BUDGET_AVG_CHECK : 0;
+    // План проектов — сумма помесячных значений за выбранный период (из m.projectsPlan, PROJECTS_PLAN_2026)
+    const blasterBudgetProjects = totalProjectsPlan;
 
     // Cult plan values
     const CULT_BUDGET_AVG_CHECK = 9_000_000;
@@ -209,8 +214,10 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         ]
       : [
           ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          ["Конверсия", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
-          ["Проекты", totalProjectsByActs, blasterBudgetProjects, false, false],
+          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
+          // Победы — лиды в Продаже+Реализовано по дате создания (отдельный счётчик m.winsFact); план = запросы × 30%
+          ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false],
+          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
           ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, false, false],
           ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],

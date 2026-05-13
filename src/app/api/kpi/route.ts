@@ -6,8 +6,8 @@ import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 
 
-const REQUESTS_PLAN_2026 = [7, 19, 22, 11, 14, 20, 20, 30, 30, 32, 16, 0];
-const PROJECTS_PLAN = 10;
+const REQUESTS_PLAN_2026 = [7, 21, 20, 13, 17, 17, 17, 25, 24, 26, 16, 0];
+const PROJECTS_PLAN_2026 = [1, 1, 6, 6, 4, 4, 5, 5, 8, 7, 8, 5];
 
 // Cult plan values
 const CULT_REQUESTS_PLAN = 7; // per month
@@ -62,6 +62,7 @@ export interface MonthlyKpi {
   projectsNotSoldFact: number;
   projectsSoldRevenue: number;
   projectsPlan: number;
+  winsFact: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -159,7 +160,7 @@ export async function GET(request: NextRequest) {
       : null;
 
     const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
-      if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 });
+      if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0, wins: 0 });
       return getLeadCountsByCreatedDate(mStart, mEnd, amoConfig);
     });
 
@@ -180,7 +181,7 @@ export async function GET(request: NextRequest) {
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
-    const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number }>();
+    const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number; wins: number }>();
     const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
@@ -402,7 +403,10 @@ export async function GET(request: NextRequest) {
           ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
           : (leadCountsByMonth.get(monthKey)?.notSold ?? 0),
         projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
-        projectsPlan: isCult ? CULT_PROJECTS_PLAN : PROJECTS_PLAN,
+        projectsPlan: isCult
+          ? CULT_PROJECTS_PLAN
+          : (PROJECTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
+        winsFact: leadCountsByMonth.get(monthKey)?.wins ?? 0,
       });
 
       totalRevenue += m.revenue;

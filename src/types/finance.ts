@@ -31,6 +31,7 @@ export interface MonthlyKpiData {
   projectsNotSoldFact: number;
   projectsSoldRevenue: number;
   projectsPlan: number;
+  winsFact: number;
 }
 
 export interface ProjectMarginality {

@@ -11,6 +11,8 @@ export interface AmoLeadCounts {
   notSold: number;
   soldTotalPrice: number;
   totalRequests: number;
+  /** Лиды в "победных" статусах (для Бластера — Продажа + Реализовано) по дате создания */
+  wins: number;
 }
 
 export interface AmoProjectDetail {
@@ -70,6 +72,8 @@ export interface AmoConfig {
   conversionNotSoldStatusId?: number;
   /** Если задан — totalRequests считается только по этим статусам (вместо «все лиды воронки») */
   requestStatusIds?: number[];
+  /** Статусы для "побед" — отдельный счётчик в getLeadCountsByCreatedDate (для Бластера: Продажа + Реализовано) */
+  winStatusIds?: number[];
   /** Custom-поле «Бриф получен» (для bucketing проектов в графике маржинальности у Культа) */
   briefDateFieldId?: number;
   /** Cult-specific: system user ID for counting requests */
@@ -194,9 +198,10 @@ export async function getLeadCountsByCreatedDate(
   const notSoldId = config?.conversionNotSoldStatusId;
   const allStatusIds = notSoldId !== undefined ? [...soldIds, notSoldId] : [...soldIds];
   const requestStatusIds = config?.requestStatusIds;
+  const winStatusIds = config?.winStatusIds;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
-    return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0 };
+    return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0, wins: 0 };
   }
 
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
@@ -236,6 +241,7 @@ export async function getLeadCountsByCreatedDate(
   let sold = 0;
   let notSold = 0;
   let soldTotalPrice = 0;
+  let wins = 0;
   {
     let page = 1;
     let hasMore = true;
@@ -260,13 +266,16 @@ export async function getLeadCountsByCreatedDate(
         } else if (notSoldId !== undefined && lead.status_id === notSoldId) {
           notSold++;
         }
+        if (winStatusIds?.includes(lead.status_id)) {
+          wins++;
+        }
       }
       hasMore = !!data._links?.next;
       page++;
     }
   }
 
-  return { sold, notSold, soldTotalPrice, totalRequests };
+  return { sold, notSold, soldTotalPrice, totalRequests, wins };
 }
 
 /**
