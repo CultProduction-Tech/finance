@@ -189,7 +189,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
 
     // Blaster plan values
     const BLASTER_BUDGET_AVG_CHECK = 900_000;
-    const BLASTER_BUDGET_CONVERSION = 50;
+    const BLASTER_BUDGET_CONVERSION = 30;
     // План проектов — сумма помесячных значений за выбранный период (из m.projectsPlan, PROJECTS_PLAN_2026)
     const blasterBudgetProjects = totalProjectsPlan;
 
