@@ -37,6 +37,8 @@ const configs: Record<LegalEntity, EntityConfig> = {
       winStatusIds: [84825134, 142],
       // Запросы по дате перехода в "Бриф передан в продакшн" (status_changed event)
       requestEntryStatusIds: [83925498],
+      // Custom-поле "Бриф получен" — fallback для гибридной даты запроса, если события нет
+      briefDateFieldId: 1647617,
     },
     budgets: {
       old: { name: "Бюджет 26", label: "Бюджет v2 от 01.03.26" },
