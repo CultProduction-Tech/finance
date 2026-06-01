@@ -378,10 +378,13 @@ export async function getBlasterCountsByBriefDate(
     }
   }
 
-  // ===== 2. События переходов в Бриф за выбранный период =====
+  // ===== 2. События смен этапов за выбранный период =====
   // Сервер фильтрует только по типу и дате; нужный target-статус мы отфильтруем локально.
-  const eventDateByLead = new Map<number, number>();
-  if (entryStatusIds.length) {
+  // Для каждого лида запоминаем САМОЕ РАННЕЕ событие в нужной категории.
+  const briefEventByLead = new Map<number, number>();   // → Бриф (для Запросы)
+  const winEventByLead = new Map<number, number>();     // → Продажа / Реализовано (для Победы)
+  const completedEventByLead = new Map<number, number>(); // → 3 финальных (для Завершённые)
+  if (entryStatusIds.length || winSet.size || completedSet.size) {
     const startTs = Math.floor(new Date(startDate).getTime() / 1000);
     const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
     const entrySet = new Set(entryStatusIds);
@@ -403,32 +406,50 @@ export async function getBlasterCountsByBriefDate(
         const before = ev.value_before?.[0]?.lead_status;
         if (!after || after.pipeline_id !== pipelineId) continue;
         if (!before || before.id === after.id) continue;
-        if (!entrySet.has(after.id)) continue;
-        const cur = eventDateByLead.get(ev.entity_id);
-        if (cur === undefined || ev.created_at < cur) {
-          eventDateByLead.set(ev.entity_id, ev.created_at);
-        }
+        const sid = after.id;
+        const lid = ev.entity_id;
+        const ts = ev.created_at;
+        const updateEarliest = (m: Map<number, number>) => {
+          const cur = m.get(lid);
+          if (cur === undefined || ts < cur) m.set(lid, ts);
+        };
+        if (entrySet.has(sid)) updateEarliest(briefEventByLead);
+        if (winSet.has(sid)) updateEarliest(winEventByLead);
+        if (completedSet.has(sid)) updateEarliest(completedEventByLead);
       }
       hasMore = !!data._links?.next;
       page++;
     }
   }
 
-  // ===== 3. Бакетинг по месяцу "даты запроса" =====
+  // ===== 3. Бакетинг по месяцу =====
+  // Запросы — по гибридной дате (event "→ Бриф" → fallback поле "Бриф получен"). Бакет по дате запроса.
+  // Победы — по дате event "→ Продажа/Реализовано" (без fallback).
+  // Завершённые — по дате event "→ Продажа/Реализовано/Закрыто и не реализовано".
   const buckets: Record<string, BlasterMonthlyCounts> = {};
-  for (const lead of leads) {
-    const ts = eventDateByLead.get(lead.id) ?? lead.fieldDate;
-    if (!ts) continue;
-    const d = new Date(ts * 1000);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const ensure = (monthKey: string): BlasterMonthlyCounts => {
     let b = buckets[monthKey];
     if (!b) {
       b = { requests: 0, wins: 0, completed: 0 };
       buckets[monthKey] = b;
     }
-    b.requests++;
-    if (winSet.has(lead.status_id)) b.wins++;
-    if (completedSet.has(lead.status_id)) b.completed++;
+    return b;
+  };
+  const toMonthKey = (ts: number): string => {
+    const d = new Date(ts * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  for (const lead of leads) {
+    const ts = briefEventByLead.get(lead.id) ?? lead.fieldDate;
+    if (!ts) continue;
+    ensure(toMonthKey(ts)).requests++;
+  }
+  for (const ts of winEventByLead.values()) {
+    ensure(toMonthKey(ts)).wins++;
+  }
+  for (const ts of completedEventByLead.values()) {
+    ensure(toMonthKey(ts)).completed++;
   }
 
   return buckets;

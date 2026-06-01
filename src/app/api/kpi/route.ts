@@ -398,17 +398,22 @@ export async function GET(request: NextRequest) {
           expensePlan: p.expensePlan,
           marginPercent: p.marginPercent,
         })),
-        // Для Бластера запросы/победы/завершённые считаются по дате перехода в нужный статус (events API).
-        // Для Культа — по системному пользователю и Первичному контакту (как было).
+        // Для Бластера: до марта 2026 включительно — старая логика по created_at (избегаем мартовских массовых чисток).
+        // С апреля 2026 — новая логика: Запросы по гибридной дате (event "→ Бриф" / поле), Победы/Завершённые по событиям смены статуса.
+        // Для Культа — без изменений (системный пользователь + Первичный контакт).
         requestsFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
-          : (blasterCountsByMonth[monthKey]?.requests ?? 0),
+          : (monthKey >= "2026-04"
+              ? (blasterCountsByMonth[monthKey]?.requests ?? 0)
+              : (leadCountsByMonth.get(monthKey)?.totalRequests ?? 0)),
         requestsPlan: isCult
           ? CULT_REQUESTS_PLAN
           : (REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         projectsSoldFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
-          : (blasterCountsByMonth[monthKey]?.completed ?? 0),
+          : (monthKey >= "2026-04"
+              ? (blasterCountsByMonth[monthKey]?.completed ?? 0)
+              : (leadCountsByMonth.get(monthKey)?.sold ?? 0)),
         projectsNotSoldFact: isCult
           ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
           : 0,
@@ -418,7 +423,9 @@ export async function GET(request: NextRequest) {
           : (PROJECTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         winsFact: isCult
           ? 0
-          : (blasterCountsByMonth[monthKey]?.wins ?? 0),
+          : (monthKey >= "2026-04"
+              ? (blasterCountsByMonth[monthKey]?.wins ?? 0)
+              : (leadCountsByMonth.get(monthKey)?.wins ?? 0)),
       });
 
       totalRevenue += m.revenue;
