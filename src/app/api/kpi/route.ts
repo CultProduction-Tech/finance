@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { PaymentStructureResponse } from "@/lib/planfact-client";
-import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts } from "@/lib/amocrm-client";
+import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterCountsByBriefDate } from "@/lib/amocrm-client";
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 
@@ -172,17 +172,25 @@ export async function GET(request: NextRequest) {
         })
       : null;
 
-    const [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults] = await Promise.all([
+    // Бластер: запросы/победы/завершённые — гибридная дата (событие "→ Бриф" → fallback на поле "Бриф получен")
+    // Один общий вызов на весь период вместо параллельных по месяцам.
+    const blasterCountsPromise: Promise<Record<string, { requests: number; wins: number; completed: number }> | null> = !isCult
+      ? getBlasterCountsByBriefDate(startDate, endDate, amoConfig)
+      : Promise.resolve(null);
+
+    const [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts] = await Promise.all([
       Promise.all(projectPromises),
       marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
       Promise.all(leadCountPromises),
       cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
+      blasterCountsPromise,
     ]);
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
     const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number; wins: number }>();
     const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
+    const blasterCountsByMonth: Record<string, { requests: number; wins: number; completed: number }> = blasterCounts ?? {};
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
@@ -390,23 +398,27 @@ export async function GET(request: NextRequest) {
           expensePlan: p.expensePlan,
           marginPercent: p.marginPercent,
         })),
+        // Для Бластера запросы/победы/завершённые считаются по дате перехода в нужный статус (events API).
+        // Для Культа — по системному пользователю и Первичному контакту (как было).
         requestsFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
-          : (leadCountsByMonth.get(monthKey)?.totalRequests ?? 0),
+          : (blasterCountsByMonth[monthKey]?.requests ?? 0),
         requestsPlan: isCult
           ? CULT_REQUESTS_PLAN
           : (REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         projectsSoldFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
-          : (leadCountsByMonth.get(monthKey)?.sold ?? 0),
+          : (blasterCountsByMonth[monthKey]?.completed ?? 0),
         projectsNotSoldFact: isCult
           ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
-          : (leadCountsByMonth.get(monthKey)?.notSold ?? 0),
+          : 0,
         projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
         projectsPlan: isCult
           ? CULT_PROJECTS_PLAN
           : (PROJECTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
-        winsFact: leadCountsByMonth.get(monthKey)?.wins ?? 0,
+        winsFact: isCult
+          ? 0
+          : (blasterCountsByMonth[monthKey]?.wins ?? 0),
       });
 
       totalRevenue += m.revenue;

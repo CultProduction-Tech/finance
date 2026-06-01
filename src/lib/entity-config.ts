@@ -35,6 +35,8 @@ const configs: Record<LegalEntity, EntityConfig> = {
       conversionSoldStatusIds: [84825134, 142, 143],
       // Победы — Продажа + Реализовано (без "Закрыто и не реализовано")
       winStatusIds: [84825134, 142],
+      // Запросы по дате перехода в "Бриф передан в продакшн" (status_changed event)
+      requestEntryStatusIds: [83925498],
     },
     budgets: {
       old: { name: "Бюджет 26", label: "Бюджет v2 от 01.03.26" },

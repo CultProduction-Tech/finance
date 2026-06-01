@@ -64,8 +64,14 @@ export function Dashboard() {
   const kpiStart = kpiLocalStart ?? startMonth;
   const kpiEnd = kpiLocalEnd ?? endMonth;
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
+    try {
+      // Сбрасываем серверный кэш Next.js (PlanFact + AmoCRM), затем триггерим перезапрос всех KPI.
+      await fetch("/api/refresh", { method: "POST" });
+    } catch {
+      // молча — даже если не удалось сбросить, refreshKey всё равно дёрнет повторный фетч
+    }
     setRefreshKey((k) => k + 1);
     setTimeout(() => setRefreshing(false), 1000);
   };

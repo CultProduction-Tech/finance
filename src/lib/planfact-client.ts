@@ -1,5 +1,23 @@
 const API_URL = process.env.PLANFACT_API_URL || "https://api.planfact.io";
 
+const TTL_FRESH = 900;       // 15 минут — текущий и будущие месяцы (могут меняться часто)
+const TTL_CLOSED = 86_400;   // 24 часа — закрытые прошедшие месяцы (стабильны)
+
+/**
+ * Выбирает TTL кэша на основе параметров запроса PlanFact.
+ * Если в параметрах есть дата конца периода / текущая дата и она < начала текущего месяца —
+ * это запрос за закрытые месяцы, кэшируем на 24 часа. Иначе (текущий/будущие/нет даты в URL) — 15 минут.
+ */
+function planFactRevalidate(params?: Record<string, string>): number {
+  if (!params) return TTL_CLOSED; // global data (категории, бюджеты-списки)
+  const endStr = params["filter.periodEndDate"] || params["filter.currentDate"];
+  if (!endStr) return TTL_CLOSED; // нет даты → справочные данные
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endDate = new Date(endStr);
+  return endDate < currentMonthStart ? TTL_CLOSED : TTL_FRESH;
+}
+
 interface PlanFactResponse<T> {
   data: T;
   isSuccess: boolean;
@@ -23,7 +41,7 @@ function createPfFetch(apiKey: string) {
         "Content-Type": "application/json",
         "X-ApiKey": apiKey,
       },
-      next: { revalidate: 900 },
+      next: { revalidate: planFactRevalidate(params), tags: ["planfact"] },
     });
 
     if (!res.ok) {

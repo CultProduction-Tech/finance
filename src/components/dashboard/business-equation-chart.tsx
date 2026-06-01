@@ -219,7 +219,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
           ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, false, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
+          ["Маржин-ть по проектам", avgFactMarginPct, avgBudgetMarginPct, true, false],
           ["Маржа", factMargin, budgetMargin, false, false],
           ["Пост. расходы", factFixed, budgetFixed, false, true],
           ["Прибыль", factProfit, budgetProfit, false, false],
