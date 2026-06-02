@@ -1,12 +1,14 @@
 "use client";
 
-import { KpiData } from "@/types/finance";
+import { KpiData, LegalEntity } from "@/types/finance";
 import { formatMoney } from "@/lib/finance-utils";
 import { KpiCard } from "./kpi-card";
+import { getHint } from "@/lib/hint-texts";
 
 interface KpiGridProps {
   data: KpiData;
   cashflow3m?: number | null;
+  entity: LegalEntity;
 }
 
 const SHOW_EXTRA_KPIS = false;
@@ -16,7 +18,7 @@ function deviation(fact: number, budget: number): number {
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
 }
 
-export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
+export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
   const budgetRevenue = data.monthly.reduce((s, m) => s + m.budgetRevenue, 0);
   const budgetMargin = data.monthly.reduce((s, m) => s + m.budgetMargin, 0);
   const budgetProfit = data.monthly.reduce((s, m) => s + m.budgetProfit, 0);
@@ -30,6 +32,7 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
         icon="🔁"
         label="Выручка"
         value={formatMoney(data.revenue)}
+        hint={getHint(entity, "kpi_revenue")}
         comparison={budgetRevenue > 0 ? {
           deviationPercent: deviation(data.revenue, budgetRevenue),
           budgetLabel: formatMoney(budgetRevenue),
@@ -39,6 +42,7 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
         icon="💵"
         label="Маржа"
         value={formatMoney(data.margin)}
+        hint={getHint(entity, "kpi_margin")}
         comparison={budgetMargin > 0 ? {
           deviationPercent: deviation(data.margin, budgetMargin),
           budgetLabel: formatMoney(budgetMargin),
@@ -48,6 +52,7 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
         icon="📊"
         label="Маржинальность"
         value={formatMoney(data.marginPercent, "%")}
+        hint={getHint(entity, "kpi_margin_percent")}
         comparison={budgetMarginPercent > 0 ? {
           deviationPercent: deviation(data.marginPercent, budgetMarginPercent),
           budgetLabel: formatMoney(budgetMarginPercent, "%"),
@@ -58,6 +63,7 @@ export function KpiGrid({ data, cashflow3m }: KpiGridProps) {
         label={data.profit >= 0 ? "Прибыль" : "Убыток"}
         value={formatMoney(Math.abs(data.profit))}
         variant={data.profit >= 0 ? "positive" : "negative"}
+        hint={getHint(entity, "kpi_profit")}
         comparison={budgetProfit !== 0 ? {
           deviationPercent: deviation(data.profit, budgetProfit),
           budgetLabel: formatMoney(budgetProfit),

@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import { CHART_COLORS } from "@/lib/chart-colors";
 import type { LegalEntity } from "@/types/finance";
+import { Hint } from "@/components/ui/hint";
+import { getHint } from "@/lib/hint-texts";
 
 interface CashflowPoint {
   date: string;
@@ -144,7 +146,13 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-baseline gap-3">
-          <h3 className="text-lg font-bold">&#x1F3E6; Остатки на счетах</h3>
+          {(() => {
+            const hint = getHint(entity, "chart_cashflow");
+            const titleEl = <h3 className="text-lg font-bold">&#x1F3E6; Остатки на счетах</h3>;
+            return hint ? (
+              <Hint title={hint.title} content={hint.content} side="bottom">{titleEl}</Hint>
+            ) : titleEl;
+          })()}
           <span
             className="text-[15px] font-semibold tabular-nums"
             style={{ color: data.currentBalance >= 0 ? POSITIVE : NEGATIVE }}

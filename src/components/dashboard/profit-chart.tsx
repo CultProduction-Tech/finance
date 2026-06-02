@@ -10,13 +10,16 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { MonthlyKpiData, MONTHS_RU } from "@/types/finance";
+import { LegalEntity, MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
+import { Hint } from "@/components/ui/hint";
+import { getHint } from "@/lib/hint-texts";
 
 interface ProfitChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
   fullYearMonthly?: MonthlyKpiData[];
+  entity?: LegalEntity;
 }
 
 interface ChartDataPoint {
@@ -88,7 +91,8 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: ProfitChartProps) {
+export function ProfitChart({ monthly, periodSelector, fullYearMonthly, entity }: ProfitChartProps) {
+  const hint = entity ? getHint(entity, "chart_profitability") : undefined;
   const chartData = useMemo<ChartDataPoint[]>(() => {
     const displayMonths = new Set(monthly.map((m) => m.month));
     const hasAllMonths = fullYearMonthly
@@ -146,7 +150,13 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly }: Profit
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
+        {hint ? (
+          <Hint title={hint.title} content={hint.content} side="bottom">
+            <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
+          </Hint>
+        ) : (
+          <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
+        )}
         {periodSelector}
       </div>
       <ResponsiveContainer width="100%" height={220}>

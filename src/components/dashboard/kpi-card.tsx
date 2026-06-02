@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { Hint } from "@/components/ui/hint";
+import type { HintText } from "@/lib/hint-texts";
 
 interface Comparison {
   deviationPercent: number; // подписанный % отклонения факта от бюджета
@@ -12,10 +14,11 @@ interface KpiCardProps {
   subtitle?: string;
   variant?: "default" | "negative" | "positive";
   comparison?: Comparison;
+  hint?: HintText;
 }
 
-export function KpiCard({ icon, label, value, subtitle, variant = "default", comparison }: KpiCardProps) {
-  return (
+export function KpiCard({ icon, label, value, subtitle, variant = "default", comparison, hint }: KpiCardProps) {
+  const card = (
     <div className="group rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 px-4 py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-base shrink-0">{icon}</span>
@@ -52,5 +55,12 @@ export function KpiCard({ icon, label, value, subtitle, variant = "default", com
         )}
       </div>
     </div>
+  );
+
+  if (!hint) return card;
+  return (
+    <Hint title={hint.title} content={hint.content} className="block w-full">
+      {card}
+    </Hint>
   );
 }

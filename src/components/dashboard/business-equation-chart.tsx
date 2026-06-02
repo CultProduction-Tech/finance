@@ -16,6 +16,26 @@ import {
 import { MonthlyKpiData, LegalEntity } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
 import { BarCursor } from "./chart-cursor";
+import { Hint } from "@/components/ui/hint";
+import { getHint } from "@/lib/hint-texts";
+import { useHintMode } from "@/contexts/hint-mode";
+
+// Маппинг подписи столбика в графике → ключ в hint-texts (берём по entity)
+const COLUMN_TO_HINT: Record<string, string> = {
+  "Запросы": "eq_requests",
+  "Победы": "eq_wins",
+  "Винрейт": "eq_winrate",
+  "Конверсия": "eq_conversion",
+  "Проекты по актам": "eq_projects_by_acts",
+  "Проекты": "eq_projects",
+  "Средний чек": "eq_avg_check",
+  "Выручка": "eq_revenue",
+  "Маржин-ть по проектам": "eq_margin_percent",
+  "Маржин-ть": "eq_margin_percent",
+  "Маржа": "eq_margin",
+  "Пост. расходы": "eq_fixed",
+  "Прибыль": "eq_profit",
+};
 
 interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
@@ -130,6 +150,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
 }
 
 export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
+  const { enabled: hintMode } = useHintMode();
   const chartData = useMemo<BarDataPoint[]>(() => {
     let factRevenue = 0, budgetRevenue = 0;
     let factMargin = 0, budgetMargin = 0;
@@ -242,7 +263,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h3 className="text-lg font-bold">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
+        {(() => {
+          const title = <h3 className="text-lg font-bold">&#x2696;&#xFE0F; Бизнес-уравнение</h3>;
+          // Используем title-подсказку первой колонки как общее описание — нет смысла дублировать.
+          return title;
+        })()}
         {periodSelector}
       </div>
 
@@ -254,26 +279,40 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         }}
       >
         <div className="text-[12px] italic text-muted-foreground text-right pr-2">Бюджет</div>
-        {chartData.map((d) => (
-          <div
-            key={`b-${d.name}`}
-            className="text-center text-[13px] text-muted-foreground tabular-nums"
-          >
-            {formatValue(d.budget, d.isPercent)}
-          </div>
-        ))}
+        {chartData.map((d) => {
+          const hk = COLUMN_TO_HINT[d.name];
+          const h = entity && hk ? getHint(entity, hk) : undefined;
+          const cell = (
+            <div className="text-center text-[13px] text-muted-foreground tabular-nums">
+              {formatValue(d.budget, d.isPercent)}
+            </div>
+          );
+          return h ? (
+            <Hint key={`b-${d.name}`} title={h.title} content={h.content} className="block">{cell}</Hint>
+          ) : (
+            <div key={`b-${d.name}`} className="text-center text-[13px] text-muted-foreground tabular-nums">
+              {formatValue(d.budget, d.isPercent)}
+            </div>
+          );
+        })}
 
         <div className="text-[12px] italic font-bold text-right pr-2">Факт</div>
-        {chartData.map((d) => (
-          <div
-            key={`f-${d.name}`}
-            className={`text-center text-[13px] font-bold tabular-nums ${
-              d.fact < 0 ? "text-[#ff3b30]" : ""
-            }`}
-          >
-            {formatValue(d.fact, d.isPercent)}
-          </div>
-        ))}
+        {chartData.map((d) => {
+          const hk = COLUMN_TO_HINT[d.name];
+          const h = entity && hk ? getHint(entity, hk) : undefined;
+          const cell = (
+            <div className={`text-center text-[13px] font-bold tabular-nums ${d.fact < 0 ? "text-[#ff3b30]" : ""}`}>
+              {formatValue(d.fact, d.isPercent)}
+            </div>
+          );
+          return h ? (
+            <Hint key={`f-${d.name}`} title={h.title} content={h.content} className="block">{cell}</Hint>
+          ) : (
+            <div key={`f-${d.name}`} className={`text-center text-[13px] font-bold tabular-nums ${d.fact < 0 ? "text-[#ff3b30]" : ""}`}>
+              {formatValue(d.fact, d.isPercent)}
+            </div>
+          );
+        })}
       </div>
 
       {/* Подложка-разделитель между таблицей и графиком */}
@@ -309,7 +348,25 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
             tickLine={false}
           />
           <ReferenceLine y={0} stroke="#bbb" strokeDasharray="3 3" />
-          <Tooltip content={() => null} cursor={<BarCursor />} />
+          <Tooltip
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            content={(props: any) => {
+              if (!hintMode || !props.active || !props.payload?.length) return null;
+              const p = props.payload[0]?.payload as BarDataPoint;
+              if (!p) return null;
+              const hk = COLUMN_TO_HINT[p.name];
+              if (!hk || !entity) return null;
+              const h = getHint(entity, hk);
+              if (!h) return null;
+              return (
+                <div className="max-w-xs rounded-lg bg-white px-3 py-2 text-[12px] leading-snug shadow-lg ring-1 ring-black/10">
+                  <div className="font-semibold mb-1 text-[12px]">{h.title}</div>
+                  <div className="text-muted-foreground whitespace-pre-line">{h.content}</div>
+                </div>
+              );
+            }}
+            cursor={hintMode ? <BarCursor /> : false}
+          />
           <Bar
             dataKey="deviation"
             shape={<BarWithLabel />}

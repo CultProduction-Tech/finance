@@ -15,8 +15,40 @@ import { ChartWithPeriod } from "./chart-with-period";
 import { CashflowChart } from "./cashflow-chart";
 import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
+import { HintModeProvider, useHintMode } from "@/contexts/hint-mode";
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+
+function HintToggleButton() {
+  const { enabled, toggle } = useHintMode();
+  return (
+    <button
+      onClick={toggle}
+      className={`flex items-center gap-1.5 text-[13px] font-medium transition-colors ${
+        enabled ? "text-[var(--accent-solid)]" : "text-muted-foreground hover:text-foreground"
+      }`}
+      title={enabled ? "Выключить подсказки" : "Включить подсказки (наведи на цифру)"}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+      Подсказки
+    </button>
+  );
+}
 
 export function Dashboard() {
+  return (
+    <HintModeProvider>
+      <TooltipPrimitive.Provider delay={150}>
+        <DashboardInner />
+      </TooltipPrimitive.Provider>
+    </HintModeProvider>
+  );
+}
+
+function DashboardInner() {
   const [entity, setEntityState] = useState<LegalEntity>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("dashboard-entity");
@@ -159,8 +191,9 @@ export function Dashboard() {
             />
           </div>
 
-          {/* Справа: обновить + выйти */}
+          {/* Справа: подсказки + обновить + выйти */}
           <div className="flex items-center gap-3 shrink-0">
+            <HintToggleButton />
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -228,7 +261,7 @@ export function Dashboard() {
                 hideYear
               />
             </div>
-            <KpiGrid data={kpi} cashflow3m={cashflow3m} />
+            <KpiGrid data={kpi} cashflow3m={cashflow3m} entity={entity} />
           </>
         ) : null}
       </div>
@@ -253,13 +286,13 @@ export function Dashboard() {
         <div className="px-6 pb-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} hideMonthButton>
-              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} />}
+              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} entity={entity} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
-              {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} />}
+              {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}
