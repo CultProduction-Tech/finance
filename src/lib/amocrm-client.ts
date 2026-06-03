@@ -29,6 +29,7 @@ interface AmoLead {
   price: number;
   status_id: number;
   pipeline_id: number;
+  closed_at: number | null;
   custom_fields_values: {
     field_id: number;
     field_name: string;
@@ -60,24 +61,76 @@ function amoRevalidate(endpoint: string): number {
   return new Date(ts * 1000) < currentMonthStart ? AMO_TTL_CLOSED : AMO_TTL_FRESH;
 }
 
-async function amoFetch<T>(endpoint: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    headers: {
-      Authorization: `Bearer ${ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    next: { revalidate: amoRevalidate(endpoint), tags: ["amocrm"] },
+// ===== Безопасность: семафор + дедуп параллельных запросов в AmoCRM =====
+//
+// Зачем:
+// 1) Семафор — ограничивает количество ОДНОВРЕМЕННЫХ запросов в AmoCRM (макс. 4).
+//    Даже если в коде запустилось 30 параллельных вызовов amoFetch, только 4 уходят в сеть.
+//    Это страхует от burst >7 req/sec, за который AmoCRM банит.
+// 2) Inflight-дедуп — если одновременно (например из разных вызовов /api/kpi) запросили
+//    один и тот же URL, отправляем ОДИН реальный запрос, а оба promise'а получают тот же
+//    результат. Это особенно важно когда дашборд открывают несколько пользователей сразу
+//    или у нас несколько useKpi-хуков с одинаковыми параметрами.
+
+const AMO_MAX_CONCURRENT = 4;
+
+let amoActive = 0;
+const amoQueue: Array<() => void> = [];
+
+function acquireAmoSlot(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const tryRun = () => {
+      if (amoActive < AMO_MAX_CONCURRENT) {
+        amoActive++;
+        resolve();
+      } else {
+        amoQueue.push(tryRun);
+      }
+    };
+    tryRun();
   });
+}
 
-  if (res.status === 204) return { _embedded: null } as T;
+function releaseAmoSlot() {
+  amoActive--;
+  const next = amoQueue.shift();
+  if (next) next();
+}
 
-  if (!res.ok) {
-    throw new Error(`AMO CRM API error: ${res.status} ${res.statusText}`);
-  }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const amoInflight = new Map<string, Promise<any>>();
 
-  const text = await res.text();
-  if (!text) return { _embedded: null } as T;
-  return JSON.parse(text);
+async function amoFetch<T>(endpoint: string): Promise<T> {
+  // Дедуп: один и тот же endpoint уже летит — отдаём тот же promise
+  const existing = amoInflight.get(endpoint);
+  if (existing) return existing as Promise<T>;
+
+  const p = (async (): Promise<T> => {
+    await acquireAmoSlot();
+    try {
+      const res = await fetch(`${BASE_URL}${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        next: { revalidate: amoRevalidate(endpoint), tags: ["amocrm"] },
+      });
+
+      if (res.status === 204) return { _embedded: null } as T;
+      if (!res.ok) {
+        throw new Error(`AMO CRM API error: ${res.status} ${res.statusText}`);
+      }
+      const text = await res.text();
+      if (!text) return { _embedded: null } as T;
+      return JSON.parse(text);
+    } finally {
+      releaseAmoSlot();
+      amoInflight.delete(endpoint);
+    }
+  })();
+
+  amoInflight.set(endpoint, p);
+  return p;
 }
 
 export interface AmoConfig {
@@ -88,11 +141,9 @@ export interface AmoConfig {
   conversionNotSoldStatusId?: number;
   /** Если задан — totalRequests считается только по этим статусам (вместо «все лиды воронки») */
   requestStatusIds?: number[];
-  /** Статусы для "побед" — отдельный счётчик в getLeadCountsByCreatedDate (для Бластера: Продажа + Реализовано) */
+  /** Статусы для "побед" — используется в getLeadCountsByCreatedDate (Янв-Мар) и getBlasterClosedLeadCounts (Апр+). Для Бластера: [Реализованo]. */
   winStatusIds?: number[];
-  /** Статусы "входа" лида (Бластер: Бриф передан в продакшн). Используется для подсчёта запросов по дате перехода в этот статус. */
-  requestEntryStatusIds?: number[];
-  /** Custom-поле «Бриф получен» (для bucketing проектов в графике маржинальности у Культа) */
+  /** Custom-поле «Бриф получен» (для Запросов Бластера + bucketing проектов в графике маржинальности у Культа) */
   briefDateFieldId?: number;
   /** Cult-specific: system user ID for counting requests */
   systemCreatedByUserId?: number;
@@ -296,162 +347,118 @@ export async function getLeadCountsByCreatedDate(
   return { sold, notSold, soldTotalPrice, totalRequests, wins };
 }
 
-interface AmoEventStatus {
-  id: number;
-  pipeline_id: number;
-}
-
-interface AmoEventValueItem {
-  lead_status?: AmoEventStatus;
-}
-
-interface AmoEvent {
-  entity_id: number;
-  created_at: number;
-  value_before?: AmoEventValueItem[] | null;
-  value_after?: AmoEventValueItem[] | null;
-}
-
-interface AmoEventsResponse {
-  _embedded: { events: AmoEvent[] } | null;
-  _links: { next?: { href: string } };
+function toMonthKey(ts: number): string {
+  const d = new Date(ts * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 /**
- * Гибридный подсчёт Запросов/Побед/Завершённых Бластера по "дате запроса" каждого лида.
+ * Запросы Бластера по месяцам — по custom-полю "Бриф получен".
  *
- * Дата запроса для лида определяется так:
- *   1) Если в AmoCRM есть событие смены этапа в requestEntryStatusIds (Бриф передан в продакшн)
- *      — берём дату самого раннего такого события
- *   2) Иначе если заполнено custom-поле briefDateFieldId (Бриф получен) — берём его
- *   3) Иначе лид не учитывается ни в одном из счётчиков
+ * Фетчим все лиды в 6 целевых статусах (requestStatusIds), у каждого читаем поле briefDateFieldId.
+ * Бакет по месяцу даты из поля.
  *
- * Затем лиды бакетятся по месяцу даты запроса. В каждом месяце:
- *   - requests = все лиды этого месяца (статусы из requestStatusIds — 6 целевых)
- *   - wins     = подмножество, у которых текущий статус ∈ winStatusIds (Продажа + Реализовано)
- *   - completed= подмножество, у которых текущий статус ∈ conversionSoldStatusIds (3 финальных)
+ * ⚡ Запросов AmoCRM: ~10 (только пагинация лидов).
  */
-export type BlasterMonthlyCounts = { requests: number; wins: number; completed: number };
-
-export async function getBlasterCountsByBriefDate(
-  startDate: string,
-  endDate: string,
+export async function getBlasterRequestsByBriefField(
   config: AmoConfig,
-): Promise<Record<string, BlasterMonthlyCounts>> {
+): Promise<Record<string, number>> {
   const pipelineId = config.pipelineId;
   const reqStatusIds = config.requestStatusIds ?? [];
-  const entryStatusIds = config.requestEntryStatusIds ?? [];
-  const winSet = new Set(config.winStatusIds ?? []);
-  const completedSet = new Set(config.conversionSoldStatusIds ?? []);
   const briefFieldId = config.briefDateFieldId;
 
-  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !reqStatusIds.length) {
+  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !reqStatusIds.length || !briefFieldId) {
     return {};
   }
 
-  // ===== 1. Все лиды воронки в 6 целевых статусах + custom-поле "Бриф получен" =====
-  const leads: { id: number; status_id: number; fieldDate?: number }[] = [];
-  {
-    let page = 1;
-    let hasMore = true;
-    while (hasMore) {
-      const params = new URLSearchParams({ limit: "250", page: String(page) });
-      reqStatusIds.forEach((sid, i) => {
-        params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
-        params.set(`filter[statuses][${i}][status_id]`, String(sid));
-      });
-      const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
-      const items = data._embedded?.leads;
-      if (!items?.length) break;
-      for (const l of items) {
-        if (l.pipeline_id !== pipelineId) continue;
-        let fieldDate: number | undefined;
-        if (briefFieldId) {
-          const f = l.custom_fields_values?.find((f) => f.field_id === briefFieldId);
-          const v = f?.values?.[0]?.value;
-          if (v) fieldDate = Number(v);
-        }
-        leads.push({ id: l.id, status_id: l.status_id, fieldDate });
+  const buckets: Record<string, number> = {};
+  let page = 1;
+  let hasMore = true;
+  while (hasMore) {
+    const params = new URLSearchParams({ limit: "250", page: String(page) });
+    reqStatusIds.forEach((sid, i) => {
+      params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
+      params.set(`filter[statuses][${i}][status_id]`, String(sid));
+    });
+    const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
+    const items = data._embedded?.leads;
+    if (!items?.length) break;
+    for (const l of items) {
+      if (l.pipeline_id !== pipelineId) continue;
+      const f = l.custom_fields_values?.find((f) => f.field_id === briefFieldId);
+      const v = f?.values?.[0]?.value;
+      if (!v) continue;
+      const monthKey = toMonthKey(Number(v));
+      buckets[monthKey] = (buckets[monthKey] ?? 0) + 1;
+    }
+    hasMore = !!data._links?.next;
+    page++;
+  }
+  return buckets;
+}
+
+/**
+ * Победы/Завершённые Бластера по месяцам — по системному полю closed_at AmoCRM.
+ *
+ * Фетчим лиды воронки с фильтром filter[closed_at][from..to] = выбранный период, status_id ∈ [winSet ∪ completedSet].
+ * Так как Победы (winSet) — подмножество Завершённых (completedSet), один запрос покрывает обе метрики.
+ *
+ * Закрытие у лида = переход в терминальный статус (Реализованo или Закрыто и не реализовано) — AmoCRM
+ * проставляет closed_at автоматически.
+ *
+ * ⚡ Запросов AmoCRM: 1-3 (закрытых лидов в месяце обычно немного).
+ */
+export type BlasterClosedCounts = { wins: number; completed: number };
+
+export async function getBlasterClosedLeadCounts(
+  startDate: string,
+  endDate: string,
+  config: AmoConfig,
+): Promise<Record<string, BlasterClosedCounts>> {
+  const pipelineId = config.pipelineId;
+  const winSet = new Set(config.winStatusIds ?? []);
+  const completedSet = new Set(config.conversionSoldStatusIds ?? []);
+  const allStatuses = Array.from(new Set([...winSet, ...completedSet]));
+
+  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !allStatuses.length) {
+    return {};
+  }
+
+  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
+  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
+
+  const buckets: Record<string, BlasterClosedCounts> = {};
+  let page = 1;
+  let hasMore = true;
+  while (hasMore) {
+    const params = new URLSearchParams({
+      "filter[closed_at][from]": String(startTs),
+      "filter[closed_at][to]": String(endTs),
+      limit: "250",
+      page: String(page),
+    });
+    allStatuses.forEach((sid, i) => {
+      params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
+      params.set(`filter[statuses][${i}][status_id]`, String(sid));
+    });
+    const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
+    const leads = data._embedded?.leads;
+    if (!leads?.length) break;
+    for (const l of leads) {
+      if (l.pipeline_id !== pipelineId) continue;
+      if (!l.closed_at) continue;
+      const monthKey = toMonthKey(l.closed_at);
+      let b = buckets[monthKey];
+      if (!b) {
+        b = { wins: 0, completed: 0 };
+        buckets[monthKey] = b;
       }
-      hasMore = !!data._links?.next;
-      page++;
+      if (winSet.has(l.status_id)) b.wins++;
+      if (completedSet.has(l.status_id)) b.completed++;
     }
+    hasMore = !!data._links?.next;
+    page++;
   }
-
-  // ===== 2. События смен этапов за выбранный период =====
-  // Сервер фильтрует только по типу и дате; нужный target-статус мы отфильтруем локально.
-  // Для каждого лида запоминаем САМОЕ РАННЕЕ событие в нужной категории.
-  const briefEventByLead = new Map<number, number>();   // → Бриф (для Запросы)
-  const winEventByLead = new Map<number, number>();     // → Продажа / Реализовано (для Победы)
-  const completedEventByLead = new Map<number, number>(); // → 3 финальных (для Завершённые)
-  if (entryStatusIds.length || winSet.size || completedSet.size) {
-    const startTs = Math.floor(new Date(startDate).getTime() / 1000);
-    const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
-    const entrySet = new Set(entryStatusIds);
-    let page = 1;
-    let hasMore = true;
-    while (hasMore) {
-      const params = new URLSearchParams({
-        "filter[type]": "lead_status_changed",
-        "filter[created_at][from]": String(startTs),
-        "filter[created_at][to]": String(endTs),
-        limit: "250",
-        page: String(page),
-      });
-      const data = await amoFetch<AmoEventsResponse>(`/api/v4/events?${params}`);
-      const events = data._embedded?.events;
-      if (!events?.length) break;
-      for (const ev of events) {
-        const after = ev.value_after?.[0]?.lead_status;
-        const before = ev.value_before?.[0]?.lead_status;
-        if (!after || after.pipeline_id !== pipelineId) continue;
-        if (!before || before.id === after.id) continue;
-        const sid = after.id;
-        const lid = ev.entity_id;
-        const ts = ev.created_at;
-        const updateEarliest = (m: Map<number, number>) => {
-          const cur = m.get(lid);
-          if (cur === undefined || ts < cur) m.set(lid, ts);
-        };
-        if (entrySet.has(sid)) updateEarliest(briefEventByLead);
-        if (winSet.has(sid)) updateEarliest(winEventByLead);
-        if (completedSet.has(sid)) updateEarliest(completedEventByLead);
-      }
-      hasMore = !!data._links?.next;
-      page++;
-    }
-  }
-
-  // ===== 3. Бакетинг по месяцу =====
-  // Запросы — по гибридной дате (event "→ Бриф" → fallback поле "Бриф получен"). Бакет по дате запроса.
-  // Победы — по дате event "→ Продажа/Реализовано" (без fallback).
-  // Завершённые — по дате event "→ Продажа/Реализовано/Закрыто и не реализовано".
-  const buckets: Record<string, BlasterMonthlyCounts> = {};
-  const ensure = (monthKey: string): BlasterMonthlyCounts => {
-    let b = buckets[monthKey];
-    if (!b) {
-      b = { requests: 0, wins: 0, completed: 0 };
-      buckets[monthKey] = b;
-    }
-    return b;
-  };
-  const toMonthKey = (ts: number): string => {
-    const d = new Date(ts * 1000);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  };
-
-  for (const lead of leads) {
-    const ts = briefEventByLead.get(lead.id) ?? lead.fieldDate;
-    if (!ts) continue;
-    ensure(toMonthKey(ts)).requests++;
-  }
-  for (const ts of winEventByLead.values()) {
-    ensure(toMonthKey(ts)).wins++;
-  }
-  for (const ts of completedEventByLead.values()) {
-    ensure(toMonthKey(ts)).completed++;
-  }
-
   return buckets;
 }
 
