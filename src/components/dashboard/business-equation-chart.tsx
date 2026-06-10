@@ -52,8 +52,8 @@ interface BarDataPoint {
   fact: number;
   budget: number;
   isPercent: boolean;
-  /** Прибыль: значение — это коэффициент факт/план (без %, 1 = ровно по плану). */
-  isRatio: boolean;
+  /** Если задан — рисуется вместо числа+% (для Прибыли: разница факт−план в деньгах) */
+  displayLabel?: string;
 }
 
 const CHART_DOMAIN = 145;
@@ -86,7 +86,7 @@ function BarWithLabel(props: any) {
   const { x, y, width, height, fill, payload } = props;
   if (typeof x !== "number" || typeof y !== "number" || typeof width !== "number") return null;
   const dev: number = payload?.deviationLabel ?? 0;
-  const isRatio: boolean = payload?.isRatio ?? false;
+  const displayLabel: string | undefined = payload?.displayLabel;
   const isNeg = dev < 0;
   // Recharts передаёт для отрицательных баров y = нижняя точка, height < 0 (вверх к 0-линии).
   // Для положительных: y = верх бара, height > 0 (вниз к 0-линии).
@@ -95,7 +95,6 @@ function BarWithLabel(props: any) {
   const absH = Math.abs(height);
   const labelY = isNeg ? y + 14 : y - 6;
   const sign = dev > 0 ? "+" : "";
-  const suffix = isRatio ? "" : "%";
   const radius = 3;
   return (
     <g>
@@ -116,7 +115,7 @@ function BarWithLabel(props: any) {
         fontWeight={700}
         fill="#1d1d1f"
       >
-        {sign}{dev}{suffix}
+        {displayLabel ?? `${sign}${dev}%`}
       </text>
     </g>
   );
@@ -147,7 +146,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
       <p style={{ color: "#888" }}>Бюджет: {formatValue(p.budget, p.isPercent)}</p>
       <p style={{ fontWeight: 600 }}>Факт: {formatValue(p.fact, p.isPercent)}</p>
       <p style={{ marginTop: 4, color: devColor, fontWeight: 600 }}>
-        {p.deviationLabel > 0 ? "+" : ""}{p.deviationLabel}{p.isRatio ? "" : "%"}
+        {p.displayLabel
+          ? p.displayLabel
+          : `${p.deviationLabel > 0 ? "+" : ""}${p.deviationLabel}%`}
       </p>
     </div>
   );
@@ -256,22 +257,21 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         ];
 
     return items.map(([name, fact, budget, isPercent, isExpense]) => {
-      // Прибыль: показываем коэффициент факт/план (без %).
-      //   1 = ровно по плану, > 1 = перевыполнили, < 1 (или отрицательный) = недотянули.
-      //   Подпись без знака %. Бар — тот же коэффициент, но с обрезкой под визуальную шкалу.
+      // Прибыль: бар отражает разницу в деньгах, шкала ±2 млн (мапим на видимую шкалу графика ±120).
+      // В подписи и тултипе — фактическая разница факт−план в деньгах (например «−700 тыс»).
       if (name === "Прибыль") {
-        const ratio = budget !== 0 ? fact / budget : 0;
-        // Бар на шкале ±120 показываем как ratio × 100 (чтобы 1.2 = "120% плана" дотягивался до видимой высоты),
-        // но clamp убирает выбросы вроде −81 (бар уйдёт за пределы).
-        const barValue = ratio * 100;
+        const diff = fact - budget;
+        const sign = diff > 0 ? "+" : ""; // знак "-" уже встроен в formatAmount
+        const PROFIT_SCALE = 2_000_000; // 2 млн = верх/низ шкалы
+        const barValue = (diff / PROFIT_SCALE) * 120;
         return {
           name,
-          deviationLabel: Math.round(ratio * 10) / 10, // одна цифра после запятой
+          deviationLabel: Math.round(barValue),
           deviation: Math.max(-120, Math.min(120, barValue)),
           fact,
           budget,
           isPercent,
-          isRatio: true,
+          displayLabel: `${sign}${formatAmount(diff)}`,
         };
       }
 
@@ -284,7 +284,6 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         fact,
         budget,
         isPercent,
-        isRatio: false,
       };
     });
   }, [monthly, entity]);
@@ -401,17 +400,18 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
             shape={<BarWithLabel />}
             isAnimationActive={false}
           >
-            {chartData.map((entry, i) => {
-              // Прибыль (isRatio): порог "хорошо" = 1 (план достигнут). Для остальных столбиков порог = 0.
-              const threshold = entry.isRatio ? 1 : 0;
-              const fill =
-                entry.deviationLabel > threshold
-                  ? CHART_COLORS.positive
-                  : entry.deviationLabel < threshold
-                    ? CHART_COLORS.negative
-                    : "#bbb";
-              return <Cell key={i} fill={fill} />;
-            })}
+            {chartData.map((entry, i) => (
+              <Cell
+                key={i}
+                fill={
+                  entry.deviationLabel > 0
+                    ? CHART_COLORS.positive
+                    : entry.deviationLabel < 0
+                      ? CHART_COLORS.negative
+                      : "#bbb"
+                }
+              />
+            ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
