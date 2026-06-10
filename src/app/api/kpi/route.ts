@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { PaymentStructureResponse } from "@/lib/planfact-client";
-import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterRequestsByBriefField, getBlasterClosedLeadCounts } from "@/lib/amocrm-client";
+import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterCountsByBriefField } from "@/lib/amocrm-client";
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 
@@ -172,32 +172,27 @@ export async function GET(request: NextRequest) {
         })
       : null;
 
-    // Бластер: 2 чистых запроса в AmoCRM (без событий).
-    //   1) Запросы — по custom-полю "Бриф получен" (все 12 месяцев).
-    //   2) Победы/Завершённые — по системному полю closed_at, фильтр на выбранный период (только апрель+).
-    //      Для Янв-Мар используется старая логика по created_at из getLeadCountsByCreatedDate.
-    const blasterRequestsPromise: Promise<Record<string, number> | null> = !isCult
-      ? getBlasterRequestsByBriefField(amoConfig)
-      : Promise.resolve(null);
-    const blasterClosedPromise: Promise<Record<string, { wins: number; completed: number }> | null> = !isCult
-      ? getBlasterClosedLeadCounts(startDate, endDate, amoConfig)
+    // Бластер: один запрос в AmoCRM — лиды в 6 статусах с custom-полем "Бриф получен".
+    //   Запросы/Победы/Завершённые в Апр+ — бакет по дате из поля.
+    //   Янв-Мар — старая логика по дате создания лида (из getLeadCountsByCreatedDate),
+    //   чтобы избежать аномалии с массовой чисткой в Мар 2026.
+    const blasterCountsPromise: Promise<Record<string, { requests: number; wins: number; completed: number }> | null> = !isCult
+      ? getBlasterCountsByBriefField(amoConfig)
       : Promise.resolve(null);
 
-    const [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterRequests, blasterClosed] = await Promise.all([
+    const [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts] = await Promise.all([
       Promise.all(projectPromises),
       marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
       Promise.all(leadCountPromises),
       cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
-      blasterRequestsPromise,
-      blasterClosedPromise,
+      blasterCountsPromise,
     ]);
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
     const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number; wins: number }>();
     const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
-    const blasterRequestsByMonth: Record<string, number> = blasterRequests ?? {};
-    const blasterClosedByMonth: Record<string, { wins: number; completed: number }> = blasterClosed ?? {};
+    const blasterCountsByMonth: Record<string, { requests: number; wins: number; completed: number }> = blasterCounts ?? {};
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
@@ -407,19 +402,19 @@ export async function GET(request: NextRequest) {
         })),
         // Бластер:
         //   Запросы (все месяцы): по полю "Бриф получен" из AmoCRM
-        //   Победы/Завершённые: до марта 2026 — created_at + статус (старая логика),
-        //                       с апреля 2026 — closed_at + статус (правильная "когда закрыли")
+        //   Победы/Завершённые: до марта 2026 — по дате создания + текущий статус (избегаем аномалии Мар),
+        //                       с апреля 2026 — по дате "Бриф получен" + текущий статус (то же поле что Запросы).
         // Культ — без изменений (системный пользователь + Первичный контакт).
         requestsFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
-          : (blasterRequestsByMonth[monthKey] ?? 0),
+          : (blasterCountsByMonth[monthKey]?.requests ?? 0),
         requestsPlan: isCult
           ? CULT_REQUESTS_PLAN
           : (REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         projectsSoldFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
           : (monthKey >= "2026-04"
-              ? (blasterClosedByMonth[monthKey]?.completed ?? 0)
+              ? (blasterCountsByMonth[monthKey]?.completed ?? 0)
               : (leadCountsByMonth.get(monthKey)?.sold ?? 0)),
         projectsNotSoldFact: isCult
           ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
@@ -431,7 +426,7 @@ export async function GET(request: NextRequest) {
         winsFact: isCult
           ? 0
           : (monthKey >= "2026-04"
-              ? (blasterClosedByMonth[monthKey]?.wins ?? 0)
+              ? (blasterCountsByMonth[monthKey]?.wins ?? 0)
               : (leadCountsByMonth.get(monthKey)?.wins ?? 0)),
       });
 

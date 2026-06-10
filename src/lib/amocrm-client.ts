@@ -353,25 +353,34 @@ function toMonthKey(ts: number): string {
 }
 
 /**
- * Запросы Бластера по месяцам — по custom-полю "Бриф получен".
+ * Подсчёт Запросов/Побед/Завершённых Бластера по месяцам.
  *
- * Фетчим все лиды в 6 целевых статусах (requestStatusIds), у каждого читаем поле briefDateFieldId.
- * Бакет по месяцу даты из поля.
+ * Источник даты — custom-поле "Бриф получен" в лиде. Лид попадает в месяц,
+ * соответствующий значению поля. Лиды без заполненного поля не учитываются.
  *
- * ⚡ Запросов AmoCRM: ~10 (только пагинация лидов).
+ * Внутри месяца:
+ *   requests  — все лиды в 6 целевых статусах
+ *   wins      — подмножество, у которых текущий статус ∈ winStatusIds (Реализованo)
+ *   completed — подмножество, у которых текущий статус ∈ conversionSoldStatusIds (Реализ. + Закрыто_не_реализ)
+ *
+ * ⚡ Запросов AmoCRM: ~10 (только пагинация всех лидов в 6 статусах).
  */
-export async function getBlasterRequestsByBriefField(
+export type BlasterMonthlyCounts = { requests: number; wins: number; completed: number };
+
+export async function getBlasterCountsByBriefField(
   config: AmoConfig,
-): Promise<Record<string, number>> {
+): Promise<Record<string, BlasterMonthlyCounts>> {
   const pipelineId = config.pipelineId;
   const reqStatusIds = config.requestStatusIds ?? [];
+  const winSet = new Set(config.winStatusIds ?? []);
+  const completedSet = new Set(config.conversionSoldStatusIds ?? []);
   const briefFieldId = config.briefDateFieldId;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !reqStatusIds.length || !briefFieldId) {
     return {};
   }
 
-  const buckets: Record<string, number> = {};
+  const buckets: Record<string, BlasterMonthlyCounts> = {};
   let page = 1;
   let hasMore = true;
   while (hasMore) {
@@ -389,70 +398,12 @@ export async function getBlasterRequestsByBriefField(
       const v = f?.values?.[0]?.value;
       if (!v) continue;
       const monthKey = toMonthKey(Number(v));
-      buckets[monthKey] = (buckets[monthKey] ?? 0) + 1;
-    }
-    hasMore = !!data._links?.next;
-    page++;
-  }
-  return buckets;
-}
-
-/**
- * Победы/Завершённые Бластера по месяцам — по системному полю closed_at AmoCRM.
- *
- * Фетчим лиды воронки с фильтром filter[closed_at][from..to] = выбранный период, status_id ∈ [winSet ∪ completedSet].
- * Так как Победы (winSet) — подмножество Завершённых (completedSet), один запрос покрывает обе метрики.
- *
- * Закрытие у лида = переход в терминальный статус (Реализованo или Закрыто и не реализовано) — AmoCRM
- * проставляет closed_at автоматически.
- *
- * ⚡ Запросов AmoCRM: 1-3 (закрытых лидов в месяце обычно немного).
- */
-export type BlasterClosedCounts = { wins: number; completed: number };
-
-export async function getBlasterClosedLeadCounts(
-  startDate: string,
-  endDate: string,
-  config: AmoConfig,
-): Promise<Record<string, BlasterClosedCounts>> {
-  const pipelineId = config.pipelineId;
-  const winSet = new Set(config.winStatusIds ?? []);
-  const completedSet = new Set(config.conversionSoldStatusIds ?? []);
-  const allStatuses = Array.from(new Set([...winSet, ...completedSet]));
-
-  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !allStatuses.length) {
-    return {};
-  }
-
-  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
-  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
-
-  const buckets: Record<string, BlasterClosedCounts> = {};
-  let page = 1;
-  let hasMore = true;
-  while (hasMore) {
-    const params = new URLSearchParams({
-      "filter[closed_at][from]": String(startTs),
-      "filter[closed_at][to]": String(endTs),
-      limit: "250",
-      page: String(page),
-    });
-    allStatuses.forEach((sid, i) => {
-      params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
-      params.set(`filter[statuses][${i}][status_id]`, String(sid));
-    });
-    const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
-    const leads = data._embedded?.leads;
-    if (!leads?.length) break;
-    for (const l of leads) {
-      if (l.pipeline_id !== pipelineId) continue;
-      if (!l.closed_at) continue;
-      const monthKey = toMonthKey(l.closed_at);
       let b = buckets[monthKey];
       if (!b) {
-        b = { wins: 0, completed: 0 };
+        b = { requests: 0, wins: 0, completed: 0 };
         buckets[monthKey] = b;
       }
+      b.requests++;
       if (winSet.has(l.status_id)) b.wins++;
       if (completedSet.has(l.status_id)) b.completed++;
     }

@@ -45,13 +45,15 @@ interface BusinessEquationChartProps {
 
 interface BarDataPoint {
   name: string;
-  /** Отклонение, обрезанное под визуальную шкалу (±120) */
+  /** Значение бара, обрезанное под визуальную шкалу */
   deviation: number;
-  /** Сырое отклонение для подписи и тултипа */
+  /** Сырое значение для подписи и тултипа: отклонение в %, либо для isAchievement — факт/план × 100% */
   deviationLabel: number;
   fact: number;
   budget: number;
   isPercent: boolean;
+  /** Прибыль: показываем долю достижения плана (100% = ровно по плану), а не отклонение от него. */
+  isAchievement: boolean;
 }
 
 const CHART_DOMAIN = 145;
@@ -190,9 +192,13 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       budgetProfit += m.budgetProfit;
     }
 
-    const avgFactMarginPct = amoProjectsPrice > 0
+    // Маржинальность Бластера — теперь как в KPI-карточке: Маржа / Выручка из PlanFact.
+    // Культ оставляем по проектам (там используется поле "Маржа" в лиде AmoCRM).
+    const avgFactMarginPctCult = amoProjectsPrice > 0
       ? ((amoProjectsPrice - amoProjectsExpense) / amoProjectsPrice) * 100
       : 0;
+    const avgFactMarginPctBlaster = factRevenue > 0 ? (factMargin / factRevenue) * 100 : 0;
+    const avgFactMarginPct = entity === "cult" ? avgFactMarginPctCult : avgFactMarginPctBlaster;
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
     // Винрейт/конверсия:
@@ -220,42 +226,51 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     const CULT_BUDGET_CONVERSION = 16;
     const CULT_BUDGET_PROJECTS = pastCount * 2;
 
-    const items: [string, number, number, boolean, boolean][] = entity === "cult"
+    // items: [name, fact, budget, isPercent, isExpense, isAchievement]
+    // isAchievement=true → значение = факт/план × 100% (вместо отклонения).
+    const items: [string, number, number, boolean, boolean, boolean][] = entity === "cult"
       ? [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false],
-          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false],
-          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
-          ["Маржа", factMargin, budgetMargin, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true],
-          ["Прибыль", factProfit, budgetProfit, false, false],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false, false],
+          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false, false],
+          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false, false],
+          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false, false],
+          ["Маржа", factMargin, budgetMargin, false, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, false, true, false],
+          ["Прибыль", factProfit, budgetProfit, false, false, true],
         ]
       : [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          // Победы — лиды в Продаже+Реализовано по дате создания (отдельный счётчик m.winsFact); план = запросы × 30%
-          ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false],
-          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
-          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
-          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false],
-          ["Маржин-ть по проектам", avgFactMarginPct, avgBudgetMarginPct, true, false],
-          ["Маржа", factMargin, budgetMargin, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true],
-          ["Прибыль", factProfit, budgetProfit, false, false],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false, false],
+          // Победы — лиды по дате "Бриф получен" в этапе Реализованo (или created_at для Янв-Мар); план = запросы × 30%
+          ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false, false],
+          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false, false],
+          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false, false],
+          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false, false],
+          ["Маржа", factMargin, budgetMargin, false, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, false, true, false],
+          ["Прибыль", factProfit, budgetProfit, false, false, true],
         ];
 
-    return items.map(([name, fact, budget, isPercent, isExpense]) => {
-      const rawDev = computeDeviation(fact, budget);
-      const dev = isExpense ? -rawDev : rawDev;
+    return items.map(([name, fact, budget, isPercent, isExpense, isAchievement]) => {
+      let rawDev: number;
+      if (isAchievement) {
+        // Прибыль: показываем долю достижения плана. 100% = ровно по плану.
+        rawDev = budget !== 0 ? (fact / budget) * 100 : 0;
+      } else {
+        rawDev = computeDeviation(fact, budget);
+        if (isExpense) rawDev = -rawDev;
+      }
       return {
         name,
-        deviationLabel: dev,
-        deviation: Math.max(-120, Math.min(120, dev)),
+        deviationLabel: rawDev,
+        deviation: Math.max(-120, Math.min(200, rawDev)),
         fact,
         budget,
         isPercent,
+        isAchievement: !!isAchievement,
       };
     });
   }, [monthly, entity]);
@@ -372,18 +387,17 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
             shape={<BarWithLabel />}
             isAnimationActive={false}
           >
-            {chartData.map((entry, i) => (
-              <Cell
-                key={i}
-                fill={
-                  entry.deviationLabel > 0
-                    ? CHART_COLORS.positive
-                    : entry.deviationLabel < 0
-                      ? CHART_COLORS.negative
-                      : "#bbb"
-                }
-              />
-            ))}
+            {chartData.map((entry, i) => {
+              // Для Прибыли (isAchievement): порог "хорошо" = 100% (план достигнут), а не 0% как в отклонении.
+              const threshold = entry.isAchievement ? 100 : 0;
+              const fill =
+                entry.deviationLabel > threshold
+                  ? CHART_COLORS.positive
+                  : entry.deviationLabel < threshold
+                    ? CHART_COLORS.negative
+                    : "#bbb";
+              return <Cell key={i} fill={fill} />;
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
