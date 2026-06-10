@@ -45,15 +45,15 @@ interface BusinessEquationChartProps {
 
 interface BarDataPoint {
   name: string;
-  /** Значение бара, обрезанное под визуальную шкалу */
+  /** Отклонение, обрезанное под визуальную шкалу (±120) */
   deviation: number;
-  /** Сырое значение для подписи и тултипа: отклонение в %, либо для isAchievement — факт/план × 100% */
+  /** Сырое отклонение для подписи и тултипа */
   deviationLabel: number;
   fact: number;
   budget: number;
   isPercent: boolean;
-  /** Прибыль: показываем долю достижения плана (100% = ровно по плану), а не отклонение от него. */
-  isAchievement: boolean;
+  /** Прибыль: значение — это коэффициент факт/план (без %, 1 = ровно по плану). */
+  isRatio: boolean;
 }
 
 const CHART_DOMAIN = 145;
@@ -86,6 +86,7 @@ function BarWithLabel(props: any) {
   const { x, y, width, height, fill, payload } = props;
   if (typeof x !== "number" || typeof y !== "number" || typeof width !== "number") return null;
   const dev: number = payload?.deviationLabel ?? 0;
+  const isRatio: boolean = payload?.isRatio ?? false;
   const isNeg = dev < 0;
   // Recharts передаёт для отрицательных баров y = нижняя точка, height < 0 (вверх к 0-линии).
   // Для положительных: y = верх бара, height > 0 (вниз к 0-линии).
@@ -94,6 +95,7 @@ function BarWithLabel(props: any) {
   const absH = Math.abs(height);
   const labelY = isNeg ? y + 14 : y - 6;
   const sign = dev > 0 ? "+" : "";
+  const suffix = isRatio ? "" : "%";
   const radius = 3;
   return (
     <g>
@@ -114,7 +116,7 @@ function BarWithLabel(props: any) {
         fontWeight={700}
         fill="#1d1d1f"
       >
-        {sign}{dev}%
+        {sign}{dev}{suffix}
       </text>
     </g>
   );
@@ -145,7 +147,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
       <p style={{ color: "#888" }}>Бюджет: {formatValue(p.budget, p.isPercent)}</p>
       <p style={{ fontWeight: 600 }}>Факт: {formatValue(p.fact, p.isPercent)}</p>
       <p style={{ marginTop: 4, color: devColor, fontWeight: 600 }}>
-        {p.deviationLabel > 0 ? "+" : ""}{p.deviationLabel}%
+        {p.deviationLabel > 0 ? "+" : ""}{p.deviationLabel}{p.isRatio ? "" : "%"}
       </p>
     </div>
   );
@@ -226,51 +228,63 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     const CULT_BUDGET_CONVERSION = 16;
     const CULT_BUDGET_PROJECTS = pastCount * 2;
 
-    // items: [name, fact, budget, isPercent, isExpense, isAchievement]
-    // isAchievement=true → значение = факт/план × 100% (вместо отклонения).
-    const items: [string, number, number, boolean, boolean, boolean][] = entity === "cult"
+    // items: [name, fact, budget, isPercent, isExpense]
+    const items: [string, number, number, boolean, boolean][] = entity === "cult"
       ? [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false, false],
-          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false, false],
-          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false, false],
-          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false, false],
-          ["Маржа", factMargin, budgetMargin, false, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true, false],
-          ["Прибыль", factProfit, budgetProfit, false, false, true],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
+          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false],
+          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false],
+          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
+          ["Маржа", factMargin, budgetMargin, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, false, true],
+          ["Прибыль", factProfit, budgetProfit, false, false],
         ]
       : [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false, false],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
           // Победы — лиды по дате "Бриф получен" в этапе Реализованo (или created_at для Янв-Мар); план = запросы × 30%
-          ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false, false],
-          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false, false],
-          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false, false],
-          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false, false],
-          ["Маржа", factMargin, budgetMargin, false, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true, false],
-          ["Прибыль", factProfit, budgetProfit, false, false, true],
+          ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false],
+          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
+          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
+          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
+          ["Маржа", factMargin, budgetMargin, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, false, true],
+          ["Прибыль", factProfit, budgetProfit, false, false],
         ];
 
-    return items.map(([name, fact, budget, isPercent, isExpense, isAchievement]) => {
-      let rawDev: number;
-      if (isAchievement) {
-        // Прибыль: показываем долю достижения плана. 100% = ровно по плану.
-        rawDev = budget !== 0 ? (fact / budget) * 100 : 0;
-      } else {
-        rawDev = computeDeviation(fact, budget);
-        if (isExpense) rawDev = -rawDev;
+    return items.map(([name, fact, budget, isPercent, isExpense]) => {
+      // Прибыль: показываем коэффициент факт/план (без %).
+      //   1 = ровно по плану, > 1 = перевыполнили, < 1 (или отрицательный) = недотянули.
+      //   Подпись без знака %. Бар — тот же коэффициент, но с обрезкой под визуальную шкалу.
+      if (name === "Прибыль") {
+        const ratio = budget !== 0 ? fact / budget : 0;
+        // Бар на шкале ±120 показываем как ratio × 100 (чтобы 1.2 = "120% плана" дотягивался до видимой высоты),
+        // но clamp убирает выбросы вроде −81 (бар уйдёт за пределы).
+        const barValue = ratio * 100;
+        return {
+          name,
+          deviationLabel: Math.round(ratio * 10) / 10, // одна цифра после запятой
+          deviation: Math.max(-120, Math.min(120, barValue)),
+          fact,
+          budget,
+          isPercent,
+          isRatio: true,
+        };
       }
+
+      const rawDev = computeDeviation(fact, budget);
+      const dev = isExpense ? -rawDev : rawDev;
       return {
         name,
-        deviationLabel: rawDev,
-        deviation: Math.max(-120, Math.min(200, rawDev)),
+        deviationLabel: Math.round(dev),
+        deviation: Math.max(-120, Math.min(120, dev)),
         fact,
         budget,
         isPercent,
-        isAchievement: !!isAchievement,
+        isRatio: false,
       };
     });
   }, [monthly, entity]);
@@ -388,8 +402,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
             isAnimationActive={false}
           >
             {chartData.map((entry, i) => {
-              // Для Прибыли (isAchievement): порог "хорошо" = 100% (план достигнут), а не 0% как в отклонении.
-              const threshold = entry.isAchievement ? 100 : 0;
+              // Прибыль (isRatio): порог "хорошо" = 1 (план достигнут). Для остальных столбиков порог = 0.
+              const threshold = entry.isRatio ? 1 : 0;
               const fill =
                 entry.deviationLabel > threshold
                   ? CHART_COLORS.positive
