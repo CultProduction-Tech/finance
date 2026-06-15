@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { checkHubAccess } from "./hub-client";
 
 const SECRET = process.env.AUTH_SECRET || "default-secret-change-me";
 const ALLOWED_DOMAINS = (process.env.AUTH_ALLOWED_DOMAINS || "").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -9,11 +10,26 @@ const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
 
 const pendingTokens = new Map<string, { email: string; expires: number }>();
 
-export function isEmailAllowed(email: string): boolean {
+/**
+ * Логика проверки доступа:
+ *   1) Домен в AUTH_ALLOWED_DOMAINS → пускаем (cult.team / blasterstudio.ru) — не дёргаем Hub
+ *   2) Иначе спрашиваем Feature Hub: есть ли у этого email доступ к unit=finance
+ *   3) Если Hub недоступен (таймаут / 5xx / не настроен) — фолбэк на env AUTH_ALLOWED_EMAILS
+ */
+export async function isEmailAllowed(email: string): Promise<boolean> {
   const normalized = email.toLowerCase();
-  if (ALLOWED_EMAILS.includes(normalized)) return true;
+
+  // 1. Домен (cult.team, blasterstudio.ru)
   const domain = normalized.split("@")[1];
-  return ALLOWED_DOMAINS.some((d) => domain === d);
+  if (ALLOWED_DOMAINS.some((d) => domain === d)) return true;
+
+  // 2. Feature Hub
+  const hubResult = await checkHubAccess(normalized);
+  if (hubResult === true) return true;
+  if (hubResult === false) return false;
+
+  // 3. Hub недоступен → env-фолбэк
+  return ALLOWED_EMAILS.includes(normalized);
 }
 
 export function generateToken(email: string): string {

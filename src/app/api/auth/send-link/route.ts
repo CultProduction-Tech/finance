@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    if (!isEmailAllowed(normalizedEmail)) {
+    if (!(await isEmailAllowed(normalizedEmail))) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
