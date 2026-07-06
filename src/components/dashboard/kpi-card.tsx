@@ -3,8 +3,12 @@ import { Hint } from "@/components/ui/hint";
 import type { HintText } from "@/lib/hint-texts";
 
 interface Comparison {
-  deviationPercent: number; // подписанный % отклонения факта от бюджета
+  deviationPercent: number; // подписанное отклонение факта от бюджета (в unit)
   budgetLabel: string;      // отформатированное значение бюджета (напр. "23.3 млн" или "44%")
+  /** Единица отклонения: "%" (по умолчанию) или "п.п." для процентных показателей */
+  unit?: string;
+  /** Если задан — показывается вместо процентов (напр. денежная разница "−663 тыс") */
+  deltaLabel?: string;
 }
 
 interface KpiCardProps {
@@ -45,7 +49,7 @@ export function KpiCard({ icon, label, value, subtitle, variant = "default", com
               <span className="text-[9px] leading-none">
                 {comparison.deviationPercent < 0 ? "▼" : "▲"}
               </span>
-              {Math.abs(comparison.deviationPercent)}%
+              {comparison.deltaLabel ?? `${Math.abs(comparison.deviationPercent)}${comparison.unit ?? "%"}`}
             </span>
             <span className="text-muted-foreground">из {comparison.budgetLabel}</span>
           </div>

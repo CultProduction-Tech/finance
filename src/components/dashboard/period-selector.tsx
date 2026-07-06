@@ -64,7 +64,9 @@ export function PeriodSelector({
       <button
         onClick={handleNIToggle}
         className={isThisYear ? activeStyle : inactiveStyle}
-        title={isThisYear ? "Снять — переключиться на текущий месяц" : "Нарастающим итогом — весь год"}
+        title={isThisYear
+          ? "НИ — накопительный итог: факт с начала года по активный месяц. Клик — переключиться на текущий месяц"
+          : "НИ — накопительный итог: факт с начала года по активный месяц. Клик — включить"}
       >
         НИ
       </button>

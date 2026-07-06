@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LegalEntity, LEGAL_ENTITIES } from "@/types/finance";
+import { LegalEntity, LEGAL_ENTITIES, MONTHS_RU } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
 import { PeriodSelector } from "./period-selector";
 import { EntitySwitcher } from "./entity-switcher";
@@ -261,7 +261,9 @@ function DashboardInner() {
         ) : kpi ? (
           <>
             <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-sm font-semibold text-foreground shrink-0">🎯 Цели месяца</h2>
+              <h2 className="text-sm font-semibold text-foreground shrink-0">
+                🎯 Цели месяца{kpiStart === kpiEnd ? ` — ${MONTHS_RU[kpiStart]}` : ""}
+              </h2>
               <PeriodSelector
                 year={kpiYear}
                 startMonth={kpiStart}

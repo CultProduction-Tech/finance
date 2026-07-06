@@ -426,6 +426,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        Бары — отклонение факта от плана за прошедшие месяцы периода, %. «Прибыль» — разница в деньгах (шкала ±2 млн).
+      </p>
     </div>
   );
 }

@@ -32,16 +32,18 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-      <KpiCard
-        icon="📨"
-        label="Запросы"
-        value={String(requestsFact)}
-        hint={getHint(entity, "eq_requests")}
-        comparison={requestsPlan > 0 ? {
-          deviationPercent: deviation(requestsFact, requestsPlan),
-          budgetLabel: String(requestsPlan),
-        } : undefined}
-      />
+      <div className="col-span-2 md:col-span-1">
+        <KpiCard
+          icon="📨"
+          label="Запросы"
+          value={String(requestsFact)}
+          hint={getHint(entity, "eq_requests")}
+          comparison={requestsPlan > 0 ? {
+            deviationPercent: deviation(requestsFact, requestsPlan),
+            budgetLabel: String(requestsPlan),
+          } : undefined}
+        />
+      </div>
       <KpiCard
         icon="🔁"
         label="Выручка"
@@ -68,7 +70,9 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
         value={formatMoney(data.marginPercent, "%")}
         hint={getHint(entity, "kpi_margin_percent")}
         comparison={budgetMarginPercent > 0 ? {
-          deviationPercent: deviation(data.marginPercent, budgetMarginPercent),
+          // Для %-показателя отклонение — в процентных пунктах, не «% от %»
+          deviationPercent: data.marginPercent - budgetMarginPercent,
+          unit: " п.п.",
           budgetLabel: formatMoney(budgetMarginPercent, "%"),
         } : undefined}
       />
@@ -79,7 +83,9 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
         variant={data.profit >= 0 ? "positive" : "negative"}
         hint={getHint(entity, "kpi_profit")}
         comparison={budgetProfit !== 0 ? {
-          deviationPercent: deviation(data.profit, budgetProfit),
+          // Прибыль знакопеременна — проценты от неё не читаются; показываем разницу в деньгах
+          deviationPercent: data.profit - budgetProfit,
+          deltaLabel: formatMoney(Math.abs(data.profit - budgetProfit)),
           budgetLabel: formatMoney(budgetProfit),
         } : undefined}
       />
