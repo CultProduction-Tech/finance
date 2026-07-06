@@ -57,6 +57,13 @@ interface PlanFactResponse<T> {
   errorCode: string | null;
 }
 
+// ============================================================================
+// Типы ответов описывают ИСПОЛЬЗУЕМОЕ ПОДМНОЖЕСТВО полей реальных ответов API
+// (у PlanFact полей заметно больше). Сверено с живым API 06.07.2026.
+// Не добавляй поля «по документации» без проверки живым запросом — уже ловили
+// фантомы (totalValuesByPeriod), которых API на самом деле не возвращает.
+// ============================================================================
+
 function createPfFetch(apiKey: string) {
   return async function pfFetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
     const url = new URL(`${API_URL}${endpoint}`);
@@ -126,17 +133,6 @@ export interface AccountBalanceResponse {
   items: AccountBalanceItem[];
 }
 
-export interface CashFlowPeriodItem {
-  incomePlanValue: number;
-  incomeFactValue: number;
-  outcomePlanValue: number;
-  outcomeFactValue: number;
-  planDifference: number;
-  factDifference: number;
-  startDate: string;
-  endDate: string;
-}
-
 export interface CashFlowResponse {
   incomePlanValue: number;
   incomeFactValue: number;
@@ -144,8 +140,11 @@ export interface CashFlowResponse {
   outcomeFactValue: number;
   planDifference: number;
   factDifference: number;
-  /** ⚠️ Реальный API возвращает null независимо от filter.standardPeriod — не полагаться */
-  totalValuesByPeriod: CashFlowPeriodItem[] | null;
+  /**
+   * Всегда null: проверено живыми запросами 06.07.2026 (standardPeriod=Day/Week/без параметра).
+   * Разбивку по дням давать через getPlannedOperations + агрегация.
+   */
+  totalValuesByPeriod: null;
 }
 
 export interface PlannedOperationItem {
@@ -252,7 +251,7 @@ export interface OperationCategoryItem {
   accountCategoryType: string;
   outcomeClassification: string;
   parentOperationCategoryId: number | null;
-  active: boolean | null;
+  // поля `active` у категорий НЕТ в реальном API (есть isVisible/actionStatus) — был фантом
 }
 
 export interface OperationCategoriesResponse {
