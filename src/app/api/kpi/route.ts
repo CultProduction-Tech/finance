@@ -39,6 +39,8 @@ export interface KpiResponse {
   syncedAt?: string;
   /** true — ответ отдан из файлового снапшота, а не рассчитан сейчас */
   snapshot?: boolean;
+  /** Статус источников: "ok" | текст ошибки. amoCRM деградирует частично (воронка нулевая), PlanFact — фатален. */
+  sources?: { planfact: string; amocrm: string };
 }
 
 export interface MonthlyKpi {
@@ -196,13 +198,26 @@ export async function GET(request: NextRequest) {
       ? getBlasterCountsByBriefField(amoConfig)
       : Promise.resolve(null);
 
-    const [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts] = await Promise.all([
-      Promise.all(projectPromises),
-      marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
-      Promise.all(leadCountPromises),
-      cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
-      blasterCountsPromise,
-    ]);
+    // amoCRM — частичная деградация: при падении воронка обнуляется, но дашборд живёт,
+    // а в ответе появляется sources.amocrm с текстом ошибки (fail loud в UI, не тихие нули).
+    let amocrmStatus = "ok";
+    let projectResults: AmoProjectDetail[][] = months.map(() => []);
+    let marginalityProjectResults: AmoProjectDetail[][] | null = null;
+    let leadCountResults: { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number; wins: number }[] = months.map(() => ({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0, wins: 0 }));
+    let cultLeadResults: { totalRequests: number; takenToWork: number }[] | null = null;
+    let blasterCounts: Record<string, { requests: number; wins: number; completed: number }> | null = null;
+    try {
+      [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts] = await Promise.all([
+        Promise.all(projectPromises),
+        marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
+        Promise.all(leadCountPromises),
+        cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
+        blasterCountsPromise,
+      ]);
+    } catch (amoError) {
+      amocrmStatus = amoError instanceof Error ? amoError.message : String(amoError);
+      console.error("amoCRM недоступен, воронка обнулена:", amocrmStatus);
+    }
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
@@ -611,10 +626,14 @@ export async function GET(request: NextRequest) {
       expenseCategories,
       budgetLabel,
       syncedAt: new Date().toISOString(),
+      sources: { planfact: "ok", amocrm: amocrmStatus },
     };
 
     // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.
-    await saveSnapshot(snapshotKey, response);
+    // Деградированный ответ (без amoCRM) не пишем — не затираем последний полноценный снимок.
+    if (amocrmStatus === "ok") {
+      await saveSnapshot(snapshotKey, response);
+    }
 
     return NextResponse.json(response);
   } catch (error) {

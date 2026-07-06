@@ -170,8 +170,17 @@ function DashboardInner() {
               )}
             </div>
             {useMock && (
-              <Badge variant="secondary" className="text-xs rounded-full">
-                Demo-данные
+              <Badge variant="destructive" className="text-xs rounded-full">
+                ⚠️ Demo-данные — источники недоступны
+              </Badge>
+            )}
+            {!useMock && kpi?.sources && kpi.sources.amocrm !== "ok" && (
+              <Badge
+                variant="destructive"
+                className="text-xs rounded-full"
+                title={kpi.sources.amocrm}
+              >
+                ⚠️ amoCRM недоступен — воронка не загружена
               </Badge>
             )}
           </div>

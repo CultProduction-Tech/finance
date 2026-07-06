@@ -1,3 +1,7 @@
+// fail loud: в проде без AUTH_SECRET сессии подписывались бы публично известной строкой
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("AUTH_SECRET обязателен в production");
+}
 const SECRET = process.env.AUTH_SECRET || "default-secret-change-me";
 
 async function signEdge(payload: string): Promise<string> {

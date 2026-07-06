@@ -165,7 +165,8 @@ export async function getProjectDetails(
   const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
-    return [];
+    // fail loud: тихий return [] маскировал протухший токен нулями в дашборде
+    throw new Error("amoCRM не сконфигурирован (AMOCRM_BASE_URL / ACCESS_TOKEN / PIPELINE_ID)");
   }
 
   const statusIds = config?.projectStatusIds ?? [STATUS_SOLD];
@@ -270,7 +271,7 @@ export async function getLeadCountsByCreatedDate(
   const winStatusIds = config?.winStatusIds;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId) {
-    return { sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0, wins: 0 };
+    throw new Error("amoCRM не сконфигурирован (AMOCRM_BASE_URL / ACCESS_TOKEN / PIPELINE_ID)");
   }
 
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);
@@ -377,7 +378,7 @@ export async function getBlasterCountsByBriefField(
   const briefFieldId = config.briefDateFieldId;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !reqStatusIds.length || !briefFieldId) {
-    return {};
+    throw new Error("amoCRM (Бластер) не сконфигурирован: нужны BASE_URL/TOKEN/PIPELINE + requestStatusIds + briefDateFieldId");
   }
 
   const buckets: Record<string, BlasterMonthlyCounts> = {};
@@ -429,7 +430,7 @@ export async function getSystemCreatedLeadCounts(
   const takenEnumId = config.takenToWorkEnumId;
 
   if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !createdByUserId || !primaryContactStatusId) {
-    return { totalRequests: 0, takenToWork: 0 };
+    throw new Error("amoCRM (Култ) не сконфигурирован: нужны BASE_URL/TOKEN/PIPELINE + systemCreatedByUserId + primaryContactStatusId");
   }
 
   const startTs = Math.floor(new Date(startDate).getTime() / 1000);

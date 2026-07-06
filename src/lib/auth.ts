@@ -2,6 +2,10 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { checkHubAccess } from "./hub-client";
 
+// fail loud: в проде без AUTH_SECRET сессии подписывались бы публично известной строкой
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("AUTH_SECRET обязателен в production");
+}
 const SECRET = process.env.AUTH_SECRET || "default-secret-change-me";
 const ALLOWED_DOMAINS = (process.env.AUTH_ALLOWED_DOMAINS || "").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
 const ALLOWED_EMAILS = (process.env.AUTH_ALLOWED_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
