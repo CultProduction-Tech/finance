@@ -41,23 +41,15 @@ export async function GET(request: NextRequest) {
       ),
     );
 
-    // ===== 3. Будущее: ежедневный planDiff, накопление от сегодня (включая сегодняшние плановые операции) =====
-    const futureDates: Date[] = [];
-    const fd = new Date(now);
-    while (fd <= rangeEnd) {
-      futureDates.push(new Date(fd));
-      fd.setDate(fd.getDate() + 1);
-    }
-
-    const dailyCashflows = await Promise.all(
-      futureDates.map((date) => {
-        const ds = fmt(date);
-        return pf.getCashFlow(ds, ds).then((cf) => ({
-          date: ds,
-          planDifference: cf.planDifference,
-        }));
-      }),
-    );
+    // ===== 3. Будущее: план по дням ОДНИМ запросом (standardPeriod: Day) =====
+    // Раньше здесь было ~92 однодневных getCashFlow — главный источник 429 от PlanFact.
+    const futureCf = await pf.getCashFlow(todayStr, fmt(rangeEnd), { standardPeriod: "Day" });
+    const dailyCashflows = (futureCf.totalValuesByPeriod || [])
+      .map((item) => ({
+        date: item.startDate.slice(0, 10),
+        planDifference: item.planDifference,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     let runningBalance = balance.total;
     const futurePoints: { date: string; balance: number; type: "plan" }[] = [];

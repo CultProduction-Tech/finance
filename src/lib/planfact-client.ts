@@ -1,22 +1,54 @@
 const API_URL = process.env.PLANFACT_API_URL || "https://api.planfact.io";
 
-const TTL_FRESH = 900;       // 15 минут — текущий и будущие месяцы (могут меняться часто)
-const TTL_CLOSED = 86_400;   // 24 часа — закрытые прошедшие месяцы (стабильны)
+const TTL_FRESH = 900;       // 15 минут — сегодняшние/будущие данные (могут меняться часто)
+const TTL_CLOSED = 86_400;   // 24 часа — прошедшие дни (факт уже не меняется)
 
 /**
  * Выбирает TTL кэша на основе параметров запроса PlanFact.
- * Если в параметрах есть дата конца периода / текущая дата и она < начала текущего месяца —
- * это запрос за закрытые месяцы, кэшируем на 24 часа. Иначе (текущий/будущие/нет даты в URL) — 15 минут.
+ * Конец периода / текущая дата строго раньше сегодняшнего дня — данные факта,
+ * которые уже не изменятся: кэшируем на 24 часа. Иначе (сегодня/будущее/нет даты) — 15 минут.
  */
 function planFactRevalidate(params?: Record<string, string>): number {
   if (!params) return TTL_CLOSED; // global data (категории, бюджеты-списки)
   const endStr = params["filter.periodEndDate"] || params["filter.currentDate"];
   if (!endStr) return TTL_CLOSED; // нет даты → справочные данные
   const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endDate = new Date(endStr);
-  return endDate < currentMonthStart ? TTL_CLOSED : TTL_FRESH;
+  return endDate < todayStart ? TTL_CLOSED : TTL_FRESH;
 }
+
+// ===== Семафор + дедуп параллельных запросов в PlanFact =====
+// Тот же паттерн, что в amocrm-client: без него холодная загрузка дашборда
+// (kpi × 3 периода + cashflow по дням) даёт залп из 100+ запросов и ловит 429.
+
+const PF_MAX_CONCURRENT = 5;
+
+let pfActive = 0;
+const pfQueue: Array<() => void> = [];
+
+function acquirePfSlot(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const tryRun = () => {
+      if (pfActive < PF_MAX_CONCURRENT) {
+        pfActive++;
+        resolve();
+      } else {
+        pfQueue.push(tryRun);
+      }
+    };
+    tryRun();
+  });
+}
+
+function releasePfSlot() {
+  pfActive--;
+  const next = pfQueue.shift();
+  if (next) next();
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pfInflight = new Map<string, Promise<any>>();
 
 interface PlanFactResponse<T> {
   data: T;
@@ -35,26 +67,43 @@ function createPfFetch(apiKey: string) {
         }
       });
     }
+    const urlStr = url.toString();
 
-    const res = await fetch(url.toString(), {
-      headers: {
-        "Content-Type": "application/json",
-        "X-ApiKey": apiKey,
-      },
-      next: { revalidate: planFactRevalidate(params), tags: ["planfact"] },
-    });
+    // Дедуп: тот же URL уже в полёте (другой хук/пользователь) — отдаём тот же promise
+    const dedupKey = `${apiKey.slice(-6)}:${urlStr}`;
+    const existing = pfInflight.get(dedupKey);
+    if (existing) return existing as Promise<T>;
 
-    if (!res.ok) {
-      throw new Error(`PlanFact API error: ${res.status} ${res.statusText}`);
-    }
+    const p = (async (): Promise<T> => {
+      await acquirePfSlot();
+      try {
+        const res = await fetch(urlStr, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-ApiKey": apiKey,
+          },
+          next: { revalidate: planFactRevalidate(params), tags: ["planfact"] },
+        });
 
-    const json: PlanFactResponse<T> = await res.json();
+        if (!res.ok) {
+          throw new Error(`PlanFact API error: ${res.status} ${res.statusText}`);
+        }
 
-    if (!json.isSuccess) {
-      throw new Error(`PlanFact API: ${json.errorMessage || json.errorCode}`);
-    }
+        const json: PlanFactResponse<T> = await res.json();
 
-    return json.data;
+        if (!json.isSuccess) {
+          throw new Error(`PlanFact API: ${json.errorMessage || json.errorCode}`);
+        }
+
+        return json.data;
+      } finally {
+        releasePfSlot();
+        pfInflight.delete(dedupKey);
+      }
+    })();
+
+    pfInflight.set(dedupKey, p);
+    return p;
   };
 }
 
