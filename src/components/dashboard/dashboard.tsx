@@ -17,6 +17,7 @@ import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { HintModeProvider, useHintMode } from "@/contexts/hint-mode";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import { todayInBusinessTz } from "@/lib/timezone";
 
 function HintToggleButton() {
   const { enabled, toggle } = useHintMode();
@@ -61,8 +62,9 @@ function DashboardInner() {
     localStorage.setItem("dashboard-entity", e);
   };
 
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
+  // Все «сейчас» — по бизнес-TZ (Москва): единый активный месяц из любого пояса
+  const businessToday = todayInBusinessTz(); // "YYYY-MM-DD"
+  const [year, setYear] = useState(parseInt(businessToday.slice(0, 4), 10));
   const [startMonth, setStartMonth] = useState(0);
   const [endMonth, setEndMonth] = useState(11); // По умолчанию — весь год
   const [periodVersion, setPeriodVersion] = useState(0);
@@ -71,8 +73,8 @@ function DashboardInner() {
 
   // KPI-виджеты «Цели месяца» — независимы от общих регуляторов: свой год (текущий) и месяц.
   // Общий период/год не сбрасывают и не меняют этот блок.
-  const currentMonth = now.getMonth();
-  const kpiYear = now.getFullYear();
+  const currentMonth = parseInt(businessToday.slice(5, 7), 10) - 1;
+  const kpiYear = parseInt(businessToday.slice(0, 4), 10);
   const [kpiLocalStart, setKpiLocalStart] = useState<number | null>(currentMonth);
   const [kpiLocalEnd, setKpiLocalEnd] = useState<number | null>(currentMonth);
 

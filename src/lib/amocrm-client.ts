@@ -1,6 +1,16 @@
+import { BUSINESS_TZ_OFFSET } from "@/lib/timezone";
+
 const BASE_URL = process.env.AMOCRM_BASE_URL || "";
 const ACCESS_TOKEN = process.env.AMOCRM_ACCESS_TOKEN || "";
 const ACT_DATE_FIELD_ID = Number(process.env.AMOCRM_ACT_DATE_FIELD_ID || "0");
+
+/** Границы дня в бизнес-TZ (Москва), в unix-секундах — для фильтров amoCRM */
+function dayStartTs(date: string): number {
+  return Math.floor(new Date(`${date}T00:00:00${BUSINESS_TZ_OFFSET}`).getTime() / 1000);
+}
+function dayEndTs(date: string): number {
+  return Math.floor(new Date(`${date}T23:59:59${BUSINESS_TZ_OFFSET}`).getTime() / 1000);
+}
 
 const EXPENSE_PLAN_FIELD_ID = 1647605;
 const STATUS_SOLD = 142;
@@ -171,8 +181,8 @@ export async function getProjectDetails(
 
   const statusIds = config?.projectStatusIds ?? [STATUS_SOLD];
 
-  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
-  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
+  const startTs = dayStartTs(startDate);
+  const endTs = dayEndTs(endDate);
 
   const projects: AmoProjectDetail[] = [];
   let page = 1;
@@ -274,8 +284,8 @@ export async function getLeadCountsByCreatedDate(
     throw new Error("amoCRM не сконфигурирован (AMOCRM_BASE_URL / ACCESS_TOKEN / PIPELINE_ID)");
   }
 
-  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
-  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
+  const startTs = dayStartTs(startDate);
+  const endTs = dayEndTs(endDate);
 
   let totalRequests = 0;
   {
@@ -433,8 +443,8 @@ export async function getSystemCreatedLeadCounts(
     throw new Error("amoCRM (Култ) не сконфигурирован: нужны BASE_URL/TOKEN/PIPELINE + systemCreatedByUserId + primaryContactStatusId");
   }
 
-  const startTs = Math.floor(new Date(startDate).getTime() / 1000);
-  const endTs = Math.floor(new Date(endDate + "T23:59:59").getTime() / 1000);
+  const startTs = dayStartTs(startDate);
+  const endTs = dayEndTs(endDate);
 
   // Запросы: лиды от Системы, в "Первичный контакт", созданные в периоде
   // + считаем "взяли в работу" по кастомному полю

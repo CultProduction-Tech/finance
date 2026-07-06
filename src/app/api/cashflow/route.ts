@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { LegalEntity } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
+import { todayInBusinessTz } from "@/lib/timezone";
 
 function fmt(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -29,9 +30,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const raw = new Date();
-    const now = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
-    const todayStr = fmt(now);
+    // «Сегодня» — по бизнес-TZ (Москва), не по UTC сервера
+    const todayStr = todayInBusinessTz();
+    const now = new Date(`${todayStr}T00:00:00`);
 
     // Диапазон: начало текущего месяца → конец +3 месяцев
     const rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);

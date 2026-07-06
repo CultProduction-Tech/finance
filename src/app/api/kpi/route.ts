@@ -5,6 +5,7 @@ import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCoun
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
+import { currentMonthInBusinessTz } from "@/lib/timezone";
 
 
 const REQUESTS_PLAN_2026 = [7, 21, 20, 13, 17, 17, 17, 25, 24, 26, 16, 0];
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
     const amoConfig = config.amo;
 
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const currentMonth = currentMonthInBusinessTz();
 
     const [categories, budgets, accountBalance, allProjects] = await Promise.all([
       pf.getOperationCategories(),
