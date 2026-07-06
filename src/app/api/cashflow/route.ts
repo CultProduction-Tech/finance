@@ -59,15 +59,27 @@ export async function GET(request: NextRequest) {
       ),
     );
 
-    // ===== 3. Будущее: план по дням ОДНИМ запросом (standardPeriod: Day) =====
+    // ===== 3. Будущее: плановые операции ОДНИМ запросом, агрегация по дням =====
     // Раньше здесь было ~92 однодневных getCashFlow — главный источник 429 от PlanFact.
-    const futureCf = await pf.getCashFlow(todayStr, fmt(rangeEnd), { standardPeriod: "Day" });
-    const dailyCashflows = (futureCf.totalValuesByPeriod || [])
-      .map((item) => ({
-        date: item.startDate.slice(0, 10),
-        planDifference: item.planDifference,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    // planDifference дня = Σ(Income) − Σ(Outcome) плановых операций (сверено с эталоном).
+    const rangeEndStr = fmt(rangeEnd);
+    const plannedOps = await pf.getPlannedOperations(todayStr, rangeEndStr);
+    const planDiffByDate = new Map<string, number>();
+    for (const op of plannedOps) {
+      const d = op.operationDate?.slice(0, 10);
+      // API может вернуть операции вне запрошенного периода — фильтруем сами
+      if (!d || d < todayStr || d > rangeEndStr) continue;
+      const sign = op.operationType === "Income" ? 1 : op.operationType === "Outcome" ? -1 : 0;
+      planDiffByDate.set(d, (planDiffByDate.get(d) || 0) + sign * op.value);
+    }
+    // Полная дневная сетка [сегодня..конец диапазона] — дни без плановых операций дают 0
+    const dailyCashflows: { date: string; planDifference: number }[] = [];
+    const fd = new Date(`${todayStr}T00:00:00`);
+    while (fd <= rangeEnd) {
+      const ds = fmt(fd);
+      dailyCashflows.push({ date: ds, planDifference: planDiffByDate.get(ds) || 0 });
+      fd.setDate(fd.getDate() + 1);
+    }
 
     let runningBalance = balance.total;
     const futurePoints: { date: string; balance: number; type: "plan" }[] = [];

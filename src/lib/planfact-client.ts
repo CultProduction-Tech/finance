@@ -144,7 +144,22 @@ export interface CashFlowResponse {
   outcomeFactValue: number;
   planDifference: number;
   factDifference: number;
-  totalValuesByPeriod: CashFlowPeriodItem[];
+  /** ⚠️ Реальный API возвращает null независимо от filter.standardPeriod — не полагаться */
+  totalValuesByPeriod: CashFlowPeriodItem[] | null;
+}
+
+export interface PlannedOperationItem {
+  operationId: number;
+  operationType: "Income" | "Outcome" | string;
+  /** "YYYY-MM-DD" */
+  operationDate: string;
+  value: number;
+  isCommitted: boolean;
+}
+
+export interface OperationsResponse {
+  items: PlannedOperationItem[] | null;
+  total: number;
 }
 
 export interface BizInfoDetail {
@@ -365,6 +380,30 @@ export function createPlanFactClient(apiKey: string) {
         params["filter.standardPeriod"] = options.standardPeriod;
       }
       return pfFetch<CashFlowResponse>("/api/v1/businessmetrics/cashflow", params);
+    },
+
+    /**
+     * Плановые (незакоммиченные) операции за период, с пагинацией.
+     * Один-два запроса вместо N однодневных getCashFlow: агрегация по дням
+     * даёт тот же planDifference (сверено с эталоном до копейки).
+     * API может вернуть даты и вне периода — вызывающий код фильтрует сам.
+     */
+    async getPlannedOperations(startDate: string, endDate: string): Promise<PlannedOperationItem[]> {
+      const LIMIT = 1000;
+      const all: PlannedOperationItem[] = [];
+      for (let offset = 0; ; offset += LIMIT) {
+        const page = await pfFetch<OperationsResponse>("/api/v1/operations", {
+          "filter.periodStartDate": startDate,
+          "filter.periodEndDate": endDate,
+          "filter.isCommitted": "false",
+          "paging.limit": String(LIMIT),
+          "paging.offset": String(offset),
+        });
+        const items = page.items ?? [];
+        all.push(...items);
+        if (items.length < LIMIT) break;
+      }
+      return all;
     },
   };
 }
