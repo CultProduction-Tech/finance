@@ -10,11 +10,11 @@ import {
   ReferenceLine,
   ResponsiveContainer,
   Cell,
-  LabelList,
   Tooltip,
 } from "recharts";
 import { MonthlyKpiData, LegalEntity } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
+import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
 import { getHint } from "@/lib/hint-texts";
@@ -121,39 +121,6 @@ function BarWithLabel(props: any) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload as BarDataPoint;
-  if (!p) return null;
-  const devColor = p.deviationLabel > 0
-    ? CHART_COLORS.positive
-    : p.deviationLabel < 0
-      ? CHART_COLORS.negative
-      : "#888";
-  return (
-    <div
-      style={{
-        backgroundColor: "white",
-        border: "1px solid hsl(var(--border))",
-        borderRadius: 8,
-        padding: "8px 12px",
-        fontSize: 13,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-      }}
-    >
-      <p style={{ fontWeight: 600, marginBottom: 4 }}>{p.name}</p>
-      <p style={{ color: "#888" }}>Бюджет: {formatValue(p.budget, p.isPercent)}</p>
-      <p style={{ fontWeight: 600 }}>Факт: {formatValue(p.fact, p.isPercent)}</p>
-      <p style={{ marginTop: 4, color: devColor, fontWeight: 600 }}>
-        {p.displayLabel
-          ? p.displayLabel
-          : `${p.deviationLabel > 0 ? "+" : ""}${p.deviationLabel}%`}
-      </p>
-    </div>
-  );
-}
-
 export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
   const { enabled: hintMode } = useHintMode();
   const chartData = useMemo<BarDataPoint[]>(() => {
@@ -227,17 +194,16 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       if (m.isPast) pastCount++;
     }
 
-    // Blaster plan values
-    const BLASTER_BUDGET_AVG_CHECK = 900_000;
-    const BLASTER_BUDGET_CONVERSION = 30;
-    const BLASTER_BUDGET_CONVERSION_RATE = 30; // план «Конверсии» Бластера (Завершённые ÷ Запросы), %
-    // План проектов — сумма помесячных значений за выбранный период (из m.projectsPlan, PROJECTS_PLAN_2026)
+    // Планы — из единого модуля lib/plans.ts (хардкод by design, но в одном месте)
+    const BLASTER_BUDGET_AVG_CHECK = BLASTER_PLANS.avgCheck;
+    const BLASTER_BUDGET_CONVERSION = BLASTER_PLANS.winRatePercent;
+    const BLASTER_BUDGET_CONVERSION_RATE = BLASTER_PLANS.conversionPercent;
+    // План проектов — сумма помесячных значений за прошедшую часть периода (из m.projectsPlan)
     const blasterBudgetProjects = totalProjectsPlan;
 
-    // Cult plan values
-    const CULT_BUDGET_AVG_CHECK = 9_000_000;
-    const CULT_BUDGET_CONVERSION = 16;
-    const CULT_BUDGET_PROJECTS = pastCount * 2;
+    const CULT_BUDGET_AVG_CHECK = CULT_PLANS.avgCheck;
+    const CULT_BUDGET_CONVERSION = CULT_PLANS.conversionPercent;
+    const CULT_BUDGET_PROJECTS = pastCount * CULT_PLANS.projectsPerMonth;
 
     // items: [name, fact, budget, isPercent, isExpense]
     const items: [string, number, number, boolean, boolean][] = entity === "cult"
@@ -255,7 +221,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       : [
           ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
           // Победы — лиды по дате "Бриф получен" в этапе Реализованo (или created_at для Янв-Мар); план = запросы × 30%
-          ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false],
+          ["Победы", totalWinsFact, totalRequestsPlan * BLASTER_PLANS.winsShareOfRequests, false, false],
           ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
           ["Конверсия", factConversionRate, BLASTER_BUDGET_CONVERSION_RATE, true, false],
           ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],

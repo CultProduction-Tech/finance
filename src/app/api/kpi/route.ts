@@ -6,16 +6,7 @@ import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 import { currentMonthInBusinessTz } from "@/lib/timezone";
-
-
-const REQUESTS_PLAN_2026 = [7, 21, 20, 13, 17, 17, 17, 25, 24, 26, 16, 0];
-const PROJECTS_PLAN_2026 = [1, 1, 6, 6, 4, 4, 5, 5, 8, 7, 8, 5];
-
-// Cult plan values
-const CULT_REQUESTS_PLAN = 7; // per month
-const CULT_CONVERSION_PLAN = 16; // %
-const CULT_PROJECTS_PLAN = 2; // per month
-const CULT_AVG_CHECK_PLAN = 9_000_000;
+import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
 
 export interface ExpenseCategory {
   id: number;
@@ -441,8 +432,8 @@ export async function GET(request: NextRequest) {
           ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
           : (blasterCountsByMonth[monthKey]?.requests ?? 0),
         requestsPlan: isCult
-          ? CULT_REQUESTS_PLAN
-          : (REQUESTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
+          ? CULT_PLANS.requestsPerMonth
+          : (BLASTER_PLANS.requestsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         projectsSoldFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
           : (monthKey >= "2026-04"
@@ -453,8 +444,8 @@ export async function GET(request: NextRequest) {
           : 0,
         projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
         projectsPlan: isCult
-          ? CULT_PROJECTS_PLAN
-          : (PROJECTS_PLAN_2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
+          ? CULT_PLANS.projectsPerMonth
+          : (BLASTER_PLANS.projectsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         winsFact: isCult
           ? 0
           : (monthKey >= "2026-04"
