@@ -156,21 +156,27 @@ function DashboardInner() {
       {/* Шапка */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          {/* Слева: логотип + название */}
+          {/* Слева: логотип + название — клик возвращает дашборд к исходному виду (полная перезагрузка) */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 rounded-2xl bg-white shrink-0 shadow-sm ring-1 ring-black/5 overflow-hidden flex items-center justify-center">
-              <img
-                src={`/logos/${entity}.jpg`}
-                alt={entityInfo.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <h1 className="text-xl font-semibold tracking-tight">{entityInfo.name}</h1>
-              {globalKpi?.budgetLabel && (
-                <span className="text-[11px] text-muted-foreground">{globalKpi.budgetLabel}</span>
-              )}
-            </div>
+            <a
+              href="/"
+              className="flex items-center gap-3 shrink-0 rounded-xl transition-opacity hover:opacity-75"
+              title="К исходному виду дашборда"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-white shrink-0 shadow-sm ring-1 ring-black/5 overflow-hidden flex items-center justify-center">
+                <img
+                  src={`/logos/${entity}.jpg`}
+                  alt={entityInfo.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex flex-col leading-tight">
+                <h1 className="text-xl font-semibold tracking-tight">{entityInfo.name}</h1>
+                {globalKpi?.budgetLabel && (
+                  <span className="text-[11px] text-muted-foreground">{globalKpi.budgetLabel}</span>
+                )}
+              </div>
+            </a>
             {useMock && (
               <Badge variant="destructive" className="text-xs rounded-full">
                 ⚠️ Demo-данные — источники недоступны
