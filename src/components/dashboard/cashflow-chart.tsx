@@ -25,6 +25,8 @@ interface CashflowPoint {
 interface CashflowData {
   currentBalance: number;
   points: CashflowPoint[];
+  syncedAt?: string;
+  snapshot?: boolean;
 }
 
 interface CashflowChartProps {
@@ -84,18 +86,39 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
 
   useEffect(() => {
     setLoading(true);
+    let liveArrived = false;
+    let cancelled = false;
+
+    const apply = (d: CashflowData) => {
+      if (cancelled || !d.points) return;
+      setData(d);
+      setLoading(false);
+      if (onLastBalance && d.points.length) {
+        onLastBalance(d.points[d.points.length - 1].balance);
+      }
+    };
+
+    // Фаза A: мгновенный снимок
+    fetch(`/api/cashflow?entity=${entity}&snapshot=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && !liveArrived) apply(d);
+      })
+      .catch(() => {});
+
+    // Фаза B: живые данные
     fetch(`/api/cashflow?entity=${entity}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.points) {
-          setData(d);
-          if (onLastBalance && d.points.length) {
-            onLastBalance(d.points[d.points.length - 1].balance);
-          }
-        }
+        liveArrived = true;
+        apply(d);
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [entity, refreshKey, onLastBalance]);
 
   if (loading) {
@@ -132,10 +155,10 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   const yRange = yMax - yMin || 1;
   const zeroOffset = yMax / yRange; // 0 — всё красное; 1 — всё зелёное
 
-  // Подписи дат
+  // Подписи дат. «Данные на» — реальное время данных с сервера (для снимка — время снимка).
   const monthsShort = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
-  const today = new Date();
-  const dataAsOf = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
+  const syncedDate = data.syncedAt ? new Date(data.syncedAt) : new Date();
+  const dataAsOf = `${String(syncedDate.getDate()).padStart(2, "0")}.${String(syncedDate.getMonth() + 1).padStart(2, "0")}.${syncedDate.getFullYear()} ${String(syncedDate.getHours()).padStart(2, "0")}:${String(syncedDate.getMinutes()).padStart(2, "0")}${data.snapshot ? " (снимок)" : ""}`;
   const startDate = chartData[0]?.date;
   const endDate = chartData[chartData.length - 1]?.date;
   const periodLabel = startDate && endDate

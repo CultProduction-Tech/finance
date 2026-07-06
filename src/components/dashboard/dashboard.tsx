@@ -120,7 +120,7 @@ function DashboardInner() {
   }, [entity]);
 
   // KPI виджеты — используют свой локальный период
-  const { data: kpi, loading, useMock, syncedAt } = useKpi({
+  const { data: kpi, loading, useMock, syncedAt, isStale } = useKpi({
     entity,
     year: kpiYear,
     startMonth: kpiStart,
@@ -193,10 +193,12 @@ function DashboardInner() {
             <HintToggleButton />
             {syncedAt && (
               <span
-                className="text-[12px] text-muted-foreground tabular-nums"
-                title="Время последней загрузки данных. Нажми «Обновить» для свежей синхронизации из План-факта."
+                className={`text-[12px] tabular-nums ${isStale ? "text-amber-600" : "text-muted-foreground"}`}
+                title={isStale
+                  ? "Показан сохранённый снимок — свежие данные подгружаются из План-факта."
+                  : "Время последнего расчёта данных. Нажми «Обновить» для свежей синхронизации из План-факта."}
               >
-                Обновлено {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                {isStale ? "Снимок от" : "Обновлено"} {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
             <button

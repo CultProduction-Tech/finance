@@ -4,6 +4,7 @@ import type { PaymentStructureResponse } from "@/lib/planfact-client";
 import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterCountsByBriefField } from "@/lib/amocrm-client";
 import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
+import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 
 
 const REQUESTS_PLAN_2026 = [7, 21, 20, 13, 17, 17, 17, 25, 24, 26, 16, 0];
@@ -34,6 +35,10 @@ export interface KpiResponse {
   monthly: MonthlyKpi[];
   expenseCategories: ExpenseCategory[];
   budgetLabel: string;
+  /** ISO-время расчёта данных (для live) или создания снимка (для snapshot=1) */
+  syncedAt?: string;
+  /** true — ответ отдан из файлового снапшота, а не рассчитан сейчас */
+  snapshot?: boolean;
 }
 
 export interface MonthlyKpi {
@@ -77,6 +82,17 @@ export async function GET(request: NextRequest) {
         { error: "startDate and endDate are required" },
         { status: 400 },
       );
+    }
+
+    // Мгновенный ответ из файлового снимка — ноль внешних запросов.
+    // Фронт сначала просит снапшот, параллельно тянет live и подменяет.
+    const snapshotKey = `kpi-${entity}-${startDate}-${endDate}`;
+    if (searchParams.get("snapshot") === "1") {
+      const snap = await readSnapshot<KpiResponse>(snapshotKey);
+      if (!snap) {
+        return NextResponse.json({ error: "no snapshot yet" }, { status: 404 });
+      }
+      return NextResponse.json({ ...snap.payload, syncedAt: snap.snapshotAt, snapshot: true });
     }
 
     const config = getEntityConfig(entity);
@@ -594,7 +610,11 @@ export async function GET(request: NextRequest) {
       monthly,
       expenseCategories,
       budgetLabel,
+      syncedAt: new Date().toISOString(),
     };
+
+    // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.
+    await saveSnapshot(snapshotKey, response);
 
     return NextResponse.json(response);
   } catch (error) {

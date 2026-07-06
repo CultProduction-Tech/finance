@@ -1,15 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { LegalEntity } from "@/types/finance";
+import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 
 function fmt(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+interface CashflowResponsePayload {
+  currentBalance: number;
+  points: { date: string; balance: number; type: "fact" | "plan" }[];
+  syncedAt?: string;
+  snapshot?: boolean;
 }
 
 export async function GET(request: NextRequest) {
   const entity = (request.nextUrl.searchParams.get("entity") || "blaster") as LegalEntity;
   const config = getEntityConfig(entity);
   const pf = config.planfact;
+
+  const snapshotKey = `cashflow-${entity}`;
+  if (request.nextUrl.searchParams.get("snapshot") === "1") {
+    const snap = await readSnapshot<CashflowResponsePayload>(snapshotKey);
+    if (!snap) {
+      return NextResponse.json({ error: "no snapshot yet" }, { status: 404 });
+    }
+    return NextResponse.json({ ...snap.payload, syncedAt: snap.snapshotAt, snapshot: true });
+  }
 
   try {
     const raw = new Date();
@@ -65,10 +82,14 @@ export async function GET(request: NextRequest) {
 
     const points = [...pastBalances, ...futurePoints];
 
-    return NextResponse.json({
+    const payload: CashflowResponsePayload = {
       currentBalance: balance.total,
       points,
-    });
+      syncedAt: new Date().toISOString(),
+    };
+    await saveSnapshot(snapshotKey, payload);
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Cashflow API error:", error);
     return NextResponse.json({ error: "Failed to fetch cashflow" }, { status: 500 });
