@@ -211,6 +211,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     const factConversion = entity === "cult"
       ? (totalRequestsFact > 0 ? (totalProjectsSoldFact / totalRequestsFact) * 100 : 0)
       : (totalProjectsSoldFact > 0 ? (totalWinsFact / totalProjectsSoldFact) * 100 : 0);
+    // «Конверсия запросов в проекты» для Бластера = Победы ÷ Запросы.
+    // Добавляется рядом с Винрейтом (аддитивно, Винрейт остаётся).
+    const factConversionRate = totalRequestsFact > 0
+      ? (totalWinsFact / totalRequestsFact) * 100
+      : 0;
     const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
 
     let pastCount = 0;
@@ -221,6 +226,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     // Blaster plan values
     const BLASTER_BUDGET_AVG_CHECK = 900_000;
     const BLASTER_BUDGET_CONVERSION = 30;
+    const BLASTER_BUDGET_CONVERSION_RATE = 30; // план «Конверсии» Бластера (Завершённые ÷ Запросы), %
     // План проектов — сумма помесячных значений за выбранный период (из m.projectsPlan, PROJECTS_PLAN_2026)
     const blasterBudgetProjects = totalProjectsPlan;
 
@@ -247,6 +253,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
           // Победы — лиды по дате "Бриф получен" в этапе Реализованo (или created_at для Янв-Мар); план = запросы × 30%
           ["Победы", totalWinsFact, totalRequestsPlan * 0.30, false, false],
           ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
+          ["Конверсия", factConversionRate, BLASTER_BUDGET_CONVERSION_RATE, true, false],
           ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
           ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, false, false],
