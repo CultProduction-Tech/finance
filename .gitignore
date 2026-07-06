@@ -42,3 +42,4 @@ next-env.d.ts
 
 # рантайм-данные (снимки API)
 data/snapshots/
+data/notes.json
