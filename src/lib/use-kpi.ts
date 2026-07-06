@@ -24,6 +24,7 @@ interface UseKpiResult {
   loading: boolean;
   error: string | null;
   useMock: boolean;
+  syncedAt: Date | null;
 }
 
 export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKpiOptions): UseKpiResult {
@@ -31,6 +32,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [useMock, setUseMock] = useState(false);
+  const [syncedAt, setSyncedAt] = useState<Date | null>(null);
 
   const startDate = `${year}-${String(startMonth + 1).padStart(2, "0")}-01`;
   const endDay = new Date(year, endMonth + 1, 0).getDate();
@@ -79,6 +81,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
       setError(null);
     } finally {
       setLoading(false);
+      setSyncedAt(new Date());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, entity, year, startMonth, endMonth, refreshKey]);
@@ -87,5 +90,5 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     fetchData();
   }, [fetchData]);
 
-  return { data, loading, error, useMock };
+  return { data, loading, error, useMock, syncedAt };
 }

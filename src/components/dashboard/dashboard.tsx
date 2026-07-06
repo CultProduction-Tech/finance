@@ -69,27 +69,24 @@ function DashboardInner() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Локальный период для KPI виджетов (null = используем глобальный)
-  const [kpiLocalStart, setKpiLocalStart] = useState<number | null>(null);
-  const [kpiLocalEnd, setKpiLocalEnd] = useState<number | null>(null);
+  // KPI-виджеты «Цели месяца» — независимы от общих регуляторов: свой год (текущий) и месяц.
+  // Общий период/год не сбрасывают и не меняют этот блок.
+  const currentMonth = now.getMonth();
+  const kpiYear = now.getFullYear();
+  const [kpiLocalStart, setKpiLocalStart] = useState<number | null>(currentMonth);
+  const [kpiLocalEnd, setKpiLocalEnd] = useState<number | null>(currentMonth);
 
   const handleYearChange = (y: number) => {
     setYear(y);
     setPeriodVersion((v) => v + 1);
-    setKpiLocalStart(null);
-    setKpiLocalEnd(null);
   };
   const handleStartMonthChange = (m: number) => {
     setStartMonth(m);
     setPeriodVersion((v) => v + 1);
-    setKpiLocalStart(null);
-    setKpiLocalEnd(null);
   };
   const handleEndMonthChange = (m: number) => {
     setEndMonth(m);
     setPeriodVersion((v) => v + 1);
-    setKpiLocalStart(null);
-    setKpiLocalEnd(null);
   };
 
   // Активный период для KPI: локальный если задан, иначе глобальный
@@ -123,9 +120,9 @@ function DashboardInner() {
   }, [entity]);
 
   // KPI виджеты — используют свой локальный период
-  const { data: kpi, loading, useMock } = useKpi({
+  const { data: kpi, loading, useMock, syncedAt } = useKpi({
     entity,
-    year,
+    year: kpiYear,
     startMonth: kpiStart,
     endMonth: kpiEnd,
     refreshKey,
@@ -194,6 +191,14 @@ function DashboardInner() {
           {/* Справа: подсказки + обновить + выйти */}
           <div className="flex items-center gap-3 shrink-0">
             <HintToggleButton />
+            {syncedAt && (
+              <span
+                className="text-[12px] text-muted-foreground tabular-nums"
+                title="Время последней загрузки данных. Нажми «Обновить» для свежей синхронизации из План-факта."
+              >
+                Обновлено {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -234,17 +239,18 @@ function DashboardInner() {
                 <div className="h-7 w-24 rounded-full animate-pulse bg-black/[0.06]" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => (
                 <KpiCardSkeleton key={i} />
               ))}
             </div>
           </>
         ) : kpi ? (
           <>
-            <div className="flex justify-start mb-2">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-sm font-semibold text-foreground shrink-0">🎯 Цели месяца</h2>
               <PeriodSelector
-                year={year}
+                year={kpiYear}
                 startMonth={kpiStart}
                 endMonth={kpiEnd}
                 onYearChange={() => {}}
