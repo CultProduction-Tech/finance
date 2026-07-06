@@ -208,27 +208,30 @@ function DashboardInner() {
           {/* Справа: подсказки + обновить + выйти */}
           <div className="flex items-center gap-3 shrink-0">
             <HintToggleButton />
-            {syncedAt && (
-              <span
-                className={`text-[12px] tabular-nums ${isStale ? "text-amber-600" : "text-muted-foreground"}`}
-                title={isStale
-                  ? "Показан сохранённый снимок — свежие данные подгружаются из План-факта."
-                  : "Время последнего расчёта данных. Нажми «Обновить» для свежей синхронизации из План-факта."}
+            {/* Кнопка «Обновить», под ней — время последнего обновления */}
+            <div className="flex flex-col items-center gap-0.5">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
-                {isStale ? "Снимок от" : "Обновлено"} {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
-                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-              </svg>
-              Обновить
-            </button>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
+                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                </svg>
+                Обновить
+              </button>
+              {syncedAt && (
+                <span
+                  className={`text-[10px] leading-none tabular-nums ${isStale ? "text-amber-600" : "text-muted-foreground"}`}
+                  title={isStale
+                    ? "Показан сохранённый снимок — свежие данные подгружаются из План-факта."
+                    : "Время последнего расчёта данных. Нажми «Обновить» для свежей синхронизации из План-факта."}
+                >
+                  {isStale ? "снимок от" : "обновлено"} {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+            </div>
             <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"
