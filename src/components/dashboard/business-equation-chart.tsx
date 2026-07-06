@@ -169,6 +169,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let amoProjectsPrice = 0, amoProjectsExpense = 0;
 
     for (const m of monthly) {
+      // Вся воронка (факт И план) — только по прошедшим месяцам, как и финансы ниже.
+      // Иначе на годовом периоде факт-к-сегодня сравнивается с планом всего года
+      // и отклонения выглядят катастрофой (−56% вместо честных −20%).
+      if (!m.isPast) continue;
+
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;
       totalProjectsPlan += m.projectsPlan;
@@ -184,7 +189,6 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         }
       }
 
-      if (!m.isPast) continue;
       factRevenue += m.revenue;
       budgetRevenue += m.budgetRevenue;
       factMargin += m.margin;
