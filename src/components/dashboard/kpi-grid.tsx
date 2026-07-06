@@ -26,8 +26,22 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
     ? Math.round((budgetMargin / budgetRevenue) * 100)
     : 0;
 
+  // Запросы — опережающий индикатор воронки (сумма за период)
+  const requestsFact = data.monthly.reduce((s, m) => s + m.requestsFact, 0);
+  const requestsPlan = data.monthly.reduce((s, m) => s + m.requestsPlan, 0);
+
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <KpiCard
+        icon="📨"
+        label="Запросы"
+        value={String(requestsFact)}
+        hint={getHint(entity, "eq_requests")}
+        comparison={requestsPlan > 0 ? {
+          deviationPercent: deviation(requestsFact, requestsPlan),
+          budgetLabel: String(requestsPlan),
+        } : undefined}
+      />
       <KpiCard
         icon="🔁"
         label="Выручка"
