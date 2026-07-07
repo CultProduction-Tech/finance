@@ -26,9 +26,12 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
     ? Math.round((budgetMargin / budgetRevenue) * 100)
     : 0;
 
-  // Запросы — опережающий индикатор воронки (сумма за период)
+  // Запросы — опережающий индикатор воронки. Факт есть только по прошедшим
+  // месяцам, поэтому и план суммируем по ним же (как в бизнес-уравнении) —
+  // иначе на многомесячном периоде факт-к-дате сравнивается с планом всего
+  // периода и отклонение выглядит катастрофой (−54% вместо честных −17%).
   const requestsFact = data.monthly.reduce((s, m) => s + m.requestsFact, 0);
-  const requestsPlan = data.monthly.reduce((s, m) => s + m.requestsPlan, 0);
+  const requestsPlan = data.monthly.reduce((s, m) => s + (m.isPast ? m.requestsPlan : 0), 0);
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
