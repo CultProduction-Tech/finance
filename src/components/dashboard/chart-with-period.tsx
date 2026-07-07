@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { KpiData, LegalEntity } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
+import { todayInBusinessTz } from "@/lib/timezone";
 import { ChartPeriodSelector, QuickPeriod } from "./chart-period-selector";
 import { ChartCardSkeleton } from "./loading-skeletons";
 
@@ -70,7 +71,10 @@ export function ChartWithPeriod({
   const kpi = (needsLocalFetch || needsJanuaryFetch) ? localKpi : globalKpi;
   const loading = (needsLocalFetch || needsJanuaryFetch) ? localLoading : false;
 
-  const currentMonth = new Date().getMonth();
+  // Месяц для кнопки «Месяц» — по бизнес-TZ (Москва), как весь дашборд,
+  // а не по TZ браузера: иначе восточнее Москвы в ночь смены месяца
+  // кнопка открывала бы пустой «следующий» месяц.
+  const currentMonth = parseInt(todayInBusinessTz().slice(5, 7), 10) - 1;
 
   const handleQuickPeriod = useCallback((period: QuickPeriod) => {
     if (period === null) {
