@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, ReactNode } from "react";
-import { KpiData, LegalEntity } from "@/types/finance";
+import { useState, ReactNode } from "react";
+import { KpiData, LegalEntity, MONTHS_RU } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
 import { todayInBusinessTz } from "@/lib/timezone";
-import { ChartPeriodSelector, QuickPeriod } from "./chart-period-selector";
+import { ChartPeriodSelector, ChartMode } from "./chart-period-selector";
 import { ChartCardSkeleton } from "./loading-skeletons";
 
 interface ChartWithPeriodProps {
@@ -15,12 +15,10 @@ interface ChartWithPeriodProps {
   globalKpi: KpiData;
   /** Инкрементится на каждое взаимодействие с верхней панелью периода */
   periodVersion: number;
-  /** Всегда запрашивать данные с января (для графиков с нарастающим итогом) */
-  alwaysFromJanuary?: boolean;
-  /** Скрыть кнопку "Месяц" в локальном селекторе */
-  hideMonthButton?: boolean;
   children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode) => ReactNode;
 }
+
+const M3 = (i: number) => MONTHS_RU[i]?.substring(0, 3) ?? "";
 
 export function ChartWithPeriod({
   entity,
@@ -29,100 +27,48 @@ export function ChartWithPeriod({
   globalEndMonth,
   globalKpi,
   periodVersion,
-  alwaysFromJanuary,
-  hideMonthButton,
   children,
 }: ChartWithPeriodProps) {
-  const [localStart, setLocalStart] = useState<number | null>(null);
-  const [localEnd, setLocalEnd] = useState<number | null>(null);
-  const [activeQuick, setActiveQuick] = useState<QuickPeriod>(null);
+  // Два представления (ТЗ Кости): «НИ» — период верхней панели (по умолчанию
+  // год: факт копится к сегодня), «Месяц» — текущий неполный месяц.
+  const [mode, setMode] = useState<ChartMode>("ni");
 
-  // Сброс локального периода на любое взаимодействие с верхней панелью.
-  // Паттерн «adjust state during render» вместо эффекта: без лишнего кадра
-  // со старым локальным периодом и без setState-in-effect.
+  // Взаимодействие с верхней панелью возвращает график к «НИ» (adjust-during-render)
   const [prevPeriodVersion, setPrevPeriodVersion] = useState(periodVersion);
   if (prevPeriodVersion !== periodVersion) {
     setPrevPeriodVersion(periodVersion);
-    setLocalStart(null);
-    setLocalEnd(null);
-    setActiveQuick(null);
+    setMode("ni");
   }
 
-  const hasLocal = localStart !== null && localEnd !== null;
+  const businessToday = todayInBusinessTz();
+  const businessYear = parseInt(businessToday.slice(0, 4), 10);
+  const currentMonth = parseInt(businessToday.slice(5, 7), 10) - 1;
 
-  const activeStart = hasLocal ? localStart : globalStartMonth;
-  const activeEnd = hasLocal ? localEnd : globalEndMonth;
+  const isMonth = mode === "month";
 
-  const fetchStart = alwaysFromJanuary ? 0 : activeStart;
-
-  const needsLocalFetch = hasLocal && (
-    localStart !== globalStartMonth || localEnd !== globalEndMonth
-  );
-  const needsJanuaryFetch = alwaysFromJanuary && globalStartMonth !== 0;
-
+  // В режиме «НИ» параметры совпадают с глобальным фетчем дашборда —
+  // дедуп в use-kpi сводит это к одному сетевому запросу.
   const { data: localKpi, loading: localLoading } = useKpi({
     entity,
-    year: globalYear,
-    startMonth: needsLocalFetch ? fetchStart : (needsJanuaryFetch ? 0 : globalStartMonth),
-    endMonth: needsLocalFetch ? activeEnd : globalEndMonth,
+    year: isMonth ? businessYear : globalYear,
+    startMonth: isMonth ? currentMonth : globalStartMonth,
+    endMonth: isMonth ? currentMonth : globalEndMonth,
   });
 
-  const kpi = (needsLocalFetch || needsJanuaryFetch) ? localKpi : globalKpi;
-  const loading = (needsLocalFetch || needsJanuaryFetch) ? localLoading : false;
+  const kpi = isMonth ? localKpi : globalKpi;
+  const loading = isMonth ? localLoading : false;
 
-  // Месяц для кнопки «Месяц» — по бизнес-TZ (Москва), как весь дашборд,
-  // а не по TZ браузера: иначе восточнее Москвы в ночь смены месяца
-  // кнопка открывала бы пустой «следующий» месяц.
-  const currentMonth = parseInt(todayInBusinessTz().slice(5, 7), 10) - 1;
-
-  const handleQuickPeriod = useCallback((period: QuickPeriod) => {
-    if (period === null) {
-      // Сброс к глобальному периоду
-      setLocalStart(null);
-      setLocalEnd(null);
-      setActiveQuick(null);
-    } else if (period === "month") {
-      setLocalStart(currentMonth);
-      setLocalEnd(currentMonth);
-      setActiveQuick("month");
-    } else {
-      setLocalStart(0);
-      setLocalEnd(11);
-      setActiveQuick("year");
-    }
-  }, [currentMonth]);
-
-  const handleStartChange = useCallback((v: number) => {
-    setLocalStart(v);
-    setActiveQuick(null);
-    if (localEnd === null) setLocalEnd(globalEndMonth);
-  }, [localEnd, globalEndMonth]);
-
-  const handleEndChange = useCallback((v: number) => {
-    setLocalEnd(v);
-    setActiveQuick(null);
-    if (localStart === null) setLocalStart(globalStartMonth);
-  }, [localStart, globalStartMonth]);
-
-  // Выводим пресет из активного периода, если локальный пресет не задан.
-  // "Месяц" подсвечиваем только при явном клике пользователя (activeQuick === "month"),
-  // иначе одноразовый период (start === end) визуально читается как промежуток в дропдаунах.
-  const derivedQuick: QuickPeriod = activeQuick
-    ? activeQuick
-    : activeStart === 0 && activeEnd === 11
-      ? "year"
-      : null;
+  // Подпись периода: всегда видно, какие месяцы на графике.
+  // «НИ» на полном текущем годе = «Янв–Июл» (по какой месяц включительно копится факт).
+  const isFullYear = globalStartMonth === 0 && globalEndMonth === 11;
+  const periodLabel = isMonth
+    ? `${MONTHS_RU[currentMonth]} (идёт)`
+    : isFullYear && globalYear === businessYear
+      ? `Янв–${M3(currentMonth)}`
+      : `${M3(globalStartMonth)}–${M3(globalEndMonth)}${globalYear !== businessYear ? ` ${globalYear}` : ""}`;
 
   const periodSelector = (
-    <ChartPeriodSelector
-      startMonth={activeStart}
-      endMonth={activeEnd}
-      activeQuick={derivedQuick}
-      onStartMonthChange={handleStartChange}
-      onEndMonthChange={handleEndChange}
-      onQuickPeriod={handleQuickPeriod}
-      hideMonthButton={hideMonthButton}
-    />
+    <ChartPeriodSelector mode={mode} onModeChange={setMode} periodLabel={periodLabel} />
   );
 
   if (!kpi) {

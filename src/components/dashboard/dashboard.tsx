@@ -349,9 +349,20 @@ function DashboardInner() {
       {globalKpi && (
         <div className="px-6 pb-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} hideMonthButton>
-              {(data, _loading, ps) => <ProfitChart monthly={data.monthly} periodSelector={ps} fullYearMonthly={fullYearKpi?.monthly} entity={entity} />}
-            </ChartWithPeriod>
+            {/* «Чистая прибыль»: всегда весь год — годовой план виден целиком (ТЗ Кости 07.07) */}
+            {fullYearKpi ? (
+              <ProfitChart
+                monthly={fullYearKpi.monthly}
+                entity={entity}
+                periodSelector={
+                  <span className="text-[11px] text-[#86868b] whitespace-nowrap">
+                    план — весь год{year === kpiYear ? ` · факт — по ${MONTHS_RU[currentMonth].substring(0, 3)}` : ""}
+                  </span>
+                }
+              />
+            ) : (
+              <ChartCardSkeleton variant="line" />
+            )}
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
