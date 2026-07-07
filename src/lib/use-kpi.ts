@@ -47,6 +47,28 @@ function mapKpi(json: any): KpiData {
   };
 }
 
+// Дедуп идентичных запросов /api/kpi между хуками. Виджет «Цели месяца» и графики
+// на совпадающем периоде шлют один и тот же URL; без дедупа это два параллельных
+// запроса, которые гоняются за одним лимитом amoCRM и расходятся (у одного воронка
+// загрузилась, у другого 429 → нули). Общий promise = один сетевой запрос = одни данные.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inflightKpi = new Map<string, Promise<any>>();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fetchKpiJson(url: string): Promise<any> {
+  const existing = inflightKpi.get(url);
+  if (existing) return existing;
+  const p = (async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (json?.error) throw new Error(json.error);
+    return json;
+  })().finally(() => inflightKpi.delete(url));
+  inflightKpi.set(url, p);
+  return p;
+}
+
 export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKpiOptions): UseKpiResult {
   const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,11 +94,8 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     // Применяется только пока не пришёл live и запрос не устарел.
     let liveArrived = false;
     let snapshotShown = false;
-    const snapshotPromise = fetch(`${base}&snapshot=1`)
-      .then(async (res) => {
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.error) return;
+    const snapshotPromise = fetchKpiJson(`${base}&snapshot=1`)
+      .then((json) => {
         if (seq !== requestSeq.current || liveArrived) return;
         setData(mapKpi(json));
         setSyncedAt(json.syncedAt ? new Date(json.syncedAt) : null);
@@ -89,17 +108,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
 
     // Фаза B — живые данные (PlanFact + amoCRM)
     try {
-      const res = await fetch(base);
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const json = await res.json();
-
-      if (json.error) {
-        throw new Error(json.error);
-      }
+      const json = await fetchKpiJson(base);
 
       liveArrived = true;
       if (seq !== requestSeq.current) return;

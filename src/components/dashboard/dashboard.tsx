@@ -154,6 +154,14 @@ function DashboardInner() {
   // Кэшфлоу 3 мес — последняя точка прогноза
   const [cashflow3m, setCashflow3m] = useState<number | null>(null);
 
+  // Деградация amoCRM в любой из частей (виджет ИЛИ графики): периоды могут
+  // отличаться → это разные фетчи, и молчаливые нули в одной части недопустимы.
+  let amocrmError: string | null = null;
+  if (!useMock) {
+    if (kpi?.sources && kpi.sources.amocrm !== "ok") amocrmError = kpi.sources.amocrm;
+    else if (globalKpi?.sources && globalKpi.sources.amocrm !== "ok") amocrmError = globalKpi.sources.amocrm;
+  }
+
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
@@ -185,11 +193,11 @@ function DashboardInner() {
                 ⚠️ Demo-данные — источники недоступны
               </Badge>
             )}
-            {!useMock && kpi?.sources && kpi.sources.amocrm !== "ok" && (
+            {amocrmError && (
               <Badge
                 variant="destructive"
                 className="text-xs rounded-full"
-                title={kpi.sources.amocrm}
+                title={amocrmError}
               >
                 ⚠️ amoCRM недоступен — воронка не загружена
               </Badge>
