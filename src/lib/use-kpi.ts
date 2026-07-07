@@ -38,7 +38,6 @@ function mapKpi(json: any): KpiData {
     marginPercent: json.marginPercent,
     fixedExpenses: json.fixedExpenses,
     profit: json.profit,
-    cashOnHand: json.cashOnHand,
     projectsCount: json.projectsCount,
     monthly: json.monthly || [],
     expenseCategories: json.expenseCategories || [],

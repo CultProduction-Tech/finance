@@ -31,7 +31,6 @@ export function calculateKpi(months: MonthlyFinancials[]): KpiData {
   let revenue = 0;
   let margin = 0;
   let profit = 0;
-  let cashOnHand = 0;
   let projectsCount = 0;
 
   for (const m of months) {
@@ -47,12 +46,6 @@ export function calculateKpi(months: MonthlyFinancials[]): KpiData {
     projectsCount += m.isPast ? m.projectsCount : 0;
   }
 
-  // На счетах — берём последний прошедший месяц
-  const pastMonths = months.filter((m) => m.isPast);
-  if (pastMonths.length > 0) {
-    cashOnHand = pastMonths[pastMonths.length - 1].cashOnHand;
-  }
-
   const marginPercent = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
 
   return {
@@ -62,7 +55,6 @@ export function calculateKpi(months: MonthlyFinancials[]): KpiData {
     marginPercent,
     fixedExpenses: margin - profit, // Постоянные = Маржа - Прибыль
     profit,
-    cashOnHand,
     projectsCount,
     monthly: [],
     expenseCategories: [],

@@ -56,7 +56,6 @@ export interface KpiData {
   marginPercent: number;      // Маржинальность %
   fixedExpenses: number;      // Постоянные расходы
   profit: number;             // Чистая прибыль (Маржа - Пост. расходы)
-  cashOnHand: number;         // На счетах
   projectsCount: number;      // Проектов
   monthly: MonthlyKpiData[];  // Помесячная разбивка
   expenseCategories: ExpenseCategoryData[];

@@ -96,7 +96,6 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
       {SHOW_EXTRA_KPIS && (
         <>
           <KpiCard icon="📋" label="Проектов" value={String(data.projectsCount)} />
-          <KpiCard icon="🏦" label="На счетах" value={formatMoney(data.cashOnHand)} />
           {cashflow3m !== null && cashflow3m !== undefined && (
             <KpiCard
               icon="🔮"

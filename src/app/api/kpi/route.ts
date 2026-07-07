@@ -22,7 +22,6 @@ export interface KpiResponse {
   marginPercent: number;
   fixedExpenses: number;
   profit: number;
-  cashOnHand: number;
   projectsCount: number;
   monthly: MonthlyKpi[];
   expenseCategories: ExpenseCategory[];
@@ -93,13 +92,13 @@ export async function GET(request: NextRequest) {
     const pf = config.planfact;
     const amoConfig = config.amo;
 
-    const now = new Date();
     const currentMonth = currentMonthInBusinessTz();
 
-    const [categories, budgets, accountBalance, allProjects] = await Promise.all([
+    // Баланс счетов здесь не запрашиваем: карточка «На счетах» скрыта из UI,
+    // а остатки для графика cashflow берёт /api/cashflow сам.
+    const [categories, budgets, allProjects] = await Promise.all([
       pf.getOperationCategories(),
       pf.getBudgets({ budgetMethod: "Bdr" }),
-      pf.getAccountBalance(now.toISOString()),
       config.excludeProjectIds?.length ? pf.getProjects() : Promise.resolve(null),
     ]);
 
@@ -621,7 +620,6 @@ export async function GET(request: NextRequest) {
       marginPercent: totalMarginPercent,
       fixedExpenses: totalFixedExpenses,
       profit: totalProfit,
-      cashOnHand: accountBalance.total,
       projectsCount: Array.from(projectsByMonth.values()).reduce((sum, p) => sum + p.length, 0),
       monthly,
       expenseCategories,
