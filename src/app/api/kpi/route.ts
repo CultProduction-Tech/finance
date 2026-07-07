@@ -501,8 +501,12 @@ export async function GET(request: NextRequest) {
       }
 
       const budgetByCategory = new Map<number, number>();
-      const currentMonthBudgetByCategory = new Map<number, number>();
-      const currentMonthIncluded = months.includes(currentMonth);
+      // Бюджет текущего И будущих месяцев периода — добавляется в факт-бар
+      // (семантика подсказки: «расходы прошедших месяцев + бюджет на текущий и будущие»).
+      // Раньше добавлялся только текущий месяц: на годовом периоде факт-бар был ~47%
+      // бюджета и непрошедшая часть года читалась как «экономия −50%».
+      const remainingBudgetByCategory = new Map<number, number>();
+      const remainingIncluded = months.some((m) => m >= currentMonth);
       if (budgetDetail) {
         for (const version of budgetDetail.versions) {
           for (const item of version.info.items) {
@@ -512,8 +516,8 @@ export async function GET(request: NextRequest) {
             if (!cat || cat.operationCategoryType !== "Outcome") continue;
             const parentId = getFirstLevelParent(item.operationCategoryId);
             budgetByCategory.set(parentId, (budgetByCategory.get(parentId) || 0) + Math.abs(item.value));
-            if (monthKey === currentMonth) {
-              currentMonthBudgetByCategory.set(parentId, (currentMonthBudgetByCategory.get(parentId) || 0) + Math.abs(item.value));
+            if (monthKey >= currentMonth) {
+              remainingBudgetByCategory.set(parentId, (remainingBudgetByCategory.get(parentId) || 0) + Math.abs(item.value));
             }
           }
         }
@@ -532,27 +536,27 @@ export async function GET(request: NextRequest) {
       const addedIds = new Set<number>();
       for (const [id, data] of factByDetail) {
         const budgetVal = budgetByCategory.get(id) || 0;
-        const currentBudget = currentMonthIncluded ? (currentMonthBudgetByCategory.get(id) || 0) : 0;
-        const factWithCurrent = data.value + currentBudget;
-        if (factWithCurrent === 0 && budgetVal === 0) continue;
+        const remainingBudget = remainingIncluded ? (remainingBudgetByCategory.get(id) || 0) : 0;
+        const factWithRemaining = data.value + remainingBudget;
+        if (factWithRemaining === 0 && budgetVal === 0) continue;
         expenseCategories.push({
           id,
           name: data.name,
-          fact: factWithCurrent,
+          fact: factWithRemaining,
           budget: budgetVal,
         });
         addedIds.add(id);
       }
-      if (currentMonthIncluded) {
-        for (const [id, budgetCur] of currentMonthBudgetByCategory) {
+      if (remainingIncluded) {
+        for (const [id, budgetRemaining] of remainingBudgetByCategory) {
           if (addedIds.has(id)) continue;
           const budgetVal = budgetByCategory.get(id) || 0;
           const cat = categories.items.find((c) => c.operationCategoryId === id);
-          if (budgetCur === 0 && budgetVal === 0) continue;
+          if (budgetRemaining === 0 && budgetVal === 0) continue;
           expenseCategories.push({
             id,
             name: cat?.title || `Статья ${id}`,
-            fact: budgetCur,
+            fact: budgetRemaining,
             budget: budgetVal,
           });
         }
