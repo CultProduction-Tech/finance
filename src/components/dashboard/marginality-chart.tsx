@@ -24,6 +24,17 @@ interface MarginalityChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
   entity?: LegalEntity;
+  /** Култ: сделки периода без «Бриф получен» — их нет на графике, бейдж подсвечивает дыру в данных */
+  projectsWithoutBrief?: { id: number; name: string }[];
+}
+
+// Русская плюрализация: 1 сделка / 2 сделки / 5 сделок
+function dealsWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "сделка";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "сделки";
+  return "сделок";
 }
 
 interface BarDataPoint {
@@ -97,7 +108,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   );
 }
 
-export function MarginalityChart({ monthly, periodSelector, entity }: MarginalityChartProps) {
+export function MarginalityChart({ monthly, periodSelector, entity, projectsWithoutBrief }: MarginalityChartProps) {
   const hint = entity ? getHint(entity, "chart_marginality") : undefined;
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
 
@@ -241,18 +252,28 @@ export function MarginalityChart({ monthly, periodSelector, entity }: Marginalit
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        {hint ? (
-          <Hint title={hint.title} content={hint.content} side="bottom">
-            <h3 className="text-lg font-bold">
+        <div className="flex items-center gap-2 min-w-0">
+          {hint ? (
+            <Hint title={hint.title} content={hint.content} side="bottom">
+              <h3 className="text-lg font-bold whitespace-nowrap">
+                &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
+              </h3>
+            </Hint>
+          ) : (
+            <h3 className="text-lg font-bold whitespace-nowrap">
               &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
             </h3>
-          </Hint>
-        ) : (
-          <h3 className="text-lg font-bold">
-            &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
-          </h3>
-        )}
-        <div className="flex items-center gap-2">
+          )}
+          {!!projectsWithoutBrief?.length && (
+            <span
+              className="inline-flex items-center rounded-full bg-amber-50 px-2 h-6 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70 whitespace-nowrap cursor-default"
+              title={`Пустое поле «Бриф получен» в amoCRM — на график не попадают:\n${projectsWithoutBrief.map((p) => `• ${p.name}`).join("\n")}`}
+            >
+              ⚠️ {projectsWithoutBrief.length} {dealsWord(projectsWithoutBrief.length)} без даты брифа
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {drillMonth && (
             <button
               onClick={() => setDrillMonth(null)}

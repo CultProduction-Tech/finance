@@ -59,6 +59,7 @@ export interface KpiData {
   expenseCategories: ExpenseCategoryData[];
   budgetLabel?: string;       // Подпись текущей версии бюджета (для шапки)
   sources?: { planfact: string; amocrm: string; budget?: string }; // "ok" | текст ошибки источника; budget — не найден сконфигурированный бюджет
+  projectsWithoutBrief?: { id: number; name: string }[]; // Култ: сделки периода без «Бриф получен» — невидимы в графике маржинальности
 }
 
 export interface MonthlyFinancials extends MonthlyData {

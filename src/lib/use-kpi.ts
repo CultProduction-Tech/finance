@@ -43,6 +43,7 @@ function mapKpi(json: any): KpiData {
     expenseCategories: json.expenseCategories || [],
     budgetLabel: json.budgetLabel,
     sources: json.sources,
+    projectsWithoutBrief: json.projectsWithoutBrief,
   };
 }
 

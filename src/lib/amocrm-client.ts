@@ -29,6 +29,9 @@ export interface AmoProjectDetail {
   price: number;
   expensePlan: number;
   marginPercent: number;
+  /** Заполнено ли поле «Бриф получен» (только если в конфиге задан briefDateFieldId).
+   *  Сделка без него не попадает в brief-бакеты маржинальности Култа. */
+  hasBrief?: boolean;
 }
 
 interface AmoLead {
@@ -255,6 +258,12 @@ export async function getProjectDetails(
         price,
         expensePlan,
         marginPercent,
+        hasBrief: config?.briefDateFieldId
+          ? Boolean(
+              lead.custom_fields_values?.find((f) => f.field_id === config.briefDateFieldId)
+                ?.values?.[0]?.value,
+            )
+          : undefined,
       });
     }
 

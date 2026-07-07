@@ -32,6 +32,8 @@ export interface KpiResponse {
   snapshot?: boolean;
   /** Статус источников: "ok" | текст ошибки. amoCRM деградирует частично (воронка нулевая), PlanFact — фатален. budget — сконфигурированный бюджет не найден (план нулевой). */
   sources?: { planfact: string; amocrm: string; budget?: string };
+  /** Култ: сделки периода (по дате создания) с пустым «Бриф получен» — невидимы в графике маржинальности */
+  projectsWithoutBrief?: { id: number; name: string }[];
 }
 
 export interface MonthlyKpi {
@@ -618,6 +620,15 @@ export async function GET(request: NextRequest) {
       expenseCategories.sort((a, b) => b.fact - a.fact);
     }
 
+    // Култ: сделки периода без «Бриф получен» не попадают в brief-бакеты графика
+    // маржинальности — бейдж в UI подсвечивает эту дыру в данных amoCRM
+    const projectsWithoutBrief = isCult
+      ? Array.from(projectsByMonth.values())
+          .flat()
+          .filter((p) => p.hasBrief === false)
+          .map((p) => ({ id: p.id, name: p.name }))
+      : undefined;
+
     const response: KpiResponse = {
       revenue: totalRevenue,
       variableExpenses: totalVariableExpenses,
@@ -631,6 +642,7 @@ export async function GET(request: NextRequest) {
       budgetLabel,
       syncedAt: new Date().toISOString(),
       sources: { planfact: "ok", amocrm: amocrmStatus, ...(budgetStatus ? { budget: budgetStatus } : {}) },
+      projectsWithoutBrief,
     };
 
     // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.
