@@ -1,4 +1,4 @@
-import { BUSINESS_TZ_OFFSET } from "@/lib/timezone";
+import { BUSINESS_TZ, BUSINESS_TZ_OFFSET } from "@/lib/timezone";
 
 const BASE_URL = process.env.AMOCRM_BASE_URL || "";
 const ACCESS_TOKEN = process.env.AMOCRM_ACCESS_TOKEN || "";
@@ -358,9 +358,14 @@ export async function getLeadCountsByCreatedDate(
   return { sold, notSold, soldTotalPrice, totalRequests, wins };
 }
 
+/**
+ * Месяц unix-ts в бизнес-TZ ("YYYY-MM"). НЕ в TZ сервера: прод живёт в UTC,
+ * а date-поля amoCRM («Бриф получен») — полночь по Москве, т.е. 21:00 UTC
+ * предыдущего дня. Серверный getMonth() уводил все брифы «1-го числа»
+ * в предыдущий месяц. sv-SE даёт ISO-формат "YYYY-MM-DD".
+ */
 function toMonthKey(ts: number): string {
-  const d = new Date(ts * 1000);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return new Date(ts * 1000).toLocaleDateString("sv-SE", { timeZone: BUSINESS_TZ }).slice(0, 7);
 }
 
 /**
