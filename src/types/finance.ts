@@ -49,6 +49,7 @@ export interface ExpenseCategoryData {
 
 export interface KpiData {
   revenue: number;            // Выручка (P&L → доходные статьи)
+  expenseBaseRevenue?: number; // Выручка в факт/бюджет-базисе баров расходов — знаменатель «% от выручки»
   variableExpenses: number;   // Переменные расходы
   margin: number;             // Маржинальная прибыль (Выручка - Перем. расходы)
   marginPercent: number;      // Маржинальность %

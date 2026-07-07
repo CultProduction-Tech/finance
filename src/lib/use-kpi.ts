@@ -33,6 +33,7 @@ interface UseKpiResult {
 function mapKpi(json: any): KpiData {
   return {
     revenue: json.revenue,
+    expenseBaseRevenue: json.expenseBaseRevenue,
     variableExpenses: json.variableExpenses,
     margin: json.margin,
     marginPercent: json.marginPercent,

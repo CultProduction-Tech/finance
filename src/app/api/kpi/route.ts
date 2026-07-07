@@ -17,6 +17,11 @@ export interface ExpenseCategory {
 
 export interface KpiResponse {
   revenue: number;
+  /** Выручка в том же факт/бюджет-базисе, что и бары «Бюджета расходов»
+   *  (прошедшие месяцы — факт, текущий и будущие — бюджет). Знаменатель для
+   *  «% от выручки»: иначе полный бюджет расходов делился бы на факт-к-дате
+   *  текущего месяца → скачки 501%/91% вместо честных ~31%. */
+  expenseBaseRevenue: number;
   variableExpenses: number;
   margin: number;
   marginPercent: number;
@@ -634,8 +639,17 @@ export async function GET(request: NextRequest) {
           .map((p) => ({ id: p.id, name: p.name }))
       : undefined;
 
+    // Знаменатель «% от выручки» в бюджете расходов — в том же базисе, что и бары:
+    // прошедшие месяцы (< текущего) факт-выручкой, текущий и будущие — бюджет-выручкой.
+    // Числитель баров сделан так же (F4), поэтому доля стабильна на любом периоде.
+    let expenseBaseRevenue = 0;
+    for (const mm of monthly) {
+      expenseBaseRevenue += mm.month < currentMonth ? mm.revenue : mm.budgetRevenue;
+    }
+
     const response: KpiResponse = {
       revenue: totalRevenue,
+      expenseBaseRevenue,
       variableExpenses: totalVariableExpenses,
       margin: totalMargin,
       marginPercent: totalMarginPercent,
