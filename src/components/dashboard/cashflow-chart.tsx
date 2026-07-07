@@ -84,8 +84,16 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   const [data, setData] = useState<CashflowData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  // Возврат спиннера при рефетче (смена контура / «Обновить») —
+  // adjust-during-render вместо синхронного setState в эффекте
+  const fetchKey = `${entity}:${refreshKey}`;
+  const [prevFetchKey, setPrevFetchKey] = useState(fetchKey);
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
     setLoading(true);
+  }
+
+  useEffect(() => {
     let liveArrived = false;
     let cancelled = false;
 

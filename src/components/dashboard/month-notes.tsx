@@ -20,16 +20,32 @@ export function MonthNotes({ entity, year, month }: MonthNotesProps) {
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const label = `${MONTHS_RU[month]} ${year}`;
 
-  // Загрузка заметки
-  useEffect(() => {
+  // Сброс «загружено» при смене контура/месяца — adjust-during-render вместо
+  // синхронного setState в эффекте (textarea сразу пустеет до прихода заметки)
+  const noteKey = `${entity}:${monthKey}`;
+  const [prevNoteKey, setPrevNoteKey] = useState(noteKey);
+  if (prevNoteKey !== noteKey) {
+    setPrevNoteKey(noteKey);
     setLoaded(false);
+  }
+
+  // Загрузка заметки; cancelled-guard отсекает ответ устаревшего запроса
+  // при быстром переключении месяцев
+  useEffect(() => {
+    let cancelled = false;
     fetch(`/api/notes?entity=${entity}&month=${monthKey}`)
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         setText(data.text || "");
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [entity, monthKey]);
 
   // Автосохранение с debounce

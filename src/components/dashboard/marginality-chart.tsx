@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -101,9 +101,12 @@ export function MarginalityChart({ monthly, periodSelector, entity }: Marginalit
   const hint = entity ? getHint(entity, "chart_marginality") : undefined;
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Сброс детализации при смене данных (периода) — adjust-during-render вместо эффекта
+  const [prevMonthly, setPrevMonthly] = useState(monthly);
+  if (prevMonthly !== monthly) {
+    setPrevMonthly(monthly);
     setDrillMonth(null);
-  }, [monthly]);
+  }
 
   const budgetLine = useMemo(() => {
     let total = 0;

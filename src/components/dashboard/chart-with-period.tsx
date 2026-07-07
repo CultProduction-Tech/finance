@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
+import { useState, useCallback, ReactNode } from "react";
 import { KpiData, LegalEntity } from "@/types/finance";
 import { useKpi } from "@/lib/use-kpi";
 import { todayInBusinessTz } from "@/lib/timezone";
@@ -37,17 +37,16 @@ export function ChartWithPeriod({
   const [localEnd, setLocalEnd] = useState<number | null>(null);
   const [activeQuick, setActiveQuick] = useState<QuickPeriod>(null);
 
-  // Сброс локального периода на любое взаимодействие с верхней панелью
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
+  // Сброс локального периода на любое взаимодействие с верхней панелью.
+  // Паттерн «adjust state during render» вместо эффекта: без лишнего кадра
+  // со старым локальным периодом и без setState-in-effect.
+  const [prevPeriodVersion, setPrevPeriodVersion] = useState(periodVersion);
+  if (prevPeriodVersion !== periodVersion) {
+    setPrevPeriodVersion(periodVersion);
     setLocalStart(null);
     setLocalEnd(null);
     setActiveQuick(null);
-  }, [periodVersion]);
+  }
 
   const hasLocal = localStart !== null && localEnd !== null;
 

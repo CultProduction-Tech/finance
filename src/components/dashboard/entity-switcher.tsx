@@ -22,6 +22,7 @@ export function EntitySwitcher({ selected, onSelect }: EntitySwitcherProps) {
               : "border-transparent text-[#86868b] hover:text-foreground",
           )}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- крошечный статичный логотип, оптимизация next/image не окупается */}
           <img
             src={`/logos/${entity.id}.jpg`}
             alt=""

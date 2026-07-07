@@ -142,15 +142,15 @@ const ALLOWED_CATEGORIES: Record<string, AllowedCategory[]> = {
 
 export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector, entity }: ExpenseBudgetChartProps) {
   const { chartData, totalFact, pctOfRevenue } = useMemo(() => {
-    let total = 0;
-
     const allowed = entity ? ALLOWED_CATEGORIES[entity] : null;
     const filtered = allowed
       ? expenseCategories.filter((c) => allowed.some((a) => a.id === c.id || a.name === c.name))
       : expenseCategories;
 
+    // Итог — отдельным reduce, без мутации переменной внутри map при рендере
+    const total = filtered.reduce((sum, c) => sum + c.fact, 0);
+
     const data: ChartDataPoint[] = filtered.map((c) => {
-      total += c.fact;
       const diff = c.fact - c.budget;
       const deviation = c.budget !== 0 ? Math.round((diff / c.budget) * 100) : 0;
 

@@ -173,12 +173,14 @@ function DashboardInner() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
           {/* Слева: логотип + название — клик возвращает дашборд к исходному виду (полная перезагрузка) */}
           <div className="flex items-center gap-3 shrink-0">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- осознанно <a>, не <Link>: полная перезагрузка сбрасывает все фильтры/периоды к базовому виду */}
             <a
               href="/"
               className="flex items-center gap-3 shrink-0 rounded-xl transition-opacity hover:opacity-75"
               title="К исходному виду дашборда"
             >
               <div className="w-10 h-10 rounded-2xl bg-white shrink-0 shadow-sm ring-1 ring-black/5 overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- крошечный статичный логотип, оптимизация next/image не окупается */}
                 <img
                   src={`/logos/${entity}.jpg`}
                   alt={entityInfo.name}
