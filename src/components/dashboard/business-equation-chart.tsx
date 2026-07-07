@@ -129,7 +129,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let factFixed = 0, budgetFixed = 0;
     let factProfit = 0, budgetProfit = 0;
     let totalRequestsFact = 0, totalRequestsPlan = 0;
-    let totalProjectsSoldFact = 0, totalProjectsNotSoldFact = 0;
+    let totalProjectsSoldFact = 0;
     let totalProjectsByActs = 0;
     let totalProjectsPlan = 0;
     let totalWinsFact = 0;
@@ -146,7 +146,6 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       totalProjectsPlan += m.projectsPlan;
       totalWinsFact += m.winsFact ?? 0;
       totalProjectsSoldFact += m.projectsSoldFact;
-      totalProjectsNotSoldFact += m.projectsNotSoldFact;
 
       if (m.projects) {
         totalProjectsByActs += m.projects.length;

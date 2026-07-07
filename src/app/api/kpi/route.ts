@@ -57,8 +57,6 @@ export interface MonthlyKpi {
   requestsFact: number;
   requestsPlan: number;
   projectsSoldFact: number;
-  projectsNotSoldFact: number;
-  projectsSoldRevenue: number;
   projectsPlan: number;
   winsFact: number;
 }
@@ -169,7 +167,7 @@ export async function GET(request: NextRequest) {
       : null;
 
     const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
-      if (m > currentMonth) return Promise.resolve({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0, wins: 0 });
+      if (m > currentMonth) return Promise.resolve({ sold: 0, totalRequests: 0, wins: 0 });
       return getLeadCountsByCreatedDate(mStart, mEnd, amoConfig);
     });
 
@@ -194,7 +192,7 @@ export async function GET(request: NextRequest) {
     let amocrmStatus = "ok";
     let projectResults: AmoProjectDetail[][] = months.map(() => []);
     let marginalityProjectResults: AmoProjectDetail[][] | null = null;
-    let leadCountResults: { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number; wins: number }[] = months.map(() => ({ sold: 0, notSold: 0, soldTotalPrice: 0, totalRequests: 0, wins: 0 }));
+    let leadCountResults: { sold: number; totalRequests: number; wins: number }[] = months.map(() => ({ sold: 0, totalRequests: 0, wins: 0 }));
     let cultLeadResults: { totalRequests: number; takenToWork: number }[] | null = null;
     let blasterCounts: Record<string, { requests: number; wins: number; completed: number }> | null = null;
     try {
@@ -212,7 +210,7 @@ export async function GET(request: NextRequest) {
 
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
-    const leadCountsByMonth = new Map<string, { sold: number; notSold: number; soldTotalPrice: number; totalRequests: number; wins: number }>();
+    const leadCountsByMonth = new Map<string, { sold: number; totalRequests: number; wins: number }>();
     const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
     const blasterCountsByMonth: Record<string, { requests: number; wins: number; completed: number }> = blasterCounts ?? {};
     for (let i = 0; i < months.length; i++) {
@@ -452,10 +450,6 @@ export async function GET(request: NextRequest) {
           : (monthKey >= "2026-04"
               ? (blasterCountsByMonth[monthKey]?.completed ?? 0)
               : (leadCountsByMonth.get(monthKey)?.sold ?? 0)),
-        projectsNotSoldFact: isCult
-          ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
-          : 0,
-        projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
         projectsPlan: !monthKey.startsWith(`${PLANS_YEAR}-`)
           ? 0
           : isCult

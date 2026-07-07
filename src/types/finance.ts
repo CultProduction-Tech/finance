@@ -28,8 +28,6 @@ export interface MonthlyKpiData {
   requestsFact: number;
   requestsPlan: number;
   projectsSoldFact: number;
-  projectsNotSoldFact: number;
-  projectsSoldRevenue: number;
   projectsPlan: number;
   winsFact: number;
 }

@@ -14,14 +14,12 @@ function dayEndTs(date: string): number {
 
 const EXPENSE_PLAN_FIELD_ID = 1647605;
 const STATUS_SOLD = 142;
-const STATUS_NOT_SOLD = 143;
 
 export interface AmoLeadCounts {
+  /** Лиды в терминальных статусах (conversionSoldStatusIds — Реализовано + Закрыто и не реализ.) — знаменатель Винрейта */
   sold: number;
-  notSold: number;
-  soldTotalPrice: number;
   totalRequests: number;
-  /** Лиды в "победных" статусах (для Бластера — Продажа + Реализовано) по дате создания */
+  /** Лиды в "победных" статусах (winStatusIds — Реализовано) по дате создания */
   wins: number;
 }
 
@@ -148,7 +146,6 @@ export interface AmoConfig {
   projectStatusIds?: number[];
   marginFieldId?: number;
   conversionSoldStatusIds?: number[];
-  conversionNotSoldStatusId?: number;
   /** Если задан — totalRequests считается только по этим статусам (вместо «все лиды воронки») */
   requestStatusIds?: number[];
   /** Статусы для "побед" — используется в getLeadCountsByCreatedDate (Янв-Мар) и getBlasterClosedLeadCounts (Апр+). Для Бластера: [Реализованo]. */
@@ -275,8 +272,6 @@ export async function getLeadCountsByCreatedDate(
 ): Promise<AmoLeadCounts> {
   const pipelineId = config?.pipelineId ?? Number(process.env.AMOCRM_PIPELINE_ID || "0");
   const soldIds = config?.conversionSoldStatusIds ?? [STATUS_SOLD];
-  const notSoldId = config?.conversionNotSoldStatusId;
-  const allStatusIds = notSoldId !== undefined ? [...soldIds, notSoldId] : [...soldIds];
   const requestStatusIds = config?.requestStatusIds;
   const winStatusIds = config?.winStatusIds;
 
@@ -319,8 +314,6 @@ export async function getLeadCountsByCreatedDate(
   }
 
   let sold = 0;
-  let notSold = 0;
-  let soldTotalPrice = 0;
   let wins = 0;
   {
     let page = 1;
@@ -332,7 +325,7 @@ export async function getLeadCountsByCreatedDate(
         limit: "250",
         page: String(page),
       });
-      allStatusIds.forEach((sid, i) => {
+      soldIds.forEach((sid, i) => {
         params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
         params.set(`filter[statuses][${i}][status_id]`, String(sid));
       });
@@ -342,9 +335,6 @@ export async function getLeadCountsByCreatedDate(
         if (lead.pipeline_id !== pipelineId) continue;
         if (soldIds.includes(lead.status_id)) {
           sold++;
-          soldTotalPrice += lead.price || 0;
-        } else if (notSoldId !== undefined && lead.status_id === notSoldId) {
-          notSold++;
         }
         if (winStatusIds?.includes(lead.status_id)) {
           wins++;
@@ -355,7 +345,7 @@ export async function getLeadCountsByCreatedDate(
     }
   }
 
-  return { sold, notSold, soldTotalPrice, totalRequests, wins };
+  return { sold, totalRequests, wins };
 }
 
 /**
