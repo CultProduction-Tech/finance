@@ -9,6 +9,8 @@ interface KpiGridProps {
   data: KpiData;
   cashflow3m?: number | null;
   entity: LegalEntity;
+  /** Период включает будущие месяцы: деньги = факт + план будущих (прогноз), помечаем карточки */
+  forecast?: boolean;
 }
 
 const SHOW_EXTRA_KPIS = false;
@@ -18,7 +20,10 @@ function deviation(fact: number, budget: number): number {
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
 }
 
-export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
+export function KpiGrid({ data, cashflow3m, entity, forecast }: KpiGridProps) {
+  // «прогноз» — только на денежных карточках: их значение при периоде с будущими
+  // месяцами = факт + план будущих. Запросы прогноза не имеют (факт vs план-к-дате).
+  const forecastBadge = forecast ? "прогноз" : undefined;
   const budgetRevenue = data.monthly.reduce((s, m) => s + m.budgetRevenue, 0);
   const budgetMargin = data.monthly.reduce((s, m) => s + m.budgetMargin, 0);
   const budgetProfit = data.monthly.reduce((s, m) => s + m.budgetProfit, 0);
@@ -51,6 +56,7 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
         icon="🔁"
         label="Выручка"
         value={formatMoney(data.revenue)}
+        badge={forecastBadge}
         hint={getHint(entity, "kpi_revenue")}
         comparison={budgetRevenue > 0 ? {
           deviationPercent: deviation(data.revenue, budgetRevenue),
@@ -61,6 +67,7 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
         icon="💵"
         label="Маржа"
         value={formatMoney(data.margin)}
+        badge={forecastBadge}
         hint={getHint(entity, "kpi_margin")}
         comparison={budgetMargin > 0 ? {
           deviationPercent: deviation(data.margin, budgetMargin),
@@ -71,6 +78,7 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
         icon="📊"
         label="Маржинальность"
         value={formatMoney(data.marginPercent, "%")}
+        badge={forecastBadge}
         hint={getHint(entity, "kpi_margin_percent")}
         comparison={budgetMarginPercent > 0 ? {
           // Для %-показателя отклонение — в процентных пунктах, не «% от %»
@@ -83,6 +91,7 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
         icon="💰"
         label={data.profit >= 0 ? "Прибыль" : "Убыток"}
         value={formatMoney(Math.abs(data.profit))}
+        badge={forecastBadge}
         variant={data.profit >= 0 ? "positive" : "negative"}
         hint={getHint(entity, "kpi_profit")}
         comparison={budgetProfit !== 0 ? {

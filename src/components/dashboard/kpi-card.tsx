@@ -16,17 +16,24 @@ interface KpiCardProps {
   label: string;
   value: string;
   subtitle?: string;
+  /** Маленькая пилюля у названия (напр. «прогноз» — значение включает план будущих месяцев) */
+  badge?: string;
   variant?: "default" | "negative" | "positive";
   comparison?: Comparison;
   hint?: HintText;
 }
 
-export function KpiCard({ icon, label, value, subtitle, variant = "default", comparison, hint }: KpiCardProps) {
+export function KpiCard({ icon, label, value, subtitle, badge, variant = "default", comparison, hint }: KpiCardProps) {
   const card = (
     <div className="group rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 px-4 py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-base shrink-0">{icon}</span>
         <span className="text-[13px] font-medium text-muted-foreground leading-tight whitespace-pre-line">{label}</span>
+        {badge && (
+          <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[10px] font-medium leading-tight text-amber-700 ring-1 ring-amber-200/70">
+            {badge}
+          </span>
+        )}
       </div>
       <div className="flex flex-col items-end shrink-0 gap-0.5">
         <div
