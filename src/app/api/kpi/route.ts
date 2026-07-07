@@ -6,7 +6,7 @@ import type { AmoProjectDetail } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 import { currentMonthInBusinessTz } from "@/lib/timezone";
-import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
+import { BLASTER_PLANS, CULT_PLANS, PLANS_YEAR } from "@/lib/plans";
 
 export interface ExpenseCategory {
   id: number;
@@ -431,9 +431,12 @@ export async function GET(request: NextRequest) {
         requestsFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
           : (blasterCountsByMonth[monthKey]?.requests ?? 0),
-        requestsPlan: isCult
-          ? CULT_PLANS.requestsPerMonth
-          : (BLASTER_PLANS.requestsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
+        // Количественные планы заданы на PLANS_YEAR — для других лет 0 («плана нет»)
+        requestsPlan: !monthKey.startsWith(`${PLANS_YEAR}-`)
+          ? 0
+          : isCult
+            ? CULT_PLANS.requestsPerMonth
+            : (BLASTER_PLANS.requestsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         projectsSoldFact: isCult
           ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
           : (monthKey >= "2026-04"
@@ -443,9 +446,11 @@ export async function GET(request: NextRequest) {
           ? ((cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0) - (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0))
           : 0,
         projectsSoldRevenue: leadCountsByMonth.get(monthKey)?.soldTotalPrice ?? 0,
-        projectsPlan: isCult
-          ? CULT_PLANS.projectsPerMonth
-          : (BLASTER_PLANS.projectsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
+        projectsPlan: !monthKey.startsWith(`${PLANS_YEAR}-`)
+          ? 0
+          : isCult
+            ? CULT_PLANS.projectsPerMonth
+            : (BLASTER_PLANS.projectsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         winsFact: isCult
           ? 0
           : (monthKey >= "2026-04"

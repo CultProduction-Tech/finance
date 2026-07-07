@@ -189,21 +189,17 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
       : 0;
     const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
 
-    let pastCount = 0;
-    for (const m of monthly) {
-      if (m.isPast) pastCount++;
-    }
-
     // Планы — из единого модуля lib/plans.ts (хардкод by design, но в одном месте)
     const BLASTER_BUDGET_AVG_CHECK = BLASTER_PLANS.avgCheck;
     const BLASTER_BUDGET_CONVERSION = BLASTER_PLANS.winRatePercent;
     const BLASTER_BUDGET_CONVERSION_RATE = BLASTER_PLANS.conversionPercent;
-    // План проектов — сумма помесячных значений за прошедшую часть периода (из m.projectsPlan)
+    // План проектов (оба контура) — сумма помесячных m.projectsPlan за прошедшую
+    // часть периода: единый источник с route и автоматический year-gate планов.
     const blasterBudgetProjects = totalProjectsPlan;
 
     const CULT_BUDGET_AVG_CHECK = CULT_PLANS.avgCheck;
     const CULT_BUDGET_CONVERSION = CULT_PLANS.conversionPercent;
-    const CULT_BUDGET_PROJECTS = pastCount * CULT_PLANS.projectsPerMonth;
+    const CULT_BUDGET_PROJECTS = totalProjectsPlan;
 
     // items: [name, fact, budget, isPercent, isExpense]
     const items: [string, number, number, boolean, boolean][] = entity === "cult"
