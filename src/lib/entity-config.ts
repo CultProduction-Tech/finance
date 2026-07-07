@@ -51,7 +51,8 @@ const configs: Record<LegalEntity, EntityConfig> = {
       pipelineId: Number(process.env.AMOCRM_PIPELINE_ID_CULT || "0"),
       projectStatusIds: [85003170, 85003174, 85003178, 85003182, 142],
       marginFieldId: 1569997,
-      briefDateFieldId: 1647617, // «Бриф получен» — используется для маржинальности
+      // Маржинальность Култа группируется по «Дате акта» (AMOCRM_ACT_DATE_FIELD_ID),
+      // как у Бластера — briefDateFieldId здесь не нужен.
       systemCreatedByUserId: 8986330,
       primaryContactStatusId: 66787606,
       takenToWorkFieldId: 1567685,

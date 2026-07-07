@@ -32,8 +32,8 @@ export interface KpiResponse {
   snapshot?: boolean;
   /** Статус источников: "ok" | текст ошибки. amoCRM деградирует частично (воронка нулевая), PlanFact — фатален. budget — сконфигурированный бюджет не найден (план нулевой). */
   sources?: { planfact: string; amocrm: string; budget?: string };
-  /** Култ: сделки периода (по дате создания) с пустым «Бриф получен» — невидимы в графике маржинальности */
-  projectsWithoutBrief?: { id: number; name: string }[];
+  /** Култ: сделки периода (по дате создания) с пустой «Датой акта» — невидимы в графике маржинальности */
+  projectsWithoutAct?: { id: number; name: string }[];
 }
 
 export interface MonthlyKpi {
@@ -160,11 +160,14 @@ export async function GET(request: NextRequest) {
       return getProjectDetails(mStart, mEnd, amoConfig, projectsDateMode);
     });
 
-    // Культ: дополнительно фетчим проекты по «Бриф получен» — для графика маржинальности
+    // Культ: проекты для графика маржинальности бакетим по «Дате акта» (реализация
+    // проекта), а не по created_at как счётчик «Проекты» — маржа признаётся при сдаче,
+    // как у Бластера. Отдельный фетч, т.к. анкер-дата другая (акт может быть в другом
+    // месяце, чем создание, и ловит переходящие проекты: создан в пред. году, сдан в этом).
     const marginalityProjectsPromises = isCult
       ? monthRanges.map(({ m, mStart, mEnd }) => {
           if (m > currentMonth) return Promise.resolve([]);
-          return getProjectDetails(mStart, mEnd, amoConfig, "brief");
+          return getProjectDetails(mStart, mEnd, amoConfig, "act");
         })
       : null;
 
@@ -620,12 +623,14 @@ export async function GET(request: NextRequest) {
       expenseCategories.sort((a, b) => b.fact - a.fact);
     }
 
-    // Култ: сделки периода без «Бриф получен» не попадают в brief-бакеты графика
-    // маржинальности — бейдж в UI подсвечивает эту дыру в данных amoCRM
-    const projectsWithoutBrief = isCult
+    // Култ: сделки периода с пустой «Датой акта» не попадают в бакеты графика
+    // маржинальности — бейдж в UI подсвечивает эту дыру в данных amoCRM.
+    // Считаем по created-фетчу (сделки, созданные в периоде) — как прокси
+    // «относится к периоду», раз собственной анкер-даты у них нет.
+    const projectsWithoutAct = isCult
       ? Array.from(projectsByMonth.values())
           .flat()
-          .filter((p) => p.hasBrief === false)
+          .filter((p) => p.hasActDate === false)
           .map((p) => ({ id: p.id, name: p.name }))
       : undefined;
 
@@ -642,7 +647,7 @@ export async function GET(request: NextRequest) {
       budgetLabel,
       syncedAt: new Date().toISOString(),
       sources: { planfact: "ok", amocrm: amocrmStatus, ...(budgetStatus ? { budget: budgetStatus } : {}) },
-      projectsWithoutBrief,
+      projectsWithoutAct,
     };
 
     // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.

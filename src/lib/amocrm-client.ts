@@ -29,9 +29,9 @@ export interface AmoProjectDetail {
   price: number;
   expensePlan: number;
   marginPercent: number;
-  /** Заполнено ли поле «Бриф получен» (только если в конфиге задан briefDateFieldId).
-   *  Сделка без него не попадает в brief-бакеты маржинальности Култа. */
-  hasBrief?: boolean;
+  /** Заполнено ли поле «Дата акта». Сделка без него не попадает в бакеты
+   *  маржинальности (у обоих контуров она группируется по дате акта). */
+  hasActDate?: boolean;
 }
 
 interface AmoLead {
@@ -164,7 +164,7 @@ export interface AmoConfig {
   takenToWorkEnumId?: number;
 }
 
-export type ProjectDateMode = "act" | "created" | "brief";
+export type ProjectDateMode = "act" | "created";
 
 export async function getProjectDetails(
   startDate: string,
@@ -189,10 +189,8 @@ export async function getProjectDetails(
   let hasMore = true;
 
   // Какое поле использовать как дату для bucketing проектов по месяцу:
-  //  - 'act'     — custom-поле «Дата акта» (исторический дефолт для Бластера)
-  //  - 'created' — created_at лида (Культ, кол-во проектов)
-  //  - 'brief'   — custom-поле «Бриф получен» (Культ, маржинальность)
-  const briefFieldId = dateMode === "brief" ? config?.briefDateFieldId : undefined;
+  //  - 'act'     — custom-поле «Дата акта» (реализация проекта: Бластер + маржинальность Култа)
+  //  - 'created' — created_at лида (Култ, кол-во проектов)
 
   while (hasMore) {
     const params = new URLSearchParams({ limit: "250", page: String(page) });
@@ -217,14 +215,6 @@ export async function getProjectDetails(
         if (!actDateField?.values?.[0]?.value) continue;
         const actDateTs = Number(actDateField.values[0].value);
         if (actDateTs < startTs || actDateTs > endTs) continue;
-      } else if (dateMode === "brief") {
-        if (!briefFieldId) continue;
-        const briefField = lead.custom_fields_values?.find(
-          (f) => f.field_id === briefFieldId,
-        );
-        if (!briefField?.values?.[0]?.value) continue;
-        const briefTs = Number(briefField.values[0].value);
-        if (briefTs < startTs || briefTs > endTs) continue;
       }
       // dateMode === 'created' — фильтр по created_at уже применён на серверной стороне
 
@@ -258,12 +248,11 @@ export async function getProjectDetails(
         price,
         expensePlan,
         marginPercent,
-        hasBrief: config?.briefDateFieldId
-          ? Boolean(
-              lead.custom_fields_values?.find((f) => f.field_id === config.briefDateFieldId)
-                ?.values?.[0]?.value,
-            )
-          : undefined,
+        // Заполнена ли «Дата акта» — сделка без неё не попадёт в бакеты маржинальности
+        hasActDate: Boolean(
+          lead.custom_fields_values?.find((f) => f.field_id === ACT_DATE_FIELD_ID)
+            ?.values?.[0]?.value,
+        ),
       });
     }
 

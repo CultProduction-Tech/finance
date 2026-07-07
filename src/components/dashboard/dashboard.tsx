@@ -367,7 +367,7 @@ function DashboardInner() {
               {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
-              {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutBrief={data.projectsWithoutBrief} />}
+              {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutAct={data.projectsWithoutAct} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.revenue} periodSelector={ps} entity={entity} />}

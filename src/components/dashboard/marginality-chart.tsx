@@ -24,8 +24,8 @@ interface MarginalityChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
   entity?: LegalEntity;
-  /** Култ: сделки периода без «Бриф получен» — их нет на графике, бейдж подсвечивает дыру в данных */
-  projectsWithoutBrief?: { id: number; name: string }[];
+  /** Култ: сделки периода без «Даты акта» — их нет на графике, бейдж подсвечивает дыру в данных */
+  projectsWithoutAct?: { id: number; name: string }[];
 }
 
 // Русская плюрализация: 1 сделка / 2 сделки / 5 сделок
@@ -108,7 +108,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   );
 }
 
-export function MarginalityChart({ monthly, periodSelector, entity, projectsWithoutBrief }: MarginalityChartProps) {
+export function MarginalityChart({ monthly, periodSelector, entity, projectsWithoutAct }: MarginalityChartProps) {
   const hint = entity ? getHint(entity, "chart_marginality") : undefined;
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
 
@@ -264,12 +264,12 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
               &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
             </h3>
           )}
-          {!!projectsWithoutBrief?.length && (
+          {!!projectsWithoutAct?.length && (
             <span
               className="inline-flex items-center rounded-full bg-amber-50 px-2 h-6 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70 whitespace-nowrap cursor-default"
-              title={`Пустое поле «Бриф получен» в amoCRM — на график не попадают:\n${projectsWithoutBrief.map((p) => `• ${p.name}`).join("\n")}`}
+              title={`Пустое поле «Дата акта» в amoCRM — на график не попадают:\n${projectsWithoutAct.map((p) => `• ${p.name}`).join("\n")}`}
             >
-              ⚠️ {projectsWithoutBrief.length} {dealsWord(projectsWithoutBrief.length)} без даты брифа
+              ⚠️ {projectsWithoutAct.length} {dealsWord(projectsWithoutAct.length)} без даты акта
             </span>
           )}
         </div>
