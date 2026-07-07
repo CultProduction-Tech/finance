@@ -60,7 +60,7 @@ export interface KpiData {
   monthly: MonthlyKpiData[];  // Помесячная разбивка
   expenseCategories: ExpenseCategoryData[];
   budgetLabel?: string;       // Подпись текущей версии бюджета (для шапки)
-  sources?: { planfact: string; amocrm: string }; // "ok" | текст ошибки источника
+  sources?: { planfact: string; amocrm: string; budget?: string }; // "ok" | текст ошибки источника; budget — не найден сконфигурированный бюджет
 }
 
 export interface MonthlyFinancials extends MonthlyData {

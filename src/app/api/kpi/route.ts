@@ -30,8 +30,8 @@ export interface KpiResponse {
   syncedAt?: string;
   /** true — ответ отдан из файлового снапшота, а не рассчитан сейчас */
   snapshot?: boolean;
-  /** Статус источников: "ok" | текст ошибки. amoCRM деградирует частично (воронка нулевая), PlanFact — фатален. */
-  sources?: { planfact: string; amocrm: string };
+  /** Статус источников: "ok" | текст ошибки. amoCRM деградирует частично (воронка нулевая), PlanFact — фатален. budget — сконфигурированный бюджет не найден (план нулевой). */
+  sources?: { planfact: string; amocrm: string; budget?: string };
 }
 
 export interface MonthlyKpi {
@@ -309,6 +309,17 @@ export async function GET(request: NextRequest) {
     );
     const oldBudget = findByName(config.budgets.old.name);
     const newBudget = findByName(config.budgets.new.name);
+
+    // fail loud: сконфигурированный бюджет пропал из PlanFact (переименовали/
+    // закрыли) — раньше плановые колонки молча обнулялись. Ругаемся только на
+    // бюджет, реально нужный запрошенному периоду (old до cutoff, new после).
+    const missingBudgets: string[] = [];
+    if (months.some((m) => m < cutoffMonth) && !oldBudget) missingBudgets.push(config.budgets.old.name);
+    if (months.some((m) => m >= cutoffMonth) && !newBudget) missingBudgets.push(config.budgets.new.name);
+    const budgetStatus = missingBudgets.length
+      ? `Бюджет не найден в PlanFact: «${missingBudgets.join("», «")}» — план показан нулями`
+      : undefined;
+    if (budgetStatus) console.error(`KPI (${entity}):`, budgetStatus);
 
     const [oldBudgetDetail, newBudgetDetail] = await Promise.all([
       oldBudget ? pf.getBudgetDetail(oldBudget.budgetId) : Promise.resolve(null),
@@ -625,12 +636,13 @@ export async function GET(request: NextRequest) {
       expenseCategories,
       budgetLabel,
       syncedAt: new Date().toISOString(),
-      sources: { planfact: "ok", amocrm: amocrmStatus },
+      sources: { planfact: "ok", amocrm: amocrmStatus, ...(budgetStatus ? { budget: budgetStatus } : {}) },
     };
 
     // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.
-    // Деградированный ответ (без amoCRM) не пишем — не затираем последний полноценный снимок.
-    if (amocrmStatus === "ok") {
+    // Деградированный ответ (без amoCRM или без бюджета) не пишем — не затираем
+    // последний полноценный снимок.
+    if (amocrmStatus === "ok" && !budgetStatus) {
       await saveSnapshot(snapshotKey, response);
     }
 

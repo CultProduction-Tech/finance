@@ -161,6 +161,10 @@ function DashboardInner() {
     if (kpi?.sources && kpi.sources.amocrm !== "ok") amocrmError = kpi.sources.amocrm;
     else if (globalKpi?.sources && globalKpi.sources.amocrm !== "ok") amocrmError = globalKpi.sources.amocrm;
   }
+  // Пропавший в PlanFact бюджет — та же деградация, но для плановых колонок
+  const budgetError = !useMock
+    ? (kpi?.sources?.budget ?? globalKpi?.sources?.budget ?? null)
+    : null;
 
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
@@ -200,6 +204,15 @@ function DashboardInner() {
                 title={amocrmError}
               >
                 ⚠️ amoCRM недоступен — воронка не загружена
+              </Badge>
+            )}
+            {budgetError && (
+              <Badge
+                variant="destructive"
+                className="text-xs rounded-full"
+                title={budgetError}
+              >
+                ⚠️ Бюджет не найден в PlanFact — план обнулён
               </Badge>
             )}
           </div>
