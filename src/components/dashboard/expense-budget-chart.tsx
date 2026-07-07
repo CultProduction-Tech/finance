@@ -102,31 +102,41 @@ function DeviationLabel(props: any) {
   );
 }
 
-const ALLOWED_NAMES: Record<string, string[]> = {
+// Курируемый список статей 1-го уровня для графика. Матчим по id ИЛИ имени:
+// id переживает переименование статьи в PlanFact, имя — пересоздание статьи
+// с новым id. Тихо выпасть статья может, только если сменились оба сразу
+// (раньше матч был только по имени — переименование убирало её молча).
+// id сверены с живым PlanFact 07.07.2026.
+interface AllowedCategory {
+  id: number;
+  name: string;
+}
+
+const ALLOWED_CATEGORIES: Record<string, AllowedCategory[]> = {
   blaster: [
-    "4. ЗП Бэкофис",
-    "2. ЗП Продакшн",
-    "1. ЗП Коммерция",
-    "3. ЗП КРЕАТИВ",
-    "6. ОФИС",
-    "8.1. КОМИССИИ",
-    "9. НАЛОГИ ФОТ",
-    "5. БОНУСЫ НЕ В МАРЖЕ",
-    "10. ИНВЕСТИЦИИ, СТРАТЕГИЧЕСКИЕ АКТИВНОСТИ",
-    "7. ИМИДЖ И РАЗВИТИЕ",
+    { id: 9316221, name: "1. ЗП Коммерция" },
+    { id: 9355281, name: "2. ЗП Продакшн" },
+    { id: 9355282, name: "3. ЗП КРЕАТИВ" },
+    { id: 9355280, name: "4. ЗП Бэкофис" },
+    { id: 9355283, name: "5. БОНУСЫ НЕ В МАРЖЕ" },
+    { id: 9355284, name: "6. ОФИС" },
+    { id: 9355384, name: "7. ИМИДЖ И РАЗВИТИЕ" },
+    { id: 9355286, name: "8.1. КОМИССИИ" },
+    { id: 9355287, name: "9. НАЛОГИ ФОТ" },
+    { id: 9355409, name: "10. ИНВЕСТИЦИИ, СТРАТЕГИЧЕСКИЕ АКТИВНОСТИ" },
   ],
   cult: [
-    "ЛЮДИ",
-    "Налог на прибыль (доходы)",
-    "Налоги и комиссии",
-    "ФИН. ОПЕРАЦИИ",
-    "ТЕНДЕРЫ",
-    "Проценты по кредитам и займам",
-    "ИМИДЖ",
-    "Онлайн сервисы",
-    "ОФИС",
-    "БОНУСЫ НЕ В МАРЖЕ",
-    "БЭКОФИС",
+    { id: 9254403, name: "ЛЮДИ" },
+    { id: 9254443, name: "Налог на прибыль (доходы)" },
+    { id: 9254438, name: "Налоги и комиссии" },
+    { id: 9254378, name: "ФИН. ОПЕРАЦИИ" },
+    { id: 9254395, name: "ТЕНДЕРЫ" },
+    { id: 9254446, name: "Проценты по кредитам и займам" },
+    { id: 9254398, name: "ИМИДЖ" },
+    { id: 9261293, name: "Онлайн сервисы" },
+    { id: 9254427, name: "ОФИС" },
+    { id: 9254383, name: "БОНУСЫ НЕ В МАРЖЕ" },
+    { id: 9254432, name: "БЭКОФИС" },
   ],
 };
 
@@ -134,9 +144,9 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
   const { chartData, totalFact, pctOfRevenue } = useMemo(() => {
     let total = 0;
 
-    const allowed = entity ? ALLOWED_NAMES[entity] : null;
+    const allowed = entity ? ALLOWED_CATEGORIES[entity] : null;
     const filtered = allowed
-      ? expenseCategories.filter((c) => allowed.includes(c.name))
+      ? expenseCategories.filter((c) => allowed.some((a) => a.id === c.id || a.name === c.name))
       : expenseCategories;
 
     const data: ChartDataPoint[] = filtered.map((c) => {
