@@ -97,9 +97,6 @@ function DashboardInner() {
   // Активный период для KPI: локальный если задан, иначе глобальный
   const kpiStart = kpiLocalStart ?? startMonth;
   const kpiEnd = kpiLocalEnd ?? endMonth;
-  // Период захватывает будущие месяцы → деньги в карточках = факт + план будущих
-  // (прогноз к концу периода); помечаем, чтобы не путать с чистым фактом уравнения
-  const kpiHasFuture = kpiEnd > currentMonth;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -325,13 +322,10 @@ function DashboardInner() {
                 <span className="shrink-0 pt-0.5 text-sm leading-none">⏳</span>
                 <span>
                   <b>{MONTHS_RU[currentMonth]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. Факт копится с начала месяца, план дан за весь: нули в начале — норма.
-                  {kpiHasFuture && (
-                    <> Будущие месяцы досчитаны по плану: деньги — <b>прогноз</b> к концу периода, а не факт.</>
-                  )}
                 </span>
               </div>
             )}
-            <KpiGrid data={kpi} cashflow3m={cashflow3m} entity={entity} forecast={kpiHasFuture} />
+            <KpiGrid data={kpi} cashflow3m={cashflow3m} entity={entity} />
           </>
         ) : null}
       </div>

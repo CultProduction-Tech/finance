@@ -9,8 +9,6 @@ interface KpiGridProps {
   data: KpiData;
   cashflow3m?: number | null;
   entity: LegalEntity;
-  /** Период включает будущие месяцы: деньги = факт + план будущих (прогноз), помечаем карточки */
-  forecast?: boolean;
 }
 
 const SHOW_EXTRA_KPIS = false;
@@ -20,23 +18,25 @@ function deviation(fact: number, budget: number): number {
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
 }
 
-export function KpiGrid({ data, cashflow3m, entity, forecast }: KpiGridProps) {
-  // «прогноз» — только на денежных карточках: их значение при периоде с будущими
-  // месяцами = факт + план будущих. Запросы прогноза не имеют (факт vs план-к-дате).
-  const forecastBadge = forecast ? "прогноз" : undefined;
-  const budgetRevenue = data.monthly.reduce((s, m) => s + m.budgetRevenue, 0);
-  const budgetMargin = data.monthly.reduce((s, m) => s + m.budgetMargin, 0);
-  const budgetProfit = data.monthly.reduce((s, m) => s + m.budgetProfit, 0);
+export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
+  // Единая семантика с бизнес-уравнением: и факт, и план — ТОЛЬКО прошедшие
+  // месяцы периода. Раньше деньги считались «прогнозом» (факт + план будущих):
+  // «НИ Янв–Дек» в виджете давал +2.1 млн прибыли, а в уравнении рядом
+  // −2.1 млн факта — одинаковый режим показывал разные цифры и путал всех.
+  const past = data.monthly.filter((m) => m.isPast);
+  const revenue = past.reduce((s, m) => s + m.revenue, 0);
+  const margin = past.reduce((s, m) => s + m.margin, 0);
+  const profit = past.reduce((s, m) => s + m.factProfit, 0);
+  const budgetRevenue = past.reduce((s, m) => s + m.budgetRevenue, 0);
+  const budgetMargin = past.reduce((s, m) => s + m.budgetMargin, 0);
+  const budgetProfit = past.reduce((s, m) => s + m.budgetProfit, 0);
+  const marginPercent = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
   const budgetMarginPercent = budgetRevenue > 0
     ? Math.round((budgetMargin / budgetRevenue) * 100)
     : 0;
 
-  // Запросы — опережающий индикатор воронки. Факт есть только по прошедшим
-  // месяцам, поэтому и план суммируем по ним же (как в бизнес-уравнении) —
-  // иначе на многомесячном периоде факт-к-дате сравнивается с планом всего
-  // периода и отклонение выглядит катастрофой (−54% вместо честных −17%).
-  const requestsFact = data.monthly.reduce((s, m) => s + m.requestsFact, 0);
-  const requestsPlan = data.monthly.reduce((s, m) => s + (m.isPast ? m.requestsPlan : 0), 0);
+  const requestsFact = past.reduce((s, m) => s + m.requestsFact, 0);
+  const requestsPlan = past.reduce((s, m) => s + m.requestsPlan, 0);
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -55,49 +55,45 @@ export function KpiGrid({ data, cashflow3m, entity, forecast }: KpiGridProps) {
       <KpiCard
         icon="🔁"
         label="Выручка"
-        value={formatMoney(data.revenue)}
-        badge={forecastBadge}
+        value={formatMoney(revenue)}
         hint={getHint(entity, "kpi_revenue")}
         comparison={budgetRevenue > 0 ? {
-          deviationPercent: deviation(data.revenue, budgetRevenue),
+          deviationPercent: deviation(revenue, budgetRevenue),
           budgetLabel: formatMoney(budgetRevenue),
         } : undefined}
       />
       <KpiCard
         icon="💵"
         label="Маржа"
-        value={formatMoney(data.margin)}
-        badge={forecastBadge}
+        value={formatMoney(margin)}
         hint={getHint(entity, "kpi_margin")}
         comparison={budgetMargin > 0 ? {
-          deviationPercent: deviation(data.margin, budgetMargin),
+          deviationPercent: deviation(margin, budgetMargin),
           budgetLabel: formatMoney(budgetMargin),
         } : undefined}
       />
       <KpiCard
         icon="📊"
         label="Маржинальность"
-        value={formatMoney(data.marginPercent, "%")}
-        badge={forecastBadge}
+        value={formatMoney(marginPercent, "%")}
         hint={getHint(entity, "kpi_margin_percent")}
         comparison={budgetMarginPercent > 0 ? {
           // Для %-показателя отклонение — в процентных пунктах, не «% от %»
-          deviationPercent: data.marginPercent - budgetMarginPercent,
+          deviationPercent: marginPercent - budgetMarginPercent,
           unit: " п.п.",
           budgetLabel: formatMoney(budgetMarginPercent, "%"),
         } : undefined}
       />
       <KpiCard
         icon="💰"
-        label={data.profit >= 0 ? "Прибыль" : "Убыток"}
-        value={formatMoney(Math.abs(data.profit))}
-        badge={forecastBadge}
-        variant={data.profit >= 0 ? "positive" : "negative"}
+        label={profit >= 0 ? "Прибыль" : "Убыток"}
+        value={formatMoney(Math.abs(profit))}
+        variant={profit >= 0 ? "positive" : "negative"}
         hint={getHint(entity, "kpi_profit")}
         comparison={budgetProfit !== 0 ? {
           // Прибыль знакопеременна — проценты от неё не читаются; показываем разницу в деньгах
-          deviationPercent: data.profit - budgetProfit,
-          deltaLabel: formatMoney(Math.abs(data.profit - budgetProfit)),
+          deviationPercent: profit - budgetProfit,
+          deltaLabel: formatMoney(Math.abs(profit - budgetProfit)),
           budgetLabel: formatMoney(budgetProfit),
         } : undefined}
       />
