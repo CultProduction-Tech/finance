@@ -1,6 +1,7 @@
 "use client";
 
 import { MONTHS_RU } from "@/types/finance";
+import { todayInBusinessTz } from "@/lib/timezone";
 import {
   Select,
   SelectContent,
@@ -29,15 +30,16 @@ export function PeriodSelector({
   onEndMonthChange,
   hideYear = false,
 }: PeriodSelectorProps) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
+  // Текущие год/месяц — по бизнес-TZ (Москва), как весь дашборд, не по TZ браузера
+  const businessToday = todayInBusinessTz();
+  const currentYear = parseInt(businessToday.slice(0, 4), 10);
 
   const isThisYear = year === currentYear && startMonth === 0 && endMonth === 11;
 
   const handleNIToggle = () => {
     if (isThisYear) {
       // Активный НИ → переключаем на текущий месяц
-      const currentMonth = now.getMonth();
+      const currentMonth = parseInt(businessToday.slice(5, 7), 10) - 1;
       onYearChange(currentYear);
       onStartMonthChange(currentMonth);
       onEndMonthChange(currentMonth);
