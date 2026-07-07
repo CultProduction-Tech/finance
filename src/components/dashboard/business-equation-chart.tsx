@@ -149,7 +149,13 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
 
       if (m.projects) {
         totalProjectsByActs += m.projects.length;
-        for (const p of m.projects) {
+      }
+      // Маржин-ть Култа считаем по тем же акт-проектам, что и график «Маржинальность»
+      // (m.marginalityProjects). Бластер — marginalityProjects нет, падаем на m.projects
+      // (у него они и так по «Дате акта»). Иначе уравнение и график давали бы разный %.
+      const marginSourceProjects = m.marginalityProjects ?? m.projects;
+      if (marginSourceProjects) {
+        for (const p of marginSourceProjects) {
           amoProjectsPrice += p.price;
           amoProjectsExpense += p.expensePlan;
         }
