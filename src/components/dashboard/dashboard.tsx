@@ -75,6 +75,9 @@ function DashboardInner() {
   // Общий период/год не сбрасывают и не меняют этот блок.
   const currentMonth = parseInt(businessToday.slice(5, 7), 10) - 1;
   const kpiYear = parseInt(businessToday.slice(0, 4), 10);
+  // День и длина текущего месяца — для подписи «месяц ещё идёт» в блоке целей
+  const currentDay = parseInt(businessToday.slice(8, 10), 10);
+  const daysInCurrentMonth = new Date(kpiYear, currentMonth + 1, 0).getDate();
   const [kpiLocalStart, setKpiLocalStart] = useState<number | null>(currentMonth);
   const [kpiLocalEnd, setKpiLocalEnd] = useState<number | null>(currentMonth);
 
@@ -291,6 +294,14 @@ function DashboardInner() {
                 hideYear
               />
             </div>
+            {kpiStart <= currentMonth && kpiEnd >= currentMonth && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
+                <span className="shrink-0 pt-0.5 text-sm leading-none">⏳</span>
+                <span>
+                  <b>{MONTHS_RU[currentMonth]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. Факт копится с начала месяца, план дан за весь: нули в начале — норма.
+                </span>
+              </div>
+            )}
             <KpiGrid data={kpi} cashflow3m={cashflow3m} entity={entity} />
           </>
         ) : null}
