@@ -358,9 +358,13 @@ export async function GET(request: NextRequest) {
       : null;
 
     // Лейбл для шапки выбираем по концу выбранного периода: если он попадает в "новую" зону — показываем новый.
-    const budgetLabel = endDate >= `${cutoffMonth}-01`
-      ? config.budgets.new.label
-      : config.budgets.old.label;
+    // Текст — ДОСЛОВНО название бюджета из PlanFact (b.title), не рукописная подпись:
+    // на дашборде видно ровно ту версию, что реально выбрана в источнике. Бюджет не
+    // найден → показываем сконфигурированное имя (рядом уже горит красный бейдж).
+    const useNewBudget = endDate >= `${cutoffMonth}-01`;
+    const activeBudget = useNewBudget ? newBudget : oldBudget;
+    const budgetLabel = activeBudget?.title?.trim()
+      || (useNewBudget ? config.budgets.new.name : config.budgets.old.name);
 
     if (budgetDetail) {
 

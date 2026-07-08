@@ -3,10 +3,10 @@ import { createPlanFactClient } from "@/lib/planfact-client";
 import type { AmoConfig } from "@/lib/amocrm-client";
 
 interface BudgetVariant {
-  /** Название бюджета в PlanFact (без учёта пробелов в начале/конце) */
+  /** Название бюджета в PlanFact (без учёта пробелов в начале/конце).
+   *  В шапке дашборда показывается живой title найденного бюджета —
+   *  это имя служит для поиска и как fallback, если бюджет пропал. */
   name: string;
-  /** Подпись для шапки дашборда */
-  label: string;
 }
 
 interface EntityConfig {
@@ -39,8 +39,8 @@ const configs: Record<LegalEntity, EntityConfig> = {
       briefDateFieldId: 1647617,
     },
     budgets: {
-      old: { name: "Бюджет 26", label: "Бюджет v2 от 01.03.26" },
-      new: { name: "02 Бюджет 26", label: "Бюджет v3 от 06.05.26" },
+      old: { name: "Бюджет 26" },
+      new: { name: "02 Бюджет 26" },
       // С 2026-01 уже используем новый бюджет (старый остаётся в коде на случай отката).
       cutoffMonth: "2026-01",
     },
@@ -59,8 +59,8 @@ const configs: Record<LegalEntity, EntityConfig> = {
       takenToWorkEnumId: 1796535,
     },
     budgets: {
-      old: { name: "0 Бюджет 2026", label: "Бюджет конец 25 года" },
-      new: { name: "01 Бюджет 2026", label: "Бюджет май 26 года" },
+      old: { name: "0 Бюджет 2026" },
+      new: { name: "01 Бюджет 2026" },
       cutoffMonth: "2026-05",
     },
     excludeProjectIds: [1538920, 1736870, 1438093, 1438060],
