@@ -49,10 +49,12 @@ const COLOR_CUMULATIVE = CHART_COLORS.positive;
 const COLOR_ABOVE = CHART_COLORS.neutral;
 const COLOR_BELOW = CHART_COLORS.negative;
 
-// Плашка-бейдж для подписи на ReferenceLine
+// Плашка-бейдж для подписи на ReferenceLine. HTML-чип внутри foreignObject
+// (а не svg rect+text): на него можно повесить полноценный тултип с объяснением,
+// откуда берётся норма — svg-текст такого наведения не даёт.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BudgetBadge(props: any) {
-  const { viewBox, value } = props;
+  const { viewBox, value, tipTitle, tipContent } = props;
   if (!viewBox) return null;
   const padX = 7;
   const approxWidth = String(value).length * 6.5 + padX * 2;
@@ -60,28 +62,16 @@ function BudgetBadge(props: any) {
   const x = viewBox.x + viewBox.width - approxWidth;
   const y = viewBox.y - 10;
   return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={approxWidth}
-        height={20}
-        rx={10}
-        fill="white"
-        stroke={CHART_COLORS.positive}
-        strokeWidth={1.5}
-      />
-      <text
-        x={x + approxWidth / 2}
-        y={y + 14}
-        textAnchor="middle"
-        fontSize={11}
-        fontWeight={700}
-        fill={CHART_COLORS.positive}
-      >
-        {value}
-      </text>
-    </g>
+    <foreignObject x={x} y={y} width={approxWidth} height={22} style={{ overflow: "visible" }}>
+      <Hint always side="top" title={tipTitle} content={tipContent} className="block h-full w-full">
+        <span
+          className="flex h-[20px] w-full items-center justify-center rounded-full bg-white text-[11px] font-bold whitespace-nowrap cursor-help"
+          style={{ border: `1.5px solid ${CHART_COLORS.positive}`, color: CHART_COLORS.positive }}
+        >
+          {value}
+        </span>
+      </Hint>
+    </foreignObject>
   );
 }
 
@@ -261,12 +251,16 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
             </h3>
           )}
           {!!projectsWithoutAct?.length && (
-            <span
-              className="inline-flex items-center rounded-full bg-amber-50 px-2 h-6 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70 whitespace-nowrap cursor-default"
-              title={`Пустое поле «Дата акта» в amoCRM — на график не попадают:\n${projectsWithoutAct.map((p) => `• ${p.name}`).join("\n")}`}
+            <Hint
+              always
+              side="bottom"
+              title="Пустое поле «Дата акта» в amoCRM"
+              content={`На график не попадают:\n${projectsWithoutAct.map((p) => `• ${p.name}`).join("\n")}\nЗаполни дату в сделке — она появится в месяце акта.`}
             >
-              ⚠️ {projectsWithoutAct.length} {dealsWord(projectsWithoutAct.length)} без даты акта
-            </span>
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 h-6 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70 whitespace-nowrap cursor-help">
+                ⚠️ {projectsWithoutAct.length} {dealsWord(projectsWithoutAct.length)} без даты акта
+              </span>
+            </Hint>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -339,7 +333,13 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
               stroke={COLOR_CUMULATIVE}
               strokeDasharray="6 3"
               strokeWidth={2}
-              label={<BudgetBadge value={`Норма 2026 · ${budgetLine}%`} />}
+              label={
+                <BudgetBadge
+                  value={`Норма 2026 · ${budgetLine}%`}
+                  tipTitle="Откуда эта норма"
+                  tipContent={`${budgetLine}% — целевая маржинальность, принятая командой на 2026 год. Задаётся вручную (src/lib/plans.ts), НЕ считается из данных.\nНе путать с «Маржин-ть (Бюджет)» в бизнес-уравнении: та считается из бюджета PlanFact по прошедшим месяцам, поэтому числа могут не совпадать.`}
+                />
+              }
             />
           )}
           <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />

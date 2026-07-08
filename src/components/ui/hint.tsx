@@ -15,16 +15,19 @@ interface HintProps {
   className?: string;
   /** Сторона тултипа. По умолчанию авто (top), base-ui сам перенесёт если не помещается. */
   side?: "top" | "bottom" | "left" | "right";
+  /** Показывать независимо от режима «Подсказки». Для тултипов-ДАННЫХ (список сделок,
+   *  происхождение числа) — в отличие от подсказок-документации, гейтить их нечестно. */
+  always?: boolean;
 }
 
 /**
  * Обёртка, которая в "режиме подсказок" (см. HintModeProvider) показывает тултип при наведении.
- * Если режим выключен — рендерит детей как есть, без обёртки.
+ * Если режим выключен — рендерит детей как есть, без обёртки (кроме always-тултипов).
  */
-export function Hint({ children, content, title, className, side = "top" }: HintProps) {
+export function Hint({ children, content, title, className, side = "top", always = false }: HintProps) {
   const { enabled } = useHintMode();
 
-  if (!enabled) return <>{children}</>;
+  if (!enabled && !always) return <>{children}</>;
 
   return (
     <TooltipPrimitive.Root>
