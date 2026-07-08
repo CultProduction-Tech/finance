@@ -15,7 +15,6 @@ import {
 } from "recharts";
 import { LegalEntity, MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
-import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
 import { getHint } from "@/lib/hint-texts";
@@ -110,12 +109,22 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
     setDrillMonth(null);
   }
 
-  // Норма 2026 — управленческий таргет, принятый командой (plans.ts), а НЕ расчёт
-  // из бюджета: раньше пунктир был средним помесячных планов и «дышал» с периодом
-  // (год 19%, июнь 22% у Култа). Бюджетная Маржин-ть уравнения — отдельная величина.
-  const budgetLine = entity
-    ? (entity === "cult" ? CULT_PLANS.marginNormPercent : BLASTER_PLANS.marginNormPercent)
-    : 0;
+  // Норма — из бюджета: простое среднее помесячных планов маржинальности за
+  // выбранный период. В бюджете норма ОСОЗНАННО задана помесячно по-разному
+  // (подтверждено Сашей 08.07: «правильно раньше считали, она зашита по-разному»),
+  // поэтому линия меняется при смене периода — это дизайн, не баг. Попытка
+  // зафиксировать её константой (22ac246) откачена; происхождение объясняет тултип.
+  const budgetLine = useMemo(() => {
+    let total = 0;
+    let count = 0;
+    for (const m of monthly) {
+      if (m.budgetMarginPercent > 0) {
+        total += m.budgetMarginPercent;
+        count++;
+      }
+    }
+    return count > 0 ? Math.round(total / count) : 0;
+  }, [monthly]);
 
   const calcProjectsMargin = useCallback((projects?: { price: number; expensePlan: number }[]) => {
     if (!projects?.length) return 0;
@@ -335,9 +344,9 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
               strokeWidth={2}
               label={
                 <BudgetBadge
-                  value={`Норма 2026 · ${budgetLine}%`}
+                  value={`Норма · ${budgetLine}%`}
                   tipTitle="Откуда эта норма"
-                  tipContent={`${budgetLine}% — целевая маржинальность, принятая командой на 2026 год. Задаётся вручную (src/lib/plans.ts), НЕ считается из данных.\nНе путать с «Маржин-ть (Бюджет)» в бизнес-уравнении: та считается из бюджета PlanFact по прошедшим месяцам, поэтому числа могут не совпадать.`}
+                  tipContent={`${budgetLine}% — средняя плановая маржинальность из бюджета за месяцы выбранного периода. В бюджете норма задана помесячно по-разному (осознанно), поэтому при смене периода линия меняется.\nНе путать с «Маржин-ть (Бюджет)» в бизнес-уравнении: та взвешенная и только по прошедшим месяцам — числа могут не совпадать.`}
                 />
               }
             />
@@ -386,7 +395,7 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_BELOW }} /> Ниже
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Норма 2026
+          <span className="inline-block border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Норма маржинальности
         </span>
       </div>
     </div>
