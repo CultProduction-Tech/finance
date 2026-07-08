@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { LegalEntity, MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
+import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
 import { getHint } from "@/lib/hint-texts";
@@ -119,17 +120,12 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
     setDrillMonth(null);
   }
 
-  const budgetLine = useMemo(() => {
-    let total = 0;
-    let count = 0;
-    for (const m of monthly) {
-      if (m.budgetMarginPercent > 0) {
-        total += m.budgetMarginPercent;
-        count++;
-      }
-    }
-    return count > 0 ? Math.round(total / count) : 0;
-  }, [monthly]);
+  // Норма 2026 — управленческий таргет, принятый командой (plans.ts), а НЕ расчёт
+  // из бюджета: раньше пунктир был средним помесячных планов и «дышал» с периодом
+  // (год 19%, июнь 22% у Култа). Бюджетная Маржин-ть уравнения — отдельная величина.
+  const budgetLine = entity
+    ? (entity === "cult" ? CULT_PLANS.marginNormPercent : BLASTER_PLANS.marginNormPercent)
+    : 0;
 
   const calcProjectsMargin = useCallback((projects?: { price: number; expensePlan: number }[]) => {
     if (!projects?.length) return 0;
@@ -343,7 +339,7 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
               stroke={COLOR_CUMULATIVE}
               strokeDasharray="6 3"
               strokeWidth={2}
-              label={<BudgetBadge value={`${budgetLine}%`} />}
+              label={<BudgetBadge value={`Норма 2026 · ${budgetLine}%`} />}
             />
           )}
           <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
@@ -390,7 +386,7 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_BELOW }} /> Ниже
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Норма маржинальности
+          <span className="inline-block border-t-2 border-dashed" style={{ borderColor: COLOR_CUMULATIVE, width: 14 }} /> Норма 2026
         </span>
       </div>
     </div>
