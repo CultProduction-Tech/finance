@@ -53,7 +53,6 @@ export interface MonthlyKpi {
   factProfit: number;
   budgetProfit: number;
   factRevenue: number;
-  factProfitability: number;
   budgetRevenue: number;
   budgetMargin: number;
   budgetMarginPercent: number;
@@ -129,10 +128,18 @@ export async function GET(request: NextRequest) {
       isFixedExpense: boolean;
     }>();
     for (const cat of categories.items) {
+      // Переменная и постоянная — взаимоисключимы явно (не порядком else if ниже).
+      // При конфликте тегов PlanFact приоритет у переменной + fail-loud в лог, чтобы
+      // статья не «пряталась» молча в одну из корзин по счастливому порядку проверок.
+      const isVariable = cat.outcomeClassification === "DirectVariable" || cat.accountCategoryType === "OutcomeUndistributed";
+      const isFixed = cat.outcomeClassification === "IndirectFixed";
+      if (isVariable && isFixed) {
+        console.warn(`PlanFact: категория ${cat.operationCategoryId} размечена и как переменная, и как постоянная — считаем переменной`);
+      }
       categoryClassification.set(cat.operationCategoryId, {
         isRevenue: cat.accountCategoryType === "Income" || cat.accountCategoryType === "IncomeUndistributed",
-        isVariableExpense: cat.outcomeClassification === "DirectVariable" || cat.accountCategoryType === "OutcomeUndistributed",
-        isFixedExpense: cat.outcomeClassification === "IndirectFixed",
+        isVariableExpense: isVariable,
+        isFixedExpense: isFixed && !isVariable,
       });
     }
 
@@ -256,14 +263,13 @@ export async function GET(request: NextRequest) {
       factProfit: number;
       budgetProfit: number;
       factRevenue: number;
-      factProfitability: number;
       budgetRevenue: number;
       budgetVariableExpenses: number;
       budgetFixedExpenses: number;
     }
     const emptyEntry = (): MonthlyEntry => ({
       revenue: 0, variableExpenses: 0, fixedExpenses: 0, profit: 0,
-      factProfit: 0, budgetProfit: 0, factRevenue: 0, factProfitability: 0,
+      factProfit: 0, budgetProfit: 0, factRevenue: 0,
       budgetRevenue: 0, budgetVariableExpenses: 0, budgetFixedExpenses: 0,
     });
     const monthlyMap = new Map<string, MonthlyEntry>();
@@ -303,9 +309,6 @@ export async function GET(request: NextRequest) {
       entry.profit = factProfit;
       entry.factProfit = factProfit;
       entry.factRevenue = totalIncome;
-      entry.factProfitability = totalIncome !== 0
-        ? (factProfit / totalIncome) * 100
-        : 0;
       monthlyMap.set(monthKey, entry);
     }
 
@@ -421,7 +424,6 @@ export async function GET(request: NextRequest) {
         factProfit: m.factProfit,
         budgetProfit: m.budgetProfit,
         factRevenue: m.factRevenue,
-        factProfitability: m.factProfitability,
         budgetRevenue: m.budgetRevenue,
         budgetMargin,
         budgetMarginPercent,

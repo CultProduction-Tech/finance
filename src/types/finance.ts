@@ -15,7 +15,6 @@ export interface MonthlyKpiData {
   factProfit: number;
   budgetProfit: number;
   factRevenue: number;
-  factProfitability: number;
   budgetRevenue: number;
   budgetMargin: number;
   budgetMarginPercent: number;
