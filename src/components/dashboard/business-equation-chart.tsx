@@ -144,7 +144,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     let totalProjectsByActs = 0;
     let totalProjectsPlan = 0;
     let totalWinsFact = 0;
-    let amoProjectsPrice = 0, amoProjectsExpense = 0;
+    let amoProjectsPrice = 0, amoProjectsExpense = 0, amoProjectsCount = 0;
 
     for (const m of monthly) {
       // Вся воронка (факт И план) — только по прошедшим месяцам, как и финансы ниже.
@@ -169,6 +169,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         for (const p of marginSourceProjects) {
           amoProjectsPrice += p.price;
           amoProjectsExpense += p.expensePlan;
+          amoProjectsCount++;
         }
       }
 
@@ -203,7 +204,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
     const factConversionRate = totalRequestsFact > 0
       ? (totalWinsFact / totalRequestsFact) * 100
       : 0;
-    const factAvgCheck = totalProjectsByActs > 0 ? factRevenue / totalProjectsByActs : 0;
+    // Средний чек = Σ цен сданных проектов ÷ их число, по «Дате акта» (тот же
+    // набор сделок, что график «Маржинальность»). «Чек» — атрибут сделки, а не
+    // денежного потока: раньше делили PlanFact-выручку (даты платежей) на кол-во
+    // сделок по другому якорю (у Култа — по дате создания) — смешанные множества.
+    const factAvgCheck = amoProjectsCount > 0 ? amoProjectsPrice / amoProjectsCount : 0;
 
     // Планы — из единого модуля lib/plans.ts (хардкод by design, но в одном месте)
     const BLASTER_BUDGET_AVG_CHECK = BLASTER_PLANS.avgCheck;
