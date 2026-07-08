@@ -12,13 +12,14 @@ import {
   Cell,
   Tooltip,
 } from "recharts";
-import { MonthlyKpiData, LegalEntity } from "@/types/finance";
+import { MonthlyKpiData, LegalEntity, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
 import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
 import { getHint } from "@/lib/hint-texts";
 import { useHintMode } from "@/contexts/hint-mode";
+import { todayInBusinessTz } from "@/lib/timezone";
 
 // Маппинг подписи столбика в графике → ключ в hint-texts (берём по entity)
 const COLUMN_TO_HINT: Record<string, string> = {
@@ -123,6 +124,16 @@ function BarWithLabel(props: any) {
 
 export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
   const { enabled: hintMode } = useHintMode();
+
+  // Плашка «месяц ещё идёт»: отклонения считаются по прошедшим месяцам, включая
+  // текущий неполный — его факт-к-дате сравнивается с планом за весь месяц, поэтому
+  // ранние отрицательные бары в начале месяца — норма, а не провал (как в «Целях месяца»).
+  const businessToday = todayInBusinessTz();
+  const currentMonthKey = businessToday.slice(0, 7);
+  const currentMonthIdx = parseInt(businessToday.slice(5, 7), 10) - 1;
+  const currentDay = parseInt(businessToday.slice(8, 10), 10);
+  const daysInCurrentMonth = new Date(parseInt(businessToday.slice(0, 4), 10), currentMonthIdx + 1, 0).getDate();
+  const periodHasCurrentMonth = monthly.some((m) => m.month === currentMonthKey && m.isPast);
   const chartData = useMemo<BarDataPoint[]>(() => {
     let factRevenue = 0, budgetRevenue = 0;
     let factMargin = 0, budgetMargin = 0;
@@ -276,6 +287,15 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
         })()}
         {periodSelector}
       </div>
+
+      {periodHasCurrentMonth && (
+        <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
+          <span className="shrink-0 pt-0.5 text-sm leading-none">&#x23F3;</span>
+          <span>
+            <b>{MONTHS_RU[currentMonthIdx]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. Факт копится с начала месяца, план дан за весь: отрицательные бары в начале — норма.
+          </span>
+        </div>
+      )}
 
       {/* Таблица: Было / Стало */}
       <div
