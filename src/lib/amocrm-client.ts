@@ -108,6 +108,27 @@ function releaseAmoSlot() {
   if (next) next();
 }
 
+// ===== Ретрай на 429 (rate limit) / 503 =====
+//
+// 429 у AmoCRM — временный: сервер просит подождать и повторить, а не «упало».
+// Без ретрая один 429 из ~30 запросов на загрузку ронял всю воронку в catch /api/kpi.
+// Слот семафора во время паузы НЕ освобождаем — это само троттлит: упёрлись в лимит →
+// 4 активных потока тормозят, очередь ждёт, всплеск рассасывается.
+const AMO_MAX_RETRIES = 3;
+const AMO_RETRY_STATUSES = new Set([429, 503]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Пауза перед повтором: уважаем Retry-After (секунды), иначе экспоненциальный
+// backoff 0.5→1→2с + джиттер, чтобы 4 слота не били в лимит синхронно.
+function amoRetryDelayMs(res: Response, attempt: number): number {
+  const retryAfter = Number(res.headers.get("Retry-After"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter * 1000;
+  return 500 * Math.pow(2, attempt) + Math.floor(Math.random() * 250);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const amoInflight = new Map<string, Promise<any>>();
 
@@ -119,21 +140,29 @@ async function amoFetch<T>(endpoint: string): Promise<T> {
   const p = (async (): Promise<T> => {
     await acquireAmoSlot();
     try {
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        next: { revalidate: amoRevalidate(endpoint), tags: ["amocrm"] },
-      });
+      for (let attempt = 0; ; attempt++) {
+        const res = await fetch(`${BASE_URL}${endpoint}`, {
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          next: { revalidate: amoRevalidate(endpoint), tags: ["amocrm"] },
+        });
 
-      if (res.status === 204) return { _embedded: null } as T;
-      if (!res.ok) {
-        throw new Error(`AMO CRM API error: ${res.status} ${res.statusText}`);
+        // 429/503 — временно: ждём (Retry-After или backoff) и повторяем, не роняя воронку
+        if (AMO_RETRY_STATUSES.has(res.status) && attempt < AMO_MAX_RETRIES) {
+          await sleep(amoRetryDelayMs(res, attempt));
+          continue;
+        }
+
+        if (res.status === 204) return { _embedded: null } as T;
+        if (!res.ok) {
+          throw new Error(`AMO CRM API error: ${res.status} ${res.statusText}`);
+        }
+        const text = await res.text();
+        if (!text) return { _embedded: null } as T;
+        return JSON.parse(text);
       }
-      const text = await res.text();
-      if (!text) return { _embedded: null } as T;
-      return JSON.parse(text);
     } finally {
       releaseAmoSlot();
       amoInflight.delete(endpoint);
