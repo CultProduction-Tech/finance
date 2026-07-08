@@ -15,6 +15,7 @@ import { CHART_COLORS } from "@/lib/chart-colors";
 import type { LegalEntity } from "@/types/finance";
 import { Hint } from "@/components/ui/hint";
 import { getHint } from "@/lib/hint-texts";
+import { todayInBusinessTz } from "@/lib/timezone";
 
 interface CashflowPoint {
   date: string;
@@ -153,7 +154,9 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   }));
 
   const hasNegative = chartData.some((d) => d.balance < 0);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // «Сегодня» — по бизнес-TZ (Москва), как серверная сетка точек кэшфлоу.
+  // new Date().toISOString() дал бы UTC-дату и с 00:00 до 03:00 МСК маркер съезжал на вчера.
+  const todayStr = todayInBusinessTz();
   const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
 
   // Зеро-кроссинг градиента: SVG-offset, на котором цвет переключается с зелёного на красный.
