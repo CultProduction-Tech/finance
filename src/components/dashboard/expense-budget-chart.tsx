@@ -141,14 +141,26 @@ const ALLOWED_CATEGORIES: Record<string, AllowedCategory[]> = {
 };
 
 export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector, entity }: ExpenseBudgetChartProps) {
-  const { chartData, totalFact, pctOfRevenue } = useMemo(() => {
+  const { chartData, totalFact, pctOfRevenue, excluded, excludedFact, coveragePct } = useMemo(() => {
     const allowed = entity ? ALLOWED_CATEGORIES[entity] : null;
     const filtered = allowed
       ? expenseCategories.filter((c) => allowed.some((a) => a.id === c.id || a.name === c.name))
       : expenseCategories;
 
+    // Статьи вне курируемого списка: не рисуем барами (например «8. ПРОЕКТЫ» 29.9 млн
+    // убил бы шкалу), но показываем строкой под графиком — ничего не исчезает молча.
+    // Пересозданная в PlanFact статья (новые id И имя) всплывёт здесь ростом суммы.
+    const excludedList = allowed
+      ? expenseCategories
+          .filter((c) => !allowed.some((a) => a.id === c.id || a.name === c.name))
+          .filter((c) => c.fact > 0 || c.budget > 0)
+          .sort((a, b) => b.fact - a.fact)
+      : [];
+    const excludedTotal = excludedList.reduce((sum, c) => sum + c.fact, 0);
+
     // Итог — отдельным reduce, без мутации переменной внутри map при рендере
     const total = filtered.reduce((sum, c) => sum + c.fact, 0);
+    const allFact = total + excludedTotal;
 
     const data: ChartDataPoint[] = filtered.map((c) => {
       const diff = c.fact - c.budget;
@@ -178,6 +190,9 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
       chartData: data,
       totalFact: total,
       pctOfRevenue: revenue > 0 ? Math.round((total / revenue) * 100) : 0,
+      excluded: excludedList,
+      excludedFact: excludedTotal,
+      coveragePct: allFact > 0 ? Math.round((total / allFact) * 100) : 100,
     };
   }, [expenseCategories, revenue, entity]);
 
@@ -237,6 +252,14 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_SAVINGS }} /> Экономия
         </span>
       </div>
+      {excluded.length > 0 && (
+        <div
+          className="mt-1.5 text-center text-[11px] text-muted-foreground cursor-help"
+          title={`Вне графика:\n${excluded.map((c) => `• ${c.name} — ${formatFull(c.fact)}`).join("\n")}`}
+        >
+          Список покрывает {coveragePct}% расходов периода · вне графика: {formatFull(excludedFact)} ({excluded.length} стат.) — наведи
+        </div>
+      )}
     </div>
   );
 }
