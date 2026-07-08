@@ -73,7 +73,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
     >
       <p style={{ fontWeight: 600, marginBottom: 4 }}>{point.name}</p>
       <p>Бюджет: {formatFull(point.budget)}</p>
-      <p>Факт: {formatFull(point.totalFact)}</p>
+      <p>Факт / план: {formatFull(point.totalFact)}</p>
       {point.overspend > 0 && (
         <p style={{ color: COLOR_OVERSPEND }}>Перерасход: {formatFull(point.overspend)}</p>
       )}
@@ -217,7 +217,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
             width={60}
           />
           <Tooltip content={<CustomTooltip />} cursor={<BarCursor />} />
-          <Bar dataKey="fact" name="Факт" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="fact" name="Факт / план" stackId="a" fill={COLOR_FACT} radius={[0, 0, 0, 0]} isAnimationActive={false} />
           <Bar dataKey="overspend" name="Перерасход" stackId="a" fill={COLOR_OVERSPEND} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             <LabelList dataKey="deviation" content={<DeviationLabel />} />
           </Bar>
@@ -228,7 +228,7 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
       </ResponsiveContainer>
       <div className="flex items-center justify-center flex-wrap gap-x-5 gap-y-1 mt-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_FACT }} /> Факт
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_FACT }} /> Факт / план
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_OVERSPEND }} /> Перерасход
