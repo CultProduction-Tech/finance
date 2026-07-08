@@ -110,9 +110,26 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     // Фаза B — живые данные (PlanFact + amoCRM)
     try {
       const json = await fetchKpiJson(base);
+      if (seq !== requestSeq.current) return;
+
+      // Частичная деградация источника: amoCRM недоступен/429 (воронка обнулена) или
+      // бюджет не найден. Живой ответ приходит с HTTP 200 (финансы-то есть), но воронка
+      // в нулях. Если целостный снимок уже показан или вот-вот покажется — остаёмся на нём,
+      // а не рвём воронку в нули. Снимок пишется только при sources=ok, поэтому он
+      // согласован (одного момента) и красный бейдж на нём не всплывёт.
+      const degraded = !!json.sources && (json.sources.amocrm !== "ok" || !!json.sources.budget);
+      if (degraded) {
+        // Намеренно НЕ ставим liveArrived: даём фазе A (снимок) примениться, если не успела.
+        await snapshotPromise;
+        if (seq !== requestSeq.current) return;
+        if (snapshotShown) {
+          console.warn("KPI live degraded (amoCRM/бюджет) — оставляем снимок:", json.sources);
+          return;
+        }
+        // Снимка нет вообще (холодный старт) — показываем деградированный live как последнее доступное.
+      }
 
       liveArrived = true;
-      if (seq !== requestSeq.current) return;
       setData(mapKpi(json));
       setSyncedAt(json.syncedAt ? new Date(json.syncedAt) : new Date());
       setIsStale(false);
