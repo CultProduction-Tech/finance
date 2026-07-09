@@ -204,6 +204,15 @@ export async function GET(request: NextRequest) {
       ? getBlasterCountsByBriefField(amoConfig)
       : Promise.resolve(null);
 
+    // Бластер: сделки [Продажа/Реализовано] без «Даты акта» — для подсветки бейджем.
+    // Основной набор Бластера идёт по акту и такие сделки уже отсёк (continue), поэтому
+    // нужен отдельный проход по created_at (как у Култа счётчик «Проекты»): он видит все
+    // сделки периода с флагом hasActDate. Один запрос на загрузку. Люди забывают акт —
+    // без подсветки сделка тихо выпадает из «Проектов по актам» и маржинальности.
+    const blasterActCheckPromise: Promise<AmoProjectDetail[] | null> = !isCult
+      ? getProjectDetails(startDate, endDate, amoConfig, "created")
+      : Promise.resolve(null);
+
     // amoCRM — частичная деградация: при падении воронка обнуляется, но дашборд живёт,
     // а в ответе появляется sources.amocrm с текстом ошибки (fail loud в UI, не тихие нули).
     let amocrmStatus = "ok";
@@ -212,13 +221,15 @@ export async function GET(request: NextRequest) {
     let leadCountResults: { sold: number; totalRequests: number; wins: number }[] = months.map(() => ({ sold: 0, totalRequests: 0, wins: 0 }));
     let cultLeadResults: { totalRequests: number; takenToWork: number }[] | null = null;
     let blasterCounts: Record<string, { requests: number; wins: number; completed: number }> | null = null;
+    let blasterActCheck: AmoProjectDetail[] | null = null;
     try {
-      [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts] = await Promise.all([
+      [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts, blasterActCheck] = await Promise.all([
         Promise.all(projectPromises),
         marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
         Promise.all(leadCountPromises),
         cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
         blasterCountsPromise,
+        blasterActCheckPromise,
       ]);
     } catch (amoError) {
       amocrmStatus = amoError instanceof Error ? amoError.message : String(amoError);
@@ -638,12 +649,15 @@ export async function GET(request: NextRequest) {
     // маржинальности — бейдж в UI подсвечивает эту дыру в данных amoCRM.
     // Считаем по created-фетчу (сделки, созданные в периоде) — как прокси
     // «относится к периоду», раз собственной анкер-даты у них нет.
-    const projectsWithoutAct = isCult
-      ? Array.from(projectsByMonth.values())
-          .flat()
-          .filter((p) => p.hasActDate === false)
-          .map((p) => ({ id: p.id, name: p.name }))
-      : undefined;
+    // Сделки в финальных статусах без «Даты акта» — тихо выпадают из маржинальности,
+    // подсвечиваем бейджем у обоих контуров. Култ — из счётчика проектов (created),
+    // Бластер — из отдельного created-прохода (основной набор идёт по акту).
+    const actCheckSource = isCult
+      ? Array.from(projectsByMonth.values()).flat()
+      : (blasterActCheck ?? []);
+    const projectsWithoutAct = actCheckSource
+      .filter((p) => p.hasActDate === false)
+      .map((p) => ({ id: p.id, name: p.name }));
 
     // Знаменатель «% от выручки» в бюджете расходов — в том же базисе, что и бары:
     // прошедшие месяцы (< текущего) факт-выручкой, текущий и будущие — бюджет-выручкой.
