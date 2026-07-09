@@ -42,6 +42,17 @@ interface BusinessEquationChartProps {
   monthly: MonthlyKpiData[];
   periodSelector?: React.ReactNode;
   entity?: LegalEntity;
+  /** Бластер: сделки периода без «Бриф получен» — выпали из Запросов/Побед, бейдж подсвечивает дыру */
+  projectsWithoutBrief?: { id: number; name: string }[];
+}
+
+// Русская плюрализация: 1 сделка / 2 сделки / 5 сделок
+function dealsWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "сделка";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "сделки";
+  return "сделок";
 }
 
 interface BarDataPoint {
@@ -122,7 +133,7 @@ function BarWithLabel(props: any) {
   );
 }
 
-export function BusinessEquationChart({ monthly, periodSelector, entity }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief }: BusinessEquationChartProps) {
   const { enabled: hintMode } = useHintMode();
 
   // Плашка «месяц ещё идёт»: отклонения считаются по прошедшим месяцам, включая
@@ -285,11 +296,21 @@ export function BusinessEquationChart({ monthly, periodSelector, entity }: Busin
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-4">
-        {(() => {
-          const title = <h3 className="text-lg font-bold">&#x2696;&#xFE0F; Бизнес-уравнение</h3>;
-          // Используем title-подсказку первой колонки как общее описание — нет смысла дублировать.
-          return title;
-        })()}
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-lg font-bold whitespace-nowrap">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
+          {!!projectsWithoutBrief?.length && (
+            <Hint
+              always
+              side="bottom"
+              title="Пустое поле «Бриф получен» в amoCRM"
+              content={`Не попадают в Запросы и Победы:\n${projectsWithoutBrief.map((p) => `• ${p.name}`).join("\n")}\nЗаполни «Бриф получен» в сделке — она вернётся в воронку.`}
+            >
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 h-6 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70 whitespace-nowrap cursor-help">
+                &#x26A0;&#xFE0F; {projectsWithoutBrief.length} {dealsWord(projectsWithoutBrief.length)} без брифа
+              </span>
+            </Hint>
+          )}
+        </div>
         {periodSelector}
       </div>
 

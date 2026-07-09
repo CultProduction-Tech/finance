@@ -45,6 +45,7 @@ function mapKpi(json: any): KpiData {
     budgetLabel: json.budgetLabel,
     sources: json.sources,
     projectsWithoutAct: json.projectsWithoutAct,
+    projectsWithoutBrief: json.projectsWithoutBrief,
   };
 }
 

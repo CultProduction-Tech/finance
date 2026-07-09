@@ -41,6 +41,7 @@ interface AmoLead {
   status_id: number;
   pipeline_id: number;
   closed_at: number | null;
+  created_at: number;
   custom_fields_values: {
     field_id: number;
     field_name: string;
@@ -400,9 +401,16 @@ function toMonthKey(ts: number): string {
  */
 export type BlasterMonthlyCounts = { requests: number; wins: number; completed: number };
 
+export interface BlasterBriefResult {
+  buckets: Record<string, BlasterMonthlyCounts>;
+  /** Лиды в «запросных» статусах с пустым «Бриф получен» — тихо выпадают из
+   *  Запросов/Побед. Отдаём с датой создания, чтобы UI отфильтровал по периоду. */
+  withoutBrief: { id: number; name: string; createdAt: number }[];
+}
+
 export async function getBlasterCountsByBriefField(
   config: AmoConfig,
-): Promise<Record<string, BlasterMonthlyCounts>> {
+): Promise<BlasterBriefResult> {
   const pipelineId = config.pipelineId;
   const reqStatusIds = config.requestStatusIds ?? [];
   const winSet = new Set(config.winStatusIds ?? []);
@@ -414,6 +422,7 @@ export async function getBlasterCountsByBriefField(
   }
 
   const buckets: Record<string, BlasterMonthlyCounts> = {};
+  const withoutBrief: { id: number; name: string; createdAt: number }[] = [];
   let page = 1;
   let hasMore = true;
   while (hasMore) {
@@ -429,7 +438,11 @@ export async function getBlasterCountsByBriefField(
       if (l.pipeline_id !== pipelineId) continue;
       const f = l.custom_fields_values?.find((f) => f.field_id === briefFieldId);
       const v = f?.values?.[0]?.value;
-      if (!v) continue;
+      if (!v) {
+        // Пустой «Бриф получен» — лид не попадёт в Запросы/Победы. Копим для бейджа.
+        withoutBrief.push({ id: l.id, name: l.name, createdAt: l.created_at });
+        continue;
+      }
       const monthKey = toMonthKey(Number(v));
       let b = buckets[monthKey];
       if (!b) {
@@ -443,7 +456,7 @@ export async function getBlasterCountsByBriefField(
     hasMore = !!data._links?.next;
     page++;
   }
-  return buckets;
+  return { buckets, withoutBrief };
 }
 
 /**

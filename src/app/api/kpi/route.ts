@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { PaymentStructureResponse } from "@/lib/planfact-client";
 import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterCountsByBriefField } from "@/lib/amocrm-client";
-import type { AmoProjectDetail } from "@/lib/amocrm-client";
+import type { AmoProjectDetail, BlasterBriefResult } from "@/lib/amocrm-client";
 import type { LegalEntity } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
-import { currentMonthInBusinessTz } from "@/lib/timezone";
+import { currentMonthInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
 import { BLASTER_PLANS, CULT_PLANS, PLANS_YEAR } from "@/lib/plans";
 
 export interface ExpenseCategory {
@@ -39,6 +39,8 @@ export interface KpiResponse {
   sources?: { planfact: string; amocrm: string; budget?: string };
   /** Култ: сделки периода (по дате создания) с пустой «Датой акта» — невидимы в графике маржинальности */
   projectsWithoutAct?: { id: number; name: string }[];
+  /** Бластер: сделки периода в «запросных» статусах без «Бриф получен» — невидимы в Запросах/Победах */
+  projectsWithoutBrief?: { id: number; name: string }[];
 }
 
 export interface MonthlyKpi {
@@ -200,7 +202,7 @@ export async function GET(request: NextRequest) {
     //   Запросы/Победы/Завершённые в Апр+ — бакет по дате из поля.
     //   Янв-Мар — старая логика по дате создания лида (из getLeadCountsByCreatedDate),
     //   чтобы избежать аномалии с массовой чисткой в Мар 2026.
-    const blasterCountsPromise: Promise<Record<string, { requests: number; wins: number; completed: number }> | null> = !isCult
+    const blasterCountsPromise: Promise<BlasterBriefResult | null> = !isCult
       ? getBlasterCountsByBriefField(amoConfig)
       : Promise.resolve(null);
 
@@ -220,7 +222,7 @@ export async function GET(request: NextRequest) {
     let marginalityProjectResults: AmoProjectDetail[][] | null = null;
     let leadCountResults: { sold: number; totalRequests: number; wins: number }[] = months.map(() => ({ sold: 0, totalRequests: 0, wins: 0 }));
     let cultLeadResults: { totalRequests: number; takenToWork: number }[] | null = null;
-    let blasterCounts: Record<string, { requests: number; wins: number; completed: number }> | null = null;
+    let blasterCounts: BlasterBriefResult | null = null;
     let blasterActCheck: AmoProjectDetail[] | null = null;
     try {
       [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts, blasterActCheck] = await Promise.all([
@@ -240,7 +242,7 @@ export async function GET(request: NextRequest) {
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
     const leadCountsByMonth = new Map<string, { sold: number; totalRequests: number; wins: number }>();
     const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
-    const blasterCountsByMonth: Record<string, { requests: number; wins: number; completed: number }> = blasterCounts ?? {};
+    const blasterCountsByMonth: Record<string, { requests: number; wins: number; completed: number }> = blasterCounts?.buckets ?? {};
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
@@ -659,6 +661,18 @@ export async function GET(request: NextRequest) {
       .filter((p) => p.hasActDate === false)
       .map((p) => ({ id: p.id, name: p.name }));
 
+    // Бластер: лиды в «запросных» статусах без «Бриф получен» — тихо выпадают из
+    // Запросов/Побед. Фетч по статусам идёт по всей истории, поэтому ограничиваем
+    // созданными в выбранном периоде (дата создания в бизнес-TZ). Бейдж — у уравнения.
+    const projectsWithoutBrief = !isCult
+      ? (blasterCounts?.withoutBrief ?? [])
+          .filter((l) => {
+            const created = new Date(l.createdAt * 1000).toLocaleDateString("sv-SE", { timeZone: BUSINESS_TZ });
+            return created >= startDate && created <= endDate;
+          })
+          .map((l) => ({ id: l.id, name: l.name }))
+      : undefined;
+
     // Знаменатель «% от выручки» в бюджете расходов — в том же базисе, что и бары:
     // прошедшие месяцы (< текущего) факт-выручкой, текущий и будущие — бюджет-выручкой.
     // Числитель баров сделан так же (F4), поэтому доля стабильна на любом периоде.
@@ -682,6 +696,7 @@ export async function GET(request: NextRequest) {
       syncedAt: new Date().toISOString(),
       sources: { planfact: "ok", amocrm: amocrmStatus, ...(budgetStatus ? { budget: budgetStatus } : {}) },
       projectsWithoutAct,
+      projectsWithoutBrief,
     };
 
     // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.
