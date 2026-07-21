@@ -194,25 +194,21 @@ function DashboardInner() {
                 )}
               </div>
             </a>
-            {/* Ссылка на исходную Google-таблицу текущей компании — сверка данных «в один клик» */}
+            {/* Ссылка на исходную Google-таблицу текущей компании — сверка данных «в один клик».
+                Монохромная иконка таблицы — в языке остальных иконок шапки (16px, muted→foreground). */}
             <a
               href={entityInfo.sheetUrl}
               target="_blank"
               rel="noopener noreferrer"
               title={`Источник данных — Google-таблица «${entityInfo.name}»`}
-              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 text-muted-foreground hover:bg-black/[0.05] transition-colors"
+              aria-label={`Источник данных — Google-таблица «${entityInfo.name}»`}
+              className="flex items-center p-1 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#0F9D58" />
-                <path d="M14 2l4 4h-4z" fill="#0A7A43" />
-                <g fill="#fff">
-                  <rect x="7" y="8" width="4" height="2.8" rx="0.4" />
-                  <rect x="12" y="8" width="4" height="2.8" rx="0.4" />
-                  <rect x="7" y="11.4" width="4" height="2.8" rx="0.4" />
-                  <rect x="12" y="11.4" width="4" height="2.8" rx="0.4" />
-                  <rect x="7" y="14.8" width="4" height="2.8" rx="0.4" />
-                  <rect x="12" y="14.8" width="4" height="2.8" rx="0.4" />
-                </g>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M3 15h18" />
+                <path d="M12 3v18" />
               </svg>
             </a>
             {useMock && (
