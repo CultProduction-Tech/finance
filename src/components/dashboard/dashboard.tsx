@@ -170,9 +170,9 @@ function DashboardInner() {
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
       {/* Шапка */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          {/* Слева: логотип + название — клик возвращает дашборд к исходному виду (полная перезагрузка) */}
-          <div className="flex items-center gap-3 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          {/* Слева (колонка 1fr): логотип + название + иконка источника. min-w-0 — чтобы центр не съезжал при бейджах */}
+          <div className="flex items-center gap-3 min-w-0">
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- осознанно <a>, не <Link>: полная перезагрузка сбрасывает все фильтры/периоды к базовому виду */}
             <a
               href="/"
@@ -236,45 +236,41 @@ function DashboardInner() {
             )}
           </div>
 
-          {/* Центр: селектор периода */}
-          <div className="flex-1 flex justify-center">
-            <PeriodSelector
-              year={year}
-              startMonth={startMonth}
-              endMonth={endMonth}
-              onYearChange={handleYearChange}
-              onStartMonthChange={handleStartMonthChange}
-              onEndMonthChange={handleEndMonthChange}
-            />
-          </div>
+          {/* Центр (auto-колонка): селектор периода — строго по центру страницы благодаря сетке 1fr·auto·1fr */}
+          <PeriodSelector
+            year={year}
+            startMonth={startMonth}
+            endMonth={endMonth}
+            onYearChange={handleYearChange}
+            onStartMonthChange={handleStartMonthChange}
+            onEndMonthChange={handleEndMonthChange}
+          />
 
-          {/* Справа: подсказки + обновить + выйти */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Справа (колонка 1fr): подсказки + обновить (время в строку) + выйти. justify-end — прижать к правому краю */}
+          <div className="flex items-center justify-end gap-4 min-w-0">
             <HintToggleButton />
-            {/* Кнопка «Обновить», под ней — время последнего обновления */}
-            <div className="flex flex-col items-center gap-0.5">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
-                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                  <path d="M21 3v5h-5" />
-                </svg>
-                Обновить
-              </button>
+            {/* «Обновить»; время последнего расчёта — тихим суффиксом в той же строке, на одной базовой линии с соседями */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+              </svg>
+              Обновить
               {syncedAt && (
                 <span
-                  className={`text-[10px] leading-none tabular-nums ${isStale ? "text-amber-600" : "text-muted-foreground"}`}
+                  className={`ml-0.5 text-[11px] font-normal tabular-nums ${isStale ? "text-amber-600" : "text-muted-foreground/80"}`}
                   title={isStale
                     ? "Показан сохранённый снимок — свежие данные подгружаются из План-факта."
                     : "Время последнего расчёта данных. Нажми «Обновить» для свежей синхронизации из План-факта."}
                 >
-                  {isStale ? "снимок от" : "обновлено"} {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                  · {isStale ? "снимок " : ""}{syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
-            </div>
+            </button>
             <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"
