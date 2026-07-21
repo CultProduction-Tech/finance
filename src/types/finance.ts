@@ -91,11 +91,13 @@ export interface LegalEntityInfo {
   id: LegalEntity;
   name: string;
   fullName: string;
+  /** Google-таблица — исходник/сверка данных компании (ссылка в шапке дашборда). */
+  sheetUrl: string;
 }
 
 export const LEGAL_ENTITIES: LegalEntityInfo[] = [
-  { id: "blaster", name: "Бластер", fullName: "ООО Бластер" },
-  { id: "cult", name: "Культ", fullName: "ООО Культ" },
+  { id: "blaster", name: "Бластер", fullName: "ООО Бластер", sheetUrl: "https://docs.google.com/spreadsheets/d/1BDNUwlCoaqX7T9osuxYYBNHZmOa53TytASXEN-UfVIc/edit?gid=1961464443#gid=1961464443" },
+  { id: "cult", name: "Культ", fullName: "ООО Культ", sheetUrl: "https://docs.google.com/spreadsheets/d/1RsHm5yMbSNRIc58IAIykqhZtrEaiCkFXa66rlvj_6LQ/edit?gid=867550904#gid=867550904" },
 ];
 
 export const MONTHS_RU = [

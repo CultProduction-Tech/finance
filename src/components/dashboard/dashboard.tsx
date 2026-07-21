@@ -194,6 +194,27 @@ function DashboardInner() {
                 )}
               </div>
             </a>
+            {/* Ссылка на исходную Google-таблицу текущей компании — сверка данных «в один клик» */}
+            <a
+              href={entityInfo.sheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Источник данных — Google-таблица «${entityInfo.name}»`}
+              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 text-muted-foreground hover:bg-black/[0.05] transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#0F9D58" />
+                <path d="M14 2l4 4h-4z" fill="#0A7A43" />
+                <g fill="#fff">
+                  <rect x="7" y="8" width="4" height="2.8" rx="0.4" />
+                  <rect x="12" y="8" width="4" height="2.8" rx="0.4" />
+                  <rect x="7" y="11.4" width="4" height="2.8" rx="0.4" />
+                  <rect x="12" y="11.4" width="4" height="2.8" rx="0.4" />
+                  <rect x="7" y="14.8" width="4" height="2.8" rx="0.4" />
+                  <rect x="12" y="14.8" width="4" height="2.8" rx="0.4" />
+                </g>
+              </svg>
+            </a>
             {useMock && (
               <Badge variant="destructive" className="text-xs rounded-full">
                 ⚠️ Demo-данные — источники недоступны
