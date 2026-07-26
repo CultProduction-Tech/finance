@@ -3,7 +3,7 @@ import { getEntityConfig } from "@/lib/entity-config";
 import type { PaymentStructureResponse } from "@/lib/planfact-client";
 import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterCountsByBriefField } from "@/lib/amocrm-client";
 import type { AmoProjectDetail, BlasterBriefResult } from "@/lib/amocrm-client";
-import type { LegalEntity } from "@/types/finance";
+import type { LegalEntity, BudgetMeta } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 import { currentMonthInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
 import { BLASTER_PLANS, CULT_PLANS, PLANS_YEAR } from "@/lib/plans";
@@ -31,6 +31,8 @@ export interface KpiResponse {
   monthly: MonthlyKpi[];
   expenseCategories: ExpenseCategory[];
   budgetLabel: string;
+  /** Паспорт плана: из каких бюджетов собран + есть ли в PlanFact версия новее */
+  budgetMeta?: BudgetMeta;
   /** ISO-время расчёта данных (для live) или создания снимка (для snapshot=1) */
   syncedAt?: string;
   /** true — ответ отдан из файлового снапшота, а не рассчитан сейчас */
@@ -379,6 +381,45 @@ export async function GET(request: NextRequest) {
     const budgetLabel = activeBudget?.title?.trim()
       || (useNewBudget ? config.budgets.new.name : config.budgets.old.name);
 
+    // ── Паспорт плана ───────────────────────────────────────────────────────────
+    // Из чего собран план за период и не появился ли в PlanFact бюджет новее того,
+    // что зашит в конфиге. Имя бюджета задано строкой, поэтому новая утверждённая
+    // версия иначе проходит незамеченной (21.07 её заметил Костя, а не дашборд).
+    const oldPartMonths = months.filter((m) => m < cutoffMonth);
+    const newPartMonths = months.filter((m) => m >= cutoffMonth);
+    const budgetParts = [
+      { budget: oldBudget, ms: oldPartMonths },
+      { budget: newBudget, ms: newPartMonths },
+    ]
+      .filter((p) => p.budget && p.ms.length > 0)
+      .map((p) => ({
+        title: p.budget!.title?.trim() ?? "",
+        description: p.budget!.description ?? null,
+        from: p.ms[0],
+        to: p.ms[p.ms.length - 1],
+      }));
+
+    // Семейство версий = то же базовое имя без числового префикса («03 Бюджет 2026» → «Бюджет 2026»).
+    // Только так проектные бюджеты («Бюджет СнупДок», «Техно Тигры») не принимаются за новую версию.
+    const familyBase = (n: string) => n.trim().replace(/^\d+\s*/, "");
+    const targetBase = familyBase(config.budgets.new.name);
+    const activeCreated = activeBudget?.createDate ?? "";
+    const newerBudget = budgets.items
+      .filter(
+        (b) =>
+          b.budgetStatus !== "Closed" &&
+          familyBase(b.title?.trim() ?? "") === targetBase &&
+          (b.createDate ?? "") > activeCreated,
+      )
+      .sort((a, b) => (b.createDate ?? "").localeCompare(a.createDate ?? ""))[0];
+
+    const budgetMeta = {
+      parts: budgetParts,
+      newer: newerBudget
+        ? { title: newerBudget.title?.trim() ?? "", description: newerBudget.description ?? null }
+        : null,
+    };
+
     if (budgetDetail) {
 
       for (const version of budgetDetail.versions) {
@@ -693,6 +734,7 @@ export async function GET(request: NextRequest) {
       monthly,
       expenseCategories,
       budgetLabel,
+      budgetMeta,
       syncedAt: new Date().toISOString(),
       sources: { planfact: "ok", amocrm: amocrmStatus, ...(budgetStatus ? { budget: budgetStatus } : {}) },
       projectsWithoutAct,

@@ -13,6 +13,7 @@ import { MarginalityChart } from "./marginality-chart";
 import { MonthNotes } from "./month-notes";
 import { ChartWithPeriod } from "./chart-with-period";
 import { CashflowChart } from "./cashflow-chart";
+import { BudgetPassport } from "./budget-passport";
 import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { HintModeProvider, useHintMode } from "@/contexts/hint-mode";
@@ -205,11 +206,12 @@ function DashboardInner() {
               </div>
               <div className="flex flex-col leading-tight">
                 <h1 className="text-xl font-semibold tracking-tight">{entityInfo.name}</h1>
-                {globalKpi?.budgetLabel && (
-                  <span className="text-[11px] text-muted-foreground">{globalKpi.budgetLabel}</span>
-                )}
               </div>
             </a>
+            {/* Паспорт плана — вне ссылки «/», иначе тултип и клик по шапке конфликтуют */}
+            {globalKpi?.budgetLabel && (
+              <BudgetPassport label={globalKpi.budgetLabel} meta={globalKpi.budgetMeta} />
+            )}
             {/* Ссылка на исходную Google-таблицу текущей компании — сверка данных «в один клик».
                 Монохромная иконка таблицы — в языке остальных иконок шапки (16px, muted→foreground). */}
             <a

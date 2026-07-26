@@ -39,6 +39,26 @@ export interface ProjectMarginality {
   marginPercent: number;
 }
 
+/** Один бюджет-источник плана и месяцы периода, которые он покрывает. */
+export interface BudgetSourcePart {
+  title: string;
+  /** Заметка команды из PlanFact — де-факто журнал утверждения («утверждено 13.07.2026») */
+  description?: string | null;
+  from: string; // "YYYY-MM"
+  to: string;   // "YYYY-MM"
+}
+
+/** Паспорт плана: из чего он собран и не появился ли в PlanFact бюджет новее. */
+export interface BudgetMeta {
+  /** Обычно один элемент; два — когда период пересекает границу старый/новый бюджет */
+  parts: BudgetSourcePart[];
+  /**
+   * Более новый бюджет того же семейства имён, который дашборд НЕ читает
+   * (имя зашито в конфиге). Ровно этот случай Костя поймал глазами 21.07.
+   */
+  newer?: { title: string; description?: string | null } | null;
+}
+
 export interface ExpenseCategoryData {
   id: number;
   name: string;
@@ -58,6 +78,7 @@ export interface KpiData {
   monthly: MonthlyKpiData[];  // Помесячная разбивка
   expenseCategories: ExpenseCategoryData[];
   budgetLabel?: string;       // Подпись текущей версии бюджета (для шапки)
+  budgetMeta?: BudgetMeta;    // Паспорт плана: состав + сигнал «есть бюджет новее»
   sources?: { planfact: string; amocrm: string; budget?: string }; // "ok" | текст ошибки источника; budget — не найден сконфигурированный бюджет
   projectsWithoutAct?: { id: number; name: string }[]; // Сделки периода без «Даты акта» — невидимы в графике маржинальности (оба контура)
   projectsWithoutBrief?: { id: number; name: string }[]; // Бластер: сделки периода без «Бриф получен» — невидимы в Запросах/Победах

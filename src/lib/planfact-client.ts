@@ -214,6 +214,13 @@ export interface BudgetItem {
   budgetMethod: string;
   entityIds: number[];
   projectIds: number[];
+  /** Человеческая заметка команды — де-факто журнал утверждения
+   *  («утверждено 21.07.2026», «согласован 1.04»). Показываем дословно в паспорте бюджета. */
+  description?: string | null;
+  /** Порядок версий определяем по createDate: «03» создан позже «02» — значит новее. */
+  createDate?: string;
+  modifyDate?: string;
+  userEmail?: string | null;
 }
 
 export interface BudgetsResponse {

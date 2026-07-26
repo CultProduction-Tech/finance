@@ -50,6 +50,7 @@ function mapKpi(json: any): KpiData {
     monthly: json.monthly || [],
     expenseCategories: json.expenseCategories || [],
     budgetLabel: json.budgetLabel,
+    budgetMeta: json.budgetMeta,
     sources: json.sources,
     projectsWithoutAct: json.projectsWithoutAct,
     projectsWithoutBrief: json.projectsWithoutBrief,
