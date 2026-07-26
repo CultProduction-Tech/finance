@@ -17,7 +17,7 @@ import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { HintModeProvider, useHintMode } from "@/contexts/hint-mode";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
-import { todayInBusinessTz } from "@/lib/timezone";
+import { todayInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
 
 function HintToggleButton() {
   const { enabled, toggle } = useHintMode();
@@ -125,7 +125,7 @@ function DashboardInner() {
   }, [entity]);
 
   // KPI виджеты — используют свой локальный период
-  const { data: kpi, loading, useMock, syncedAt, isStale } = useKpi({
+  const { data: kpi, loading, useMock, syncedAt, isStale, degradedSources } = useKpi({
     entity,
     year: kpiYear,
     startMonth: kpiStart,
@@ -134,7 +134,7 @@ function DashboardInner() {
   });
 
   // Графики — используют глобальный период (как стартовая точка)
-  const { data: globalKpi } = useKpi({
+  const { data: globalKpi, degradedSources: globalDegraded } = useKpi({
     entity,
     year,
     startMonth,
@@ -156,15 +156,31 @@ function DashboardInner() {
 
   // Деградация amoCRM в любой из частей (виджет ИЛИ графики): периоды могут
   // отличаться → это разные фетчи, и молчаливые нули в одной части недопустимы.
+  // ВАЖНО: живой ответ мог быть деградированным и отброшен в пользу снимка — тогда ошибка
+  // лежит в degradedSources, а не в data.sources (у снимка источники всегда "ok").
+  // Смотрим оба места, иначе дашборд молча показывает старые данные (баг B3, 26.07).
+  const liveSources = degradedSources ?? kpi?.sources;
+  const globalLiveSources = globalDegraded ?? globalKpi?.sources;
+
   let amocrmError: string | null = null;
   if (!useMock) {
-    if (kpi?.sources && kpi.sources.amocrm !== "ok") amocrmError = kpi.sources.amocrm;
-    else if (globalKpi?.sources && globalKpi.sources.amocrm !== "ok") amocrmError = globalKpi.sources.amocrm;
+    if (liveSources && liveSources.amocrm !== "ok") amocrmError = liveSources.amocrm;
+    else if (globalLiveSources && globalLiveSources.amocrm !== "ok") amocrmError = globalLiveSources.amocrm;
   }
   // Пропавший в PlanFact бюджет — та же деградация, но для плановых колонок
   const budgetError = !useMock
-    ? (kpi?.sources?.budget ?? globalKpi?.sources?.budget ?? null)
+    ? (liveSources?.budget ?? globalLiveSources?.budget ?? null)
     : null;
+
+  // Снимок не сегодняшний → показываем дату, а не голое время: «снимок от 12:24» у данных
+  // двухнедельной давности выглядит свежим. День считаем по бизнес-TZ, как и весь дашборд.
+  const syncedDay = syncedAt?.toLocaleDateString("sv-SE", { timeZone: BUSINESS_TZ });
+  const isOldSnapshot = isStale && !!syncedDay && syncedDay !== businessToday;
+  const syncedDateLabel = syncedAt?.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: BUSINESS_TZ,
+  });
 
   return (
     <div className={`min-h-screen ${entity === "cult" ? "theme-cult" : "dashboard-bg-blaster"}`}>
@@ -211,29 +227,6 @@ function DashboardInner() {
                 <path d="M12 3v18" />
               </svg>
             </a>
-            {useMock && (
-              <Badge variant="destructive" className="text-xs rounded-full">
-                ⚠️ Demo-данные — источники недоступны
-              </Badge>
-            )}
-            {amocrmError && (
-              <Badge
-                variant="destructive"
-                className="text-xs rounded-full"
-                title={amocrmError}
-              >
-                ⚠️ amoCRM недоступен — воронка не загружена
-              </Badge>
-            )}
-            {budgetError && (
-              <Badge
-                variant="destructive"
-                className="text-xs rounded-full"
-                title={budgetError}
-              >
-                ⚠️ Бюджет не найден в PlanFact — план обнулён
-              </Badge>
-            )}
           </div>
 
           {/* Центр (auto-колонка): селектор периода — строго по центру страницы благодаря сетке 1fr·auto·1fr */}
@@ -267,7 +260,8 @@ function DashboardInner() {
                     ? "Показан сохранённый снимок — свежие данные подгружаются из План-факта."
                     : "Время последнего расчёта данных. Нажми «Обновить» для свежей синхронизации из План-факта."}
                 >
-                  · {isStale ? "снимок " : ""}{syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                  · {isStale ? "снимок " : ""}{isOldSnapshot ? `${syncedDateLabel} ` : ""}
+                  {syncedAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
             </button>
@@ -286,6 +280,38 @@ function DashboardInner() {
             </form>
           </div>
         </div>
+
+        {/* Полоса предупреждений — отдельной строкой под шапкой, а не в левой колонке:
+            бейджи длинные, вдвоём они ломали сетку и наезжали на селектор периода.
+            Здесь они переносятся (flex-wrap) и ничего не двигают. */}
+        {(useMock || amocrmError || budgetError || isOldSnapshot) && (
+          <div className="max-w-7xl mx-auto px-6 pb-3 flex flex-wrap items-center gap-2">
+            {useMock && (
+              <Badge variant="destructive" className="text-xs rounded-full">
+                ⚠️ Demo-данные — источники недоступны
+              </Badge>
+            )}
+            {amocrmError && (
+              <Badge variant="destructive" className="text-xs rounded-full" title={amocrmError}>
+                ⚠️ amoCRM недоступен — воронка не загружена
+              </Badge>
+            )}
+            {budgetError && (
+              <Badge variant="destructive" className="text-xs rounded-full" title={budgetError}>
+                ⚠️ Бюджет не найден в PlanFact — план обнулён
+              </Badge>
+            )}
+            {isOldSnapshot && (
+              <Badge
+                variant="destructive"
+                className="text-xs rounded-full"
+                title="Свежие данные не загружаются, показан последний целостный снимок. Причина — в соседнем бейдже (источник недоступен)."
+              >
+                ⚠️ Данные от {syncedDateLabel} — свежие не загружаются
+              </Badge>
+            )}
+          </div>
+        )}
       </header>
 
       {/* KPI карточки — ограниченная ширина */}

@@ -27,6 +27,13 @@ interface UseKpiResult {
   syncedAt: Date | null;
   /** true — показан файловый снимок (live ещё грузится или недоступен) */
   isStale: boolean;
+  /**
+   * Источники ЖИВОГО ответа, когда он оказался деградированным и мы остались на снимке.
+   * Без этого поля ошибка тонет: `data.sources` берётся из снимка (там всегда "ok",
+   * снимки пишутся только при здоровых источниках), и бейдж в шапке не загорается —
+   * дашборд молча показывает старые данные. Null, когда live применён нормально.
+   */
+  degradedSources: KpiData["sources"] | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,6 +85,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
   const [useMock, setUseMock] = useState(false);
   const [syncedAt, setSyncedAt] = useState<Date | null>(null);
   const [isStale, setIsStale] = useState(false);
+  const [degradedSources, setDegradedSources] = useState<KpiData["sources"] | null>(null);
   // Растущий номер запроса: колбэки устаревших запросов (смена периода/entity) игнорируются
   const requestSeq = useRef(0);
 
@@ -89,6 +97,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
+    setDegradedSources(null);
 
     const base = `/api/kpi?startDate=${startDate}&endDate=${endDate}&entity=${entity}`;
 
@@ -125,6 +134,8 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
         if (seq !== requestSeq.current) return;
         if (snapshotShown) {
           console.warn("KPI live degraded (amoCRM/бюджет) — оставляем снимок:", json.sources);
+          // Пробрасываем причину наружу: снимок целостный, но он старый, и молчать об этом нельзя.
+          setDegradedSources(json.sources);
           return;
         }
         // Снимка нет вообще (холодный старт) — показываем деградированный live как последнее доступное.
@@ -135,6 +146,7 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
       setSyncedAt(json.syncedAt ? new Date(json.syncedAt) : new Date());
       setIsStale(false);
       setUseMock(false);
+      setDegradedSources(null);
     } catch (err) {
       // Live упал: если успел показаться снимок — остаёмся на нём (честные данные с меткой времени).
       await snapshotPromise;
@@ -164,5 +176,5 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     fetchData();
   }, [fetchData]);
 
-  return { data, loading, error, useMock, syncedAt, isStale };
+  return { data, loading, error, useMock, syncedAt, isStale, degradedSources };
 }
