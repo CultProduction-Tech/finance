@@ -17,6 +17,7 @@ import { LegalEntity, MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
+import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 
 
@@ -259,6 +260,11 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
               &#x1F4CA; Маржинальность{drillLabel ? ` — ${drillLabel}` : ""}
             </h3>
           )}
+          <SourceMark
+            plan="норма — среднее из бюджета PlanFact за период"
+            fact="amoCRM — сумма сделки и плановые затраты по ней"
+            note="Проект попадает в месяц своей «Даты акта». Пустая дата — сделка не видна на графике, о таких предупреждает жёлтый бейдж."
+          />
           {!!projectsWithoutAct?.length && (
             <Hint
               always

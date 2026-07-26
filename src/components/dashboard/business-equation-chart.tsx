@@ -17,6 +17,7 @@ import { CHART_COLORS } from "@/lib/chart-colors";
 import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
+import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 import { useHintMode } from "@/contexts/hint-mode";
 import { todayInBusinessTz } from "@/lib/timezone";
@@ -298,6 +299,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 min-w-0">
           <h3 className="text-lg font-bold whitespace-nowrap">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
+          <SourceMark
+            plan="Google-таблица компании, переносится в код вручную"
+            fact="amoCRM — сделки, суммы и этапы воронки"
+            note="Это не тот же источник, что у финансовых графиков: план воронки живёт в таблице, а не в PlanFact."
+          />
           {!!projectsWithoutBrief?.length && (
             <Hint
               always

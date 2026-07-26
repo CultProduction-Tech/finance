@@ -15,6 +15,7 @@ import { ExpenseCategoryData, LegalEntity } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
+import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 
 interface ExpenseBudgetChartProps {
@@ -210,7 +211,14 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        {hint ? <Hint title={hint.title} content={hint.content} side="bottom">{titleEl}</Hint> : titleEl}
+        <div className="flex items-center gap-2 min-w-0">
+          {hint ? <Hint title={hint.title} content={hint.content} side="bottom">{titleEl}</Hint> : titleEl}
+          <SourceMark
+            plan="бюджет в PlanFact (версия — в шапке)"
+            fact="PlanFact — проведённые операции по статьям"
+            note="Список статей задан в коде и покрывает не все расходы — доля покрытия указана под графиком."
+          />
+        </div>
         {periodSelector}
       </div>
       <ResponsiveContainer width="100%" height={280}>

@@ -14,6 +14,7 @@ import {
 import { CHART_COLORS } from "@/lib/chart-colors";
 import type { LegalEntity } from "@/types/finance";
 import { Hint } from "@/components/ui/hint";
+import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 import { todayInBusinessTz } from "@/lib/timezone";
 
@@ -194,6 +195,11 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
             {formatValue(data.currentBalance)}
           </span>
           <span className="text-[13px] font-medium text-muted-foreground">{periodLabel}</span>
+          <SourceMark
+            plan="плановые операции PlanFact (будущие платежи)"
+            fact="PlanFact — остатки по счетам"
+            note="Прогноз строится от текущего остатка с учётом запланированных поступлений и списаний."
+          />
         </div>
         <span className="text-xs text-muted-foreground">Данные на {dataAsOf}</span>
       </div>

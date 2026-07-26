@@ -13,6 +13,7 @@ import {
 import { LegalEntity, MonthlyKpiData, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
 import { Hint } from "@/components/ui/hint";
+import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 
 interface ProfitChartProps {
@@ -150,13 +151,20 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly, entity }
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        {hint ? (
-          <Hint title={hint.title} content={hint.content} side="bottom">
+        <div className="flex items-center gap-2 min-w-0">
+          {hint ? (
+            <Hint title={hint.title} content={hint.content} side="bottom">
+              <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
+            </Hint>
+          ) : (
             <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
-          </Hint>
-        ) : (
-          <h3 className="text-lg font-bold">&#x1F4C8; Чистая прибыль и рентабельность</h3>
-        )}
+          )}
+          <SourceMark
+            plan="бюджет в PlanFact (версия — в шапке)"
+            fact="PlanFact, отчёт P&L"
+            note="Бюджет утверждает руководство; в дашборд попадает та версия, что указана в настройках."
+          />
+        </div>
         {periodSelector}
       </div>
       <ResponsiveContainer width="100%" height={220}>
