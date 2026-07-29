@@ -215,8 +215,8 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
           {hint ? <Hint title={hint.title} content={hint.content} side="bottom">{titleEl}</Hint> : titleEl}
           <SourceMark
             plan="бюджет в PlanFact (версия — в шапке)"
-            fact="PlanFact — проведённые операции по статьям"
-            note="Список статей задан в коде и покрывает не все расходы — доля покрытия указана под графиком."
+            fact="PlanFact — расходы по статьям, метод начисления"
+            note="Сами статьи приходят из PlanFact, но барами рисуется курируемый список, заданный в коде. Что осталось за его пределами — строкой под графиком."
           />
         </div>
         {periodSelector}

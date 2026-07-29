@@ -161,7 +161,7 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly, entity }
           )}
           <SourceMark
             plan="бюджет в PlanFact (версия — в шапке)"
-            fact="PlanFact, отчёт P&L"
+            fact="PlanFact — доходы и расходы по статьям, метод начисления"
             note="Бюджет утверждает руководство; в дашборд попадает та версия, что указана в настройках."
           />
         </div>

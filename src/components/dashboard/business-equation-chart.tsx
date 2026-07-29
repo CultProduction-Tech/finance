@@ -300,9 +300,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         <div className="flex items-center gap-2 min-w-0">
           <h3 className="text-lg font-bold whitespace-nowrap">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
           <SourceMark
-            plan="Google-таблица компании, переносится в код вручную"
-            fact="amoCRM — сделки, суммы и этапы воронки"
-            note="Это не тот же источник, что у финансовых графиков: план воронки живёт в таблице, а не в PlanFact."
+            plan="воронка (Запросы, Конверсия, Проекты, Средний чек) — заданы вручную в коде; деньги (Выручка, Маржа, Расходы, Прибыль) — бюджет PlanFact"
+            fact="воронка — amoCRM (сделки, суммы, этапы); деньги — PlanFact"
+            note="График смешанный: левая половина — воронка, правая — финансы, и источники у них разные. Плановые цифры воронки в таблице править бесполезно — они зашиты в коде, нужен разработчик."
           />
           {!!projectsWithoutBrief?.length && (
             <Hint

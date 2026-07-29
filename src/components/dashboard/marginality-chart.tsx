@@ -261,8 +261,12 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
             </h3>
           )}
           <SourceMark
-            plan="норма — среднее из бюджета PlanFact за период"
-            fact="amoCRM — сумма сделки и плановые затраты по ней"
+            plan="норма — среднее помесячных планов маржинальности из бюджета PlanFact за период"
+            fact={
+              entity === "cult"
+                ? "amoCRM — сумма сделки и её поле «Маржа»"
+                : "amoCRM — сумма сделки и её поле «План затрат»"
+            }
             note="Проект попадает в месяц своей «Даты акта». Пустая дата — сделка не видна на графике, о таких предупреждает жёлтый бейдж."
           />
           {!!projectsWithoutAct?.length && (
