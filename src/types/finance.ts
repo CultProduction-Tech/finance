@@ -57,6 +57,11 @@ export interface BudgetMeta {
    * (имя зашито в конфиге). Ровно этот случай Костя поймал глазами 21.07.
    */
   newer?: { title: string; description?: string | null } | null;
+  /**
+   * Бюджет нашёлся по budgetId, но под другим именем — значит его переименовали
+   * в PlanFact, и конфиг разошёлся с источником. Цифры при этом корректны.
+   */
+  renamed?: { was: string; now: string }[] | null;
 }
 
 export interface ExpenseCategoryData {

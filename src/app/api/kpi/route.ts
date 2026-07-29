@@ -330,11 +330,24 @@ export async function GET(request: NextRequest) {
     // Выбираем два целевых бюджета по имени (PlanFact иногда хранит имя с пробелом по краям) и склеиваем элементы по месяцу:
     //   месяцы < cutoffMonth -> старый бюджет; месяцы >= cutoffMonth -> новый.
     const cutoffMonth = config.budgets.cutoffMonth; // "YYYY-MM"
-    const findByName = (n: string) => budgets.items.find(
-      (b) => b.budgetStatus !== "Closed" && (b.title?.trim() ?? "") === n.trim(),
-    );
-    const oldBudget = findByName(config.budgets.old.name);
-    const newBudget = findByName(config.budgets.new.name);
+    const alive = budgets.items.filter((b) => b.budgetStatus !== "Closed");
+    const findByName = (n: string) => alive.find((b) => (b.title?.trim() ?? "") === n.trim());
+
+    // Ищем по имени, а если имя не сошлось — по budgetId. Имя правят руками, id не меняется:
+    // без этого запасного пути переименование бюджета обнуляло план (та же авария, что
+    // случилась с Култом, только по другой причине). Нашли по id → значит переименовали.
+    const resolveBudget = (v: { name: string; id?: string }) => {
+      const byName = findByName(v.name);
+      if (byName) return { budget: byName, renamedFrom: null as string | null };
+      const byId = v.id ? alive.find((b) => b.budgetId === v.id) : undefined;
+      if (byId) return { budget: byId, renamedFrom: v.name };
+      return { budget: undefined, renamedFrom: null as string | null };
+    };
+
+    const oldResolved = resolveBudget(config.budgets.old);
+    const newResolved = resolveBudget(config.budgets.new);
+    const oldBudget = oldResolved.budget;
+    const newBudget = newResolved.budget;
 
     // fail loud: сконфигурированный бюджет пропал из PlanFact (переименовали/
     // закрыли) — раньше плановые колонки молча обнулялись. Ругаемся только на
@@ -346,6 +359,16 @@ export async function GET(request: NextRequest) {
       ? `Бюджет не найден в PlanFact: «${missingBudgets.join("», «")}» — план показан нулями`
       : undefined;
     if (budgetStatus) console.error(`KPI (${entity}):`, budgetStatus);
+
+    // Переименование не ломает цифры, но молчать о нём нельзя: конфиг разошёлся с PlanFact
+    // и следующий, кто полезет искать бюджет по имени, его не найдёт.
+    const renamedBudgets = [oldResolved, newResolved]
+      .filter((r) => r.renamedFrom && r.budget)
+      .map((r) => ({ was: r.renamedFrom!, now: r.budget!.title?.trim() ?? "" }));
+    if (renamedBudgets.length) {
+      console.warn(`KPI (${entity}): бюджет переименован в PlanFact:`,
+        renamedBudgets.map((r) => `«${r.was}» → «${r.now}»`).join(", "));
+    }
 
     const [oldBudgetDetail, newBudgetDetail] = await Promise.all([
       oldBudget ? pf.getBudgetDetail(oldBudget.budgetId) : Promise.resolve(null),
@@ -401,23 +424,39 @@ export async function GET(request: NextRequest) {
 
     // Семейство версий = то же базовое имя без числового префикса («03 Бюджет 2026» → «Бюджет 2026»).
     // Только так проектные бюджеты («Бюджет СнупДок», «Техно Тигры») не принимаются за новую версию.
+    // Баз две — из конфига и из живого title: если бюджет переименовали, одна из них всё равно сойдётся.
     const familyBase = (n: string) => n.trim().replace(/^\d+\s*/, "");
-    const targetBase = familyBase(config.budgets.new.name);
-    const activeCreated = activeBudget?.createDate ?? "";
-    const newerBudget = budgets.items
-      .filter(
-        (b) =>
-          b.budgetStatus !== "Closed" &&
-          familyBase(b.title?.trim() ?? "") === targetBase &&
-          (b.createDate ?? "") > activeCreated,
-      )
-      .sort((a, b) => (b.createDate ?? "").localeCompare(a.createDate ?? ""))[0];
+    /** Номер версии из префикса имени — команда нумерует версии сама («03 Бюджет 26» → 3) */
+    const versionNum = (n: string) => parseInt(n.trim().match(/^(\d+)/)?.[1] ?? "0", 10);
 
-    const budgetMeta = {
+    // Сторож сравнивает с ТЕКУЩИМ бюджетом (config.budgets.new), а не с активным для периода:
+    // вопрос «появилась ли версия новее» не зависит от того, какие месяцы выбраны. Иначе на
+    // периоде до cutoff (там активен старый бюджет) сторож ругался бы на штатную ситуацию.
+    const refTitle = newBudget?.title?.trim() || config.budgets.new.name;
+    const refBases = new Set([familyBase(config.budgets.new.name), familyBase(refTitle)]);
+    const refVersion = versionNum(refTitle);
+    const refCreated = newBudget?.createDate ?? "";
+
+    const newerBudget = alive
+      .filter((b) => {
+        const title = b.title?.trim() ?? "";
+        if (b.budgetId === newBudget?.budgetId) return false;
+        if (!refBases.has(familyBase(title))) return false;
+        // Новее — либо по номеру версии (переименование «02»→«04» дату создания не меняет),
+        // либо по дате создания (новая запись с тем же или меньшим номером).
+        return versionNum(title) > refVersion || (b.createDate ?? "") > refCreated;
+      })
+      .sort((a, b) =>
+        versionNum(b.title?.trim() ?? "") - versionNum(a.title?.trim() ?? "")
+        || (b.createDate ?? "").localeCompare(a.createDate ?? ""),
+      )[0];
+
+    const budgetMeta: BudgetMeta = {
       parts: budgetParts,
       newer: newerBudget
         ? { title: newerBudget.title?.trim() ?? "", description: newerBudget.description ?? null }
         : null,
+      renamed: renamedBudgets.length ? renamedBudgets : null,
     };
 
     if (budgetDetail) {

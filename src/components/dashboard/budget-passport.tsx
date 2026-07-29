@@ -32,7 +32,9 @@ function monthRange(from: string, to: string): string {
 export function BudgetPassport({ label, meta }: BudgetPassportProps) {
   const parts = meta?.parts ?? [];
   const newer = meta?.newer;
+  const renamed = meta?.renamed ?? [];
   const isSplit = parts.length > 1;
+  const attention = !!newer || renamed.length > 0;
 
   const content = (
     <div className="space-y-1.5">
@@ -56,6 +58,20 @@ export function BudgetPassport({ label, meta }: BudgetPassportProps) {
         </div>
       )}
 
+      {renamed.length > 0 && (
+        <div className="pt-1.5 border-t border-black/10 text-amber-700">
+          {renamed.map((r) => (
+            <div key={r.was}>
+              <span className="font-medium">Бюджет переименован: «{r.was}» → «{r.now}».</span>
+            </div>
+          ))}
+          <div className="text-[11px]">
+            Цифры верные — бюджет нашёлся по внутреннему ключу. Но в настройках дашборда осталось
+            старое имя, стоит поправить.
+          </div>
+        </div>
+      )}
+
       {newer && (
         <div className="pt-1.5 border-t border-black/10 text-amber-700">
           <span className="font-medium">В PlanFact есть бюджет новее: «{newer.title}».</span>
@@ -74,17 +90,21 @@ export function BudgetPassport({ label, meta }: BudgetPassportProps) {
     <Hint always side="bottom" title="План берётся из бюджета PlanFact" content={content}>
       <span
         className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${
-          newer
+          attention
             ? "bg-amber-50 text-amber-800 border-amber-200 hover:border-amber-300"
             : "bg-black/[0.04] text-muted-foreground border-transparent hover:border-black/10 hover:text-foreground"
         }`}
       >
         <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${newer ? "bg-amber-500" : "bg-emerald-500"}`}
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${attention ? "bg-amber-500" : "bg-emerald-500"}`}
           aria-hidden="true"
         />
         {label}
-        {newer && <span className="font-medium">· есть новее</span>}
+        {newer ? (
+          <span className="font-medium">· есть новее</span>
+        ) : renamed.length > 0 ? (
+          <span className="font-medium">· переименован</span>
+        ) : null}
       </span>
     </Hint>
   );
