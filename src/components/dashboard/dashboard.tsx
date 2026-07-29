@@ -16,6 +16,7 @@ import { CashflowChart } from "./cashflow-chart";
 import { BudgetPassport } from "./budget-passport";
 import { KpiCardSkeleton, ChartCardSkeleton } from "./loading-skeletons";
 import { Badge } from "@/components/ui/badge";
+import { Hint } from "@/components/ui/hint";
 import { HintModeProvider, useHintMode } from "@/contexts/hint-mode";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { todayInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
@@ -299,9 +300,11 @@ function DashboardInner() {
               </Badge>
             )}
             {budgetError && (
-              <Badge variant="destructive" className="text-xs rounded-full" title={budgetError}>
-                ⚠️ Бюджет не найден в PlanFact — план обнулён
-              </Badge>
+              <Hint always side="bottom" title="Плановые цифры не из чего собрать" content={budgetError}>
+                <Badge variant="destructive" className="text-xs rounded-full cursor-help">
+                  ⚠️ Бюджет не найден в PlanFact — чем заменить
+                </Badge>
+              </Hint>
             )}
             {isOldSnapshot && (
               <Badge

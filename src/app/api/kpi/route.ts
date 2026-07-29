@@ -333,6 +333,12 @@ export async function GET(request: NextRequest) {
     const alive = budgets.items.filter((b) => b.budgetStatus !== "Closed");
     const findByName = (n: string) => alive.find((b) => (b.title?.trim() ?? "") === n.trim());
 
+    // Семейство версий = то же базовое имя без числового префикса («03 Бюджет 2026» → «Бюджет 2026»).
+    // Только так проектные бюджеты («Бюджет СнупДок», «Техно Тигры») не принимаются за родню.
+    const familyBase = (n: string) => n.trim().replace(/^\d+\s*/, "");
+    /** Номер версии из префикса имени — команда нумерует версии сама («03 Бюджет 26» → 3) */
+    const versionNum = (n: string) => parseInt(n.trim().match(/^(\d+)/)?.[1] ?? "0", 10);
+
     // Ищем по имени, а если имя не сошлось — по budgetId. Имя правят руками, id не меняется:
     // без этого запасного пути переименование бюджета обнуляло план (та же авария, что
     // случилась с Култом, только по другой причине). Нашли по id → значит переименовали.
@@ -355,10 +361,35 @@ export async function GET(request: NextRequest) {
     const missingBudgets: string[] = [];
     if (months.some((m) => m < cutoffMonth) && !oldBudget) missingBudgets.push(config.budgets.old.name);
     if (months.some((m) => m >= cutoffMonth) && !newBudget) missingBudgets.push(config.budgets.new.name);
-    const budgetStatus = missingBudgets.length
-      ? `Бюджет не найден в PlanFact: «${missingBudgets.join("», «")}» — план показан нулями`
-      : undefined;
-    if (budgetStatus) console.error(`KPI (${entity}):`, budgetStatus);
+    // Кандидаты на замену — живая родня пропавшего бюджета, свежие сверху. Список едет
+    // ВНУТРИ текста ошибки намеренно: при пропавшем бюджете живой ответ считается
+    // деградированным и отбрасывается в пользу снимка, наружу доходит только sources.budget.
+    const MAX_CANDIDATES = 4;
+    const oneLine = (s?: string | null) => (s ?? "").replace(/\s*\n+\s*/g, " · ").trim();
+    const candidates = missingBudgets.length
+      ? alive
+          .filter((b) => missingBudgets.some((n) => familyBase(b.title?.trim() ?? "") === familyBase(n)))
+          .sort((a, z) =>
+            versionNum(z.title?.trim() ?? "") - versionNum(a.title?.trim() ?? "")
+            || (z.createDate ?? "").localeCompare(a.createDate ?? ""),
+          )
+          .slice(0, MAX_CANDIDATES)
+      : [];
+
+    let budgetStatus: string | undefined;
+    if (missingBudgets.length) {
+      budgetStatus = `Бюджет не найден в PlanFact: «${missingBudgets.join("», «")}» — план показан нулями.`;
+      if (candidates.length) {
+        const lines = candidates.map((b) => {
+          const note = oneLine(b.description);
+          return `• «${b.title?.trim()}»${note ? ` — ${note}` : ""}`;
+        });
+        budgetStatus += `\nПохожие бюджеты в PlanFact — вероятно, нужен один из них:\n${lines.join("\n")}`;
+      } else {
+        budgetStatus += "\nПохожих бюджетов в PlanFact не нашлось — проверь, не закрыт ли он.";
+      }
+      console.error(`KPI (${entity}):`, budgetStatus.replace(/\n/g, " "));
+    }
 
     // Переименование не ломает цифры, но молчать о нём нельзя: конфиг разошёлся с PlanFact
     // и следующий, кто полезет искать бюджет по имени, его не найдёт.
@@ -422,13 +453,8 @@ export async function GET(request: NextRequest) {
         to: p.ms[p.ms.length - 1],
       }));
 
-    // Семейство версий = то же базовое имя без числового префикса («03 Бюджет 2026» → «Бюджет 2026»).
-    // Только так проектные бюджеты («Бюджет СнупДок», «Техно Тигры») не принимаются за новую версию.
-    // Баз две — из конфига и из живого title: если бюджет переименовали, одна из них всё равно сойдётся.
-    const familyBase = (n: string) => n.trim().replace(/^\d+\s*/, "");
-    /** Номер версии из префикса имени — команда нумерует версии сама («03 Бюджет 26» → 3) */
-    const versionNum = (n: string) => parseInt(n.trim().match(/^(\d+)/)?.[1] ?? "0", 10);
-
+    // Баз для сравнения родни две — из конфига и из живого title: если бюджет
+    // переименовали, одна из них всё равно сойдётся.
     // Сторож сравнивает с ТЕКУЩИМ бюджетом (config.budgets.new), а не с активным для периода:
     // вопрос «появилась ли версия новее» не зависит от того, какие месяцы выбраны. Иначе на
     // периоде до cutoff (там активен старый бюджет) сторож ругался бы на штатную ситуацию.
