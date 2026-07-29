@@ -423,6 +423,16 @@ function DashboardInner() {
             <CashflowChart entity={entity} refreshKey={refreshKey} onLastBalance={setCashflow3m} />
           </div>
 
+          {/* Детальное «Бизнес-уравнение Лиза» — в самый низ (Костя, созвон 21.07: 18:25).
+              Только у Бластера: у Култа Побед и Винрейта нет, копия была бы неотличима от верхней. */}
+          {entity === "blaster" && (
+            <div className="mt-5">
+              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
+                {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} detailed />}
+              </ChartWithPeriod>
+            </div>
+          )}
+
           {startMonth === endMonth && (
             <div className="mt-4 max-w-7xl mx-auto">
               <MonthNotes entity={entity} year={year} month={startMonth} />

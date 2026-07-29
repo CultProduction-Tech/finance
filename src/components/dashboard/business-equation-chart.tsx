@@ -45,7 +45,17 @@ interface BusinessEquationChartProps {
   entity?: LegalEntity;
   /** Бластер: сделки периода без «Бриф получен» — выпали из Запросов/Побед, бейдж подсвечивает дыру */
   projectsWithoutBrief?: { id: number; name: string }[];
+  /**
+   * Детальная версия («Бизнес-уравнение Лиза», внизу страницы) — со столбцами
+   * Победы и Винрейт. Основное уравнение наверху их не показывает: Костя просил
+   * «здесь оставь типовое для всех, без победы, без винрейта» (созвон 21.07, 19:20),
+   * а детализацию вынести вниз отдельным графиком (18:25).
+   */
+  detailed?: boolean;
 }
+
+/** Столбцы только для детальной версии — в основном уравнении их нет */
+const DETAIL_ONLY_COLUMNS = new Set(["Победы", "Винрейт"]);
 
 // Русская плюрализация: 1 сделка / 2 сделки / 5 сделок
 function dealsWord(n: number): string {
@@ -134,7 +144,7 @@ function BarWithLabel(props: any) {
   );
 }
 
-export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief, detailed = false }: BusinessEquationChartProps) {
   const { enabled: hintMode } = useHintMode();
 
   // Плашка «месяц ещё идёт»: отклонения считаются по прошедшим месяцам, включая
@@ -262,7 +272,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
           ["Прибыль", factProfit, budgetProfit, false, false],
         ];
 
-    return items.map(([name, fact, budget, isPercent, isExpense]) => {
+    const visibleItems = detailed
+      ? items
+      : items.filter(([name]) => !DETAIL_ONLY_COLUMNS.has(name));
+
+    return visibleItems.map(([name, fact, budget, isPercent, isExpense]) => {
       // Прибыль: бар отражает разницу в деньгах, шкала ±2 млн (мапим на видимую шкалу графика ±120).
       // В подписи и тултипе — фактическая разница факт−план в деньгах (например «−700 тыс»).
       if (name === "Прибыль") {
@@ -292,19 +306,27 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         isPercent,
       };
     });
-  }, [monthly, entity]);
+  }, [monthly, entity, detailed]);
 
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-lg font-bold whitespace-nowrap">&#x2696;&#xFE0F; Бизнес-уравнение</h3>
+          <h3 className="text-lg font-bold whitespace-nowrap">
+            &#x2696;&#xFE0F; Бизнес-уравнение{detailed ? " Лиза" : ""}
+          </h3>
+          {detailed && (
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              с Победами и Винрейтом
+            </span>
+          )}
           <SourceMark
             plan="воронка (Запросы, Конверсия, Проекты, Средний чек) — заданы вручную в коде; деньги (Выручка, Маржа, Расходы, Прибыль) — бюджет PlanFact"
             fact="воронка — amoCRM (сделки, суммы, этапы); деньги — PlanFact"
             note="График смешанный: левая половина — воронка, правая — финансы, и источники у них разные. Плановые цифры воронки в таблице править бесполезно — они зашиты в коде, нужен разработчик."
           />
-          {!!projectsWithoutBrief?.length && (
+          {/* Бейдж только на основном уравнении: то же предупреждение дважды на странице — шум */}
+          {!detailed && !!projectsWithoutBrief?.length && (
             <Hint
               always
               side="bottom"
