@@ -8,7 +8,10 @@
 | Где | Путь |
 |---|---|
 | Локально | `<repo>/.env.local` |
-| Прод | `85.239.54.247:/opt/finance/.env.local` (VPS Timeweb, root) |
+| Прод | `201.34.133.194:/opt/finance/.env.local` (VPS, хост `msk-1-vm-sgvd`, root) |
+
+> Адрес сменился между 29.07 и 10.08 (был `85.239.54.247` — сейчас недоступен).
+> Если снова не пускает: `dig +short financial-dashboard.ru A`.
 
 Значения локально и на проде совпадают. Посмотреть имена: `grep -oE '^[A-Z_]+' .env.local`.
 
@@ -36,7 +39,7 @@
 
 1. `cultteam.amocrm.ru` → **Настройки** → **Интеграции** → приватная интеграция дашборда → вкладка **«Ключи и доступы»** → сгенерировать новый **долгосрочный токен**.
 2. Заменить `AMOCRM_ACCESS_TOKEN` в `/opt/finance/.env.local` на сервере (и в локальном `.env.local`).
-3. `ssh root@85.239.54.247 'cd /opt/finance && pm2 restart finance'`.
+3. `ssh root@201.34.133.194 'cd /opt/finance && pm2 restart finance'`.
 
 ### Как понять, что токен протух
 
