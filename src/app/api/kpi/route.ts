@@ -342,12 +342,31 @@ export async function GET(request: NextRequest) {
     // Ищем по имени, а если имя не сошлось — по budgetId. Имя правят руками, id не меняется:
     // без этого запасного пути переименование бюджета обнуляло план (та же авария, что
     // случилась с Култом, только по другой причине). Нашли по id → значит переименовали.
-    const resolveBudget = (v: { name: string; id?: string }) => {
+    // Обратный случай: имя сошлось, а id — нет. Значит бюджет завели ЗАНОВО под прежним
+    // именем (Култ, 04.08.2026: новый «03 Бюджет 2026», старый переименован в «03.0 …
+    // -первая версия»). Цифры при этом верные — читаем то, что так названо, — поэтому
+    // не деградация, а предупреждение: закреплённый id указывает на прошлую версию и
+    // при следующем переименовании запасной путь молча вернул бы её.
+    type Resolved = {
+      budget: typeof alive[number] | undefined;
+      renamedFrom: string | null;
+      reusedName: { name: string; pinnedTitle: string | null } | null;
+    };
+
+    const resolveBudget = (v: { name: string; id?: string }): Resolved => {
       const byName = findByName(v.name);
-      if (byName) return { budget: byName, renamedFrom: null as string | null };
+      if (byName) {
+        const idDrifted = !!v.id && byName.budgetId !== v.id;
+        const pinned = idDrifted ? alive.find((b) => b.budgetId === v.id) : undefined;
+        return {
+          budget: byName,
+          renamedFrom: null,
+          reusedName: idDrifted ? { name: v.name, pinnedTitle: pinned?.title?.trim() ?? null } : null,
+        };
+      }
       const byId = v.id ? alive.find((b) => b.budgetId === v.id) : undefined;
-      if (byId) return { budget: byId, renamedFrom: v.name };
-      return { budget: undefined, renamedFrom: null as string | null };
+      if (byId) return { budget: byId, renamedFrom: v.name, reusedName: null };
+      return { budget: undefined, renamedFrom: null, reusedName: null };
     };
 
     const oldResolved = resolveBudget(config.budgets.old);
@@ -399,6 +418,15 @@ export async function GET(request: NextRequest) {
     if (renamedBudgets.length) {
       console.warn(`KPI (${entity}): бюджет переименован в PlanFact:`,
         renamedBudgets.map((r) => `«${r.was}» → «${r.now}»`).join(", "));
+    }
+
+    // Имя переехало на другую запись: цифры верные, но id в конфиге отстал на версию.
+    const reusedNames = [oldResolved, newResolved]
+      .map((r) => r.reusedName)
+      .filter((r): r is NonNullable<typeof r> => !!r);
+    if (reusedNames.length) {
+      console.warn(`KPI (${entity}): имя бюджета переехало на другую запись PlanFact:`,
+        reusedNames.map((r) => `«${r.name}» (id в настройках → ${r.pinnedTitle ? `«${r.pinnedTitle}»` : "запись удалена"})`).join(", "));
     }
 
     const [oldBudgetDetail, newBudgetDetail] = await Promise.all([
@@ -483,6 +511,7 @@ export async function GET(request: NextRequest) {
         ? { title: newerBudget.title?.trim() ?? "", description: newerBudget.description ?? null }
         : null,
       renamed: renamedBudgets.length ? renamedBudgets : null,
+      reused: reusedNames.length ? reusedNames : null,
     };
 
     if (budgetDetail) {

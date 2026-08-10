@@ -33,8 +33,9 @@ export function BudgetPassport({ label, meta }: BudgetPassportProps) {
   const parts = meta?.parts ?? [];
   const newer = meta?.newer;
   const renamed = meta?.renamed ?? [];
+  const reused = meta?.reused ?? [];
   const isSplit = parts.length > 1;
-  const attention = !!newer || renamed.length > 0;
+  const attention = !!newer || renamed.length > 0 || reused.length > 0;
 
   const content = (
     <div className="space-y-1.5">
@@ -72,6 +73,25 @@ export function BudgetPassport({ label, meta }: BudgetPassportProps) {
         </div>
       )}
 
+      {reused.length > 0 && (
+        <div className="pt-1.5 border-t border-black/10 text-amber-700">
+          {reused.map((r) => (
+            <div key={r.name}>
+              <span className="font-medium">Бюджет «{r.name}» завели заново.</span>
+              <div className="text-[11px]">
+                {r.pinnedTitle
+                  ? <>Прежняя версия теперь называется «{r.pinnedTitle}».</>
+                  : <>Прежней версии в PlanFact больше нет.</>}
+              </div>
+            </div>
+          ))}
+          <div className="text-[11px]">
+            Цифры верные — читаем тот бюджет, что так называется сейчас. Но внутренний ключ
+            в настройках остался от прошлой версии: переименуют ещё раз — вернутся старые цифры.
+          </div>
+        </div>
+      )}
+
       {newer && (
         <div className="pt-1.5 border-t border-black/10 text-amber-700">
           <span className="font-medium">В PlanFact есть бюджет новее: «{newer.title}».</span>
@@ -104,6 +124,8 @@ export function BudgetPassport({ label, meta }: BudgetPassportProps) {
           <span className="font-medium">· есть новее</span>
         ) : renamed.length > 0 ? (
           <span className="font-medium">· переименован</span>
+        ) : reused.length > 0 ? (
+          <span className="font-medium">· заведён заново</span>
         ) : null}
       </span>
     </Hint>
