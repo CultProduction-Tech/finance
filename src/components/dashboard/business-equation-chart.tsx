@@ -311,7 +311,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <h3 className="text-lg font-bold whitespace-nowrap">
             &#x2696;&#xFE0F; Бизнес-уравнение{detailed ? " Лиза" : ""}
           </h3>
@@ -321,6 +321,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
             </span>
           )}
           <SourceMark
+            entity={entity}
+            systems={["planfact", "amo"]}
             plan="воронка (Запросы, Конверсия, Проекты, Средний чек) — заданы вручную в коде; деньги (Выручка, Маржа, Расходы, Прибыль) — бюджет PlanFact"
             fact="воронка — amoCRM (сделки, суммы, этапы); деньги — PlanFact"
             note="График смешанный: левая половина — воронка, правая — финансы, и источники у них разные. Плановые цифры воронки в таблице править бесполезно — они зашиты в коде, нужен разработчик."

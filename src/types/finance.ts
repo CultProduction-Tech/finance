@@ -119,11 +119,17 @@ export interface LegalEntityInfo {
   fullName: string;
   /** Google-таблица — исходник/сверка данных компании (ссылка в шапке дашборда). */
   sheetUrl: string;
+  /** Воронка компании в amoCRM — источник фактических сделок. */
+  amoUrl: string;
 }
 
+/** Веб-кабинет PlanFact — источник всех финансовых цифр (бюджеты, факт, остатки).
+ *  Ссылка общая для контуров: аккаунты разные, вход один. */
+export const PLANFACT_APP_URL = "https://app.planfact.io";
+
 export const LEGAL_ENTITIES: LegalEntityInfo[] = [
-  { id: "blaster", name: "Бластер", fullName: "ООО Бластер", sheetUrl: "https://docs.google.com/spreadsheets/d/1BDNUwlCoaqX7T9osuxYYBNHZmOa53TytASXEN-UfVIc/edit?gid=1961464443#gid=1961464443" },
-  { id: "cult", name: "Культ", fullName: "ООО Культ", sheetUrl: "https://docs.google.com/spreadsheets/d/1RsHm5yMbSNRIc58IAIykqhZtrEaiCkFXa66rlvj_6LQ/edit?gid=867550904#gid=867550904" },
+  { id: "blaster", name: "Бластер", fullName: "ООО Бластер", sheetUrl: "https://docs.google.com/spreadsheets/d/1BDNUwlCoaqX7T9osuxYYBNHZmOa53TytASXEN-UfVIc/edit?gid=1961464443#gid=1961464443", amoUrl: "https://cultteam.amocrm.ru/leads/pipeline/10647114/" },
+  { id: "cult", name: "Культ", fullName: "ООО Культ", sheetUrl: "https://docs.google.com/spreadsheets/d/1RsHm5yMbSNRIc58IAIykqhZtrEaiCkFXa66rlvj_6LQ/edit?gid=867550904#gid=867550904", amoUrl: "https://cultteam.amocrm.ru/leads/pipeline/7917842/" },
 ];
 
 export const MONTHS_RU = [

@@ -196,6 +196,8 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
           </span>
           <span className="text-[13px] font-medium text-muted-foreground">{periodLabel}</span>
           <SourceMark
+            entity={entity}
+            systems={["planfact"]}
             plan="плановые операции PlanFact (будущие платежи)"
             fact="PlanFact — остатки по счетам"
             note="Прогноз строится от текущего остатка с учётом запланированных поступлений и списаний."

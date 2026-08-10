@@ -211,9 +211,11 @@ export function ExpenseBudgetChart({ expenseCategories, revenue, periodSelector,
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           {hint ? <Hint title={hint.title} content={hint.content} side="bottom">{titleEl}</Hint> : titleEl}
           <SourceMark
+            entity={entity}
+            systems={["planfact", "sheet"]}
             plan="бюджет в PlanFact (версия — в шапке)"
             fact="PlanFact — расходы по статьям, метод начисления"
             note="Сами статьи приходят из PlanFact, но барами рисуется курируемый список, заданный в коде. Что осталось за его пределами — строкой под графиком."

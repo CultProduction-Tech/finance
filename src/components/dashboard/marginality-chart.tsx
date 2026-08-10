@@ -248,7 +248,7 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           {hint ? (
             <Hint title={hint.title} content={hint.content} side="bottom">
               <h3 className="text-lg font-bold whitespace-nowrap">
@@ -261,6 +261,8 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
             </h3>
           )}
           <SourceMark
+            entity={entity}
+            systems={["planfact", "amo"]}
             plan="норма — среднее помесячных планов маржинальности из бюджета PlanFact за период"
             fact={
               entity === "cult"
