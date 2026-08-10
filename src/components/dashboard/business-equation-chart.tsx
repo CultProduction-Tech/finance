@@ -344,7 +344,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         {periodSelector}
       </div>
 
-      {periodHasCurrentMonth && (
+      {/* Плашка только на основном уравнении: Костя просил не дублировать напоминание
+          («оно есть вверху», созвон 21.07), а с «Лизой» их стало три на страницу */}
+      {periodHasCurrentMonth && !detailed && (
         <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
           <span className="shrink-0 pt-0.5 text-sm leading-none">&#x23F3;</span>
           <span>
