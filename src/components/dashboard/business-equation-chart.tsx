@@ -95,12 +95,20 @@ function computeDeviation(fact: number, budget: number): number {
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
 }
 
+function formatPlainNumber(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (Number.isInteger(value)) return `${sign}${abs}`;
+  const s = abs.toFixed(1);
+  return `${sign}${s.endsWith(".0") ? s.slice(0, -2) : s}`;
+}
+
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
   if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)} млн`;
   if (abs >= 1_000) return `${sign}${Math.round(abs / 1_000)} тыс`;
-  return `${sign}${Math.round(abs)}`;
+  return formatPlainNumber(value);
 }
 
 function formatValue(value: number, isPercent: boolean): string {
