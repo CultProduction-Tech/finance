@@ -13,6 +13,10 @@ interface KpiGridProps {
 
 const SHOW_EXTRA_KPIS = false;
 
+function formatPlanCount(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, "");
+}
+
 function deviation(fact: number, budget: number): number {
   if (budget === 0) return 0;
   return Math.round(((fact - budget) / Math.abs(budget)) * 100);
@@ -48,7 +52,7 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
           hint={getHint(entity, "eq_requests")}
           comparison={requestsPlan > 0 ? {
             deviationPercent: deviation(requestsFact, requestsPlan),
-            budgetLabel: String(requestsPlan),
+            budgetLabel: formatPlanCount(requestsPlan),
           } : undefined}
         />
       </div>

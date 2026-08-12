@@ -408,7 +408,7 @@ function DashboardInner() {
               <ChartCardSkeleton variant="line" />
             )}
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
-              {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutBrief={data.projectsWithoutBrief} />}
+              {(data, _loading, ps, chartMode) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutBrief={data.projectsWithoutBrief} chartMode={chartMode} />}
             </ChartWithPeriod>
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
               {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutAct={data.projectsWithoutAct} />}
@@ -428,7 +428,7 @@ function DashboardInner() {
           {entity === "blaster" && (
             <div className="mt-5">
               <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
-                {(data, _loading, ps) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} detailed />}
+                {(data, _loading, ps, _chartMode) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} detailed />}
               </ChartWithPeriod>
             </div>
           )}

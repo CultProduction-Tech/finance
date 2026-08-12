@@ -15,7 +15,7 @@ interface ChartWithPeriodProps {
   globalKpi: KpiData;
   /** Инкрементится на каждое взаимодействие с верхней панелью периода */
   periodVersion: number;
-  children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode) => ReactNode;
+  children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode, chartMode: ChartMode) => ReactNode;
 }
 
 const M3 = (i: number) => MONTHS_RU[i]?.substring(0, 3) ?? "";
@@ -75,5 +75,5 @@ export function ChartWithPeriod({
     return <ChartCardSkeleton />;
   }
 
-  return <>{children(kpi, loading, periodSelector)}</>;
+  return <>{children(kpi, loading, periodSelector, mode)}</>;
 }

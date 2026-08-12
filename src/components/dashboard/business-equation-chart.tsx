@@ -21,6 +21,7 @@ import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 import { useHintMode } from "@/contexts/hint-mode";
 import { todayInBusinessTz } from "@/lib/timezone";
+import type { ChartMode } from "./chart-period-selector";
 
 // Маппинг подписи столбика в графике → ключ в hint-texts (берём по entity)
 const COLUMN_TO_HINT: Record<string, string> = {
@@ -52,6 +53,8 @@ interface BusinessEquationChartProps {
    * а детализацию вынести вниз отдельным графиком (18:25).
    */
   detailed?: boolean;
+  /** «НИ» — показываем три строки: бюджет года, бюджет НИ (YTD), факт */
+  chartMode?: ChartMode;
 }
 
 /** Столбцы только для детальной версии — в основном уравнении их нет */
@@ -74,6 +77,8 @@ interface BarDataPoint {
   deviationLabel: number;
   fact: number;
   budget: number;
+  /** План на весь выбранный период (Jan–Dec и т.д.) — только для режима «НИ» */
+  budgetYear?: number;
   isPercent: boolean;
   /** Если задан — рисуется вместо числа+% (для Прибыли: разница факт−план в деньгах) */
   displayLabel?: string;
@@ -144,7 +149,7 @@ function BarWithLabel(props: any) {
   );
 }
 
-export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief, detailed = false }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief, detailed = false, chartMode = "ni" }: BusinessEquationChartProps) {
   const { enabled: hintMode } = useHintMode();
 
   // Плашка «месяц ещё идёт»: отклонения считаются по прошедшим месяцам, включая
@@ -157,6 +162,23 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
   const daysInCurrentMonth = new Date(parseInt(businessToday.slice(0, 4), 10), currentMonthIdx + 1, 0).getDate();
   const periodHasCurrentMonth = monthly.some((m) => m.month === currentMonthKey && m.isPast);
   const chartData = useMemo<BarDataPoint[]>(() => {
+    const showYearBudget = chartMode === "ni";
+
+    // План на весь выбранный период (все месяцы, включая будущие)
+    let yearBudgetRevenue = 0, yearBudgetMargin = 0;
+    let yearBudgetFixed = 0, yearBudgetProfit = 0;
+    let yearRequestsPlan = 0, yearProjectsPlan = 0;
+
+    for (const m of monthly) {
+      yearBudgetRevenue += m.budgetRevenue;
+      yearBudgetMargin += m.budgetMargin;
+      yearBudgetFixed += m.budgetFixedExpenses;
+      yearBudgetProfit += m.budgetProfit;
+      yearRequestsPlan += m.requestsPlan;
+      yearProjectsPlan += m.projectsPlan;
+    }
+    const yearBudgetMarginPct = yearBudgetRevenue > 0 ? (yearBudgetMargin / yearBudgetRevenue) * 100 : 0;
+
     let factRevenue = 0, budgetRevenue = 0;
     let factMargin = 0, budgetMargin = 0;
     let factFixed = 0, budgetFixed = 0;
@@ -238,39 +260,38 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     // Маржин-ть Культа: факт — PlanFact (как KPI); план — 20% из plans.ts.
     const cultPlanMarginPct = CULT_PLANS.marginPercent;
 
-    // items: [name, fact, budget, isPercent, isExpense]
-    const items: [string, number, number, boolean, boolean][] = entity === "cult"
+    // items: [name, fact, budgetYtd, budgetYear, isPercent, isExpense]
+    const items: [string, number, number, number, boolean, boolean][] = entity === "cult"
       ? [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false],
-          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false],
-          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false],
-          ["Маржин-ть", avgFactMarginPct, cultPlanMarginPct, true, false],
-          ["Маржа", factMargin, budgetMargin, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true],
-          ["Прибыль", factProfit, budgetProfit, false, false],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, yearRequestsPlan, false, false],
+          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, CULT_BUDGET_CONVERSION, true, false],
+          ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, yearProjectsPlan, false, false],
+          ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, CULT_BUDGET_AVG_CHECK, false, false],
+          ["Выручка", factRevenue, budgetRevenue, yearBudgetRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, cultPlanMarginPct, cultPlanMarginPct, true, false],
+          ["Маржа", factMargin, budgetMargin, yearBudgetMargin, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, yearBudgetFixed, false, true],
+          ["Прибыль", factProfit, budgetProfit, yearBudgetProfit, false, false],
         ]
       : [
-          ["Запросы", totalRequestsFact, totalRequestsPlan, false, false],
-          // Победы — лиды по дате "Бриф получен" в этапе Реализованo (или created_at для Янв-Мар); план = запросы × 30%
-          ["Победы", totalWinsFact, totalRequestsPlan * BLASTER_PLANS.winsShareOfRequests, false, false],
-          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, true, false],
-          ["Конверсия", factConversionRate, BLASTER_BUDGET_CONVERSION_RATE, true, false],
-          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, false, false],
-          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
-          ["Маржа", factMargin, budgetMargin, false, false],
-          ["Пост. расходы", factFixed, budgetFixed, false, true],
-          ["Прибыль", factProfit, budgetProfit, false, false],
+          ["Запросы", totalRequestsFact, totalRequestsPlan, yearRequestsPlan, false, false],
+          ["Победы", totalWinsFact, totalRequestsPlan * BLASTER_PLANS.winsShareOfRequests, yearRequestsPlan * BLASTER_PLANS.winsShareOfRequests, false, false],
+          ["Винрейт", factConversion, BLASTER_BUDGET_CONVERSION, BLASTER_BUDGET_CONVERSION, true, false],
+          ["Конверсия", factConversionRate, BLASTER_BUDGET_CONVERSION_RATE, BLASTER_BUDGET_CONVERSION_RATE, true, false],
+          ["Проекты по актам", totalProjectsByActs, blasterBudgetProjects, yearProjectsPlan, false, false],
+          ["Средний чек", factAvgCheck, BLASTER_BUDGET_AVG_CHECK, BLASTER_BUDGET_AVG_CHECK, false, false],
+          ["Выручка", factRevenue, budgetRevenue, yearBudgetRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, yearBudgetMarginPct, true, false],
+          ["Маржа", factMargin, budgetMargin, yearBudgetMargin, false, false],
+          ["Пост. расходы", factFixed, budgetFixed, yearBudgetFixed, false, true],
+          ["Прибыль", factProfit, budgetProfit, yearBudgetProfit, false, false],
         ];
 
     const visibleItems = detailed
       ? items
       : items.filter(([name]) => !DETAIL_ONLY_COLUMNS.has(name));
 
-    return visibleItems.map(([name, fact, budget, isPercent, isExpense]) => {
+    return visibleItems.map(([name, fact, budget, budgetYearVal, isPercent, isExpense]) => {
       // Прибыль: бар отражает разницу в деньгах, шкала ±2 млн (мапим на видимую шкалу графика ±120).
       // В подписи и тултипе — фактическая разница факт−план в деньгах (например «−700 тыс»).
       if (name === "Прибыль") {
@@ -284,6 +305,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
           deviation: Math.max(-120, Math.min(120, barValue)),
           fact,
           budget,
+          budgetYear: showYearBudget ? budgetYearVal : undefined,
           isPercent,
           displayLabel: `${sign}${formatAmount(diff)}`,
         };
@@ -297,10 +319,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         deviation: Math.max(-120, Math.min(120, dev)),
         fact,
         budget,
+        budgetYear: showYearBudget ? budgetYearVal : undefined,
         isPercent,
       };
     });
-  }, [monthly, entity, detailed]);
+  }, [monthly, entity, detailed, chartMode]);
 
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
@@ -349,48 +372,59 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         </div>
       )}
 
-      {/* Таблица: Было / Стало */}
+      {/* Таблица: план года / план НИ / факт (в режиме «НИ») или бюджет / факт (один месяц) */}
       <div
-        className="grid items-center mb-1"
+        className="grid items-center mb-1 gap-y-0.5"
         style={{
           gridTemplateColumns: `${Y_AXIS_WIDTH}px repeat(${chartData.length}, minmax(0, 1fr))`,
         }}
       >
-        <div className="text-[12px] italic text-muted-foreground text-right pr-2">Бюджет</div>
-        {chartData.map((d) => {
-          const hk = COLUMN_TO_HINT[d.name];
-          const h = entity && hk ? getHint(entity, hk) : undefined;
-          const cell = (
-            <div className="text-center text-[13px] text-muted-foreground tabular-nums">
-              {formatValue(d.budget, d.isPercent)}
-            </div>
+        {(() => {
+          const renderRow = (
+            label: string,
+            valueKey: "budgetYear" | "budget" | "fact",
+            opts?: { bold?: boolean; negativeRed?: boolean },
+          ) => (
+            <>
+              <div className={`text-[12px] italic text-right pr-2 ${opts?.bold ? "font-bold" : "text-muted-foreground"}`}>
+                {label}
+              </div>
+              {chartData.map((d) => {
+                const val = valueKey === "budgetYear" ? (d.budgetYear ?? d.budget) : d[valueKey];
+                const hk = COLUMN_TO_HINT[d.name];
+                const h = entity && hk ? getHint(entity, hk) : undefined;
+                const cell = (
+                  <div className={`text-center text-[13px] tabular-nums ${opts?.bold ? "font-bold" : "text-muted-foreground"} ${opts?.negativeRed && val < 0 ? "text-[#ff3b30]" : ""}`}>
+                    {formatValue(val, d.isPercent)}
+                  </div>
+                );
+                return h ? (
+                  <Hint key={`${valueKey}-${d.name}`} title={h.title} content={h.content} className="block">{cell}</Hint>
+                ) : (
+                  <div key={`${valueKey}-${d.name}`} className={`text-center text-[13px] tabular-nums ${opts?.bold ? "font-bold" : "text-muted-foreground"} ${opts?.negativeRed && val < 0 ? "text-[#ff3b30]" : ""}`}>
+                    {formatValue(val, d.isPercent)}
+                  </div>
+                );
+              })}
+            </>
           );
-          return h ? (
-            <Hint key={`b-${d.name}`} title={h.title} content={h.content} className="block">{cell}</Hint>
-          ) : (
-            <div key={`b-${d.name}`} className="text-center text-[13px] text-muted-foreground tabular-nums">
-              {formatValue(d.budget, d.isPercent)}
-            </div>
-          );
-        })}
 
-        <div className="text-[12px] italic font-bold text-right pr-2">Факт</div>
-        {chartData.map((d) => {
-          const hk = COLUMN_TO_HINT[d.name];
-          const h = entity && hk ? getHint(entity, hk) : undefined;
-          const cell = (
-            <div className={`text-center text-[13px] font-bold tabular-nums ${d.fact < 0 ? "text-[#ff3b30]" : ""}`}>
-              {formatValue(d.fact, d.isPercent)}
-            </div>
+          if (chartMode === "ni") {
+            return (
+              <>
+                {renderRow("Бюджет год", "budgetYear")}
+                {renderRow("Бюджет НИ", "budget")}
+                {renderRow("Факт", "fact", { bold: true, negativeRed: true })}
+              </>
+            );
+          }
+          return (
+            <>
+              {renderRow("Бюджет", "budget")}
+              {renderRow("Факт", "fact", { bold: true, negativeRed: true })}
+            </>
           );
-          return h ? (
-            <Hint key={`f-${d.name}`} title={h.title} content={h.content} className="block">{cell}</Hint>
-          ) : (
-            <div key={`f-${d.name}`} className={`text-center text-[13px] font-bold tabular-nums ${d.fact < 0 ? "text-[#ff3b30]" : ""}`}>
-              {formatValue(d.fact, d.isPercent)}
-            </div>
-          );
-        })}
+        })()}
       </div>
 
       {/* Подложка-разделитель между таблицей и графиком */}
@@ -466,7 +500,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         </BarChart>
       </ResponsiveContainer>
       <p className="mt-2 text-center text-[11px] text-muted-foreground">
-        Бары — отклонение факта от плана за прошедшие месяцы периода, %. «Прибыль» — разница в деньгах (шкала ±2 млн).
+        {chartMode === "ni"
+          ? "Бюджет год — план на весь выбранный период. Бюджет НИ и факт — накопленно за прошедшие месяцы (Янв–…). Бары — отклонение факта от бюджета НИ, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."
+          : "Бары — отклонение факта от плана за месяц, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."}
       </p>
     </div>
   );
