@@ -34,17 +34,13 @@ export const BLASTER_PLANS = {
 
 export const CULT_PLANS = {
   /** План запросов в месяц */
-  requestsPerMonth: 10,
+  requestsPerMonth: 9.8,
   /** План конверсии (Взятые в работу ÷ Запросы), % */
   conversionPercent: 25,
   /** План проектов в месяц */
-  projectsPerMonth: 3,
+  projectsPerMonth: 2.5,
   /** Плановый средний чек, ₽ */
   avgCheck: 5_000_000,
-  /** План выручки в месяц, ₽ (бизнес-уравнение; KPI/графики — из PlanFact) */
-  revenuePerMonth: 13_400_000,
-  /** План маржинальности, % (бизнес-уравнение) */
+  /** План маржинальности, % — норма в уравнении и на графике; факт — PlanFact P&L */
   marginPercent: 20,
-  /** План маржи в месяц, ₽ (бизнес-уравнение; KPI/графики — из PlanFact) */
-  marginPerMonth: 2_700_000,
 } as const;

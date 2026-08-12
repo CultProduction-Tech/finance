@@ -19,6 +19,7 @@ import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
 import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
+import { CULT_PLANS } from "@/lib/plans";
 
 
 interface MarginalityChartProps {
@@ -110,12 +111,11 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
     setDrillMonth(null);
   }
 
-  // Норма — из бюджета: простое среднее помесячных планов маржинальности за
-  // выбранный период. В бюджете норма ОСОЗНАННО задана помесячно по-разному
-  // (подтверждено Сашей 08.07: «правильно раньше считали, она зашита по-разному»),
-  // поэтому линия меняется при смене периода — это дизайн, не баг. Попытка
-  // зафиксировать её константой (22ac246) откачена; происхождение объясняет тултип.
+  // Култ: фиксированная плановая норма из lib/plans.ts (как в бизнес-уравнении).
+  // Бластер: среднее помесячных планов маржинальности из бюджета PlanFact за период
+  // (в бюджете норма зашита помесячно по-разному — линия меняется с периодом).
   const budgetLine = useMemo(() => {
+    if (entity === "cult") return CULT_PLANS.marginPercent;
     let total = 0;
     let count = 0;
     for (const m of monthly) {
@@ -125,7 +125,11 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
       }
     }
     return count > 0 ? Math.round(total / count) : 0;
-  }, [monthly]);
+  }, [monthly, entity]);
+
+  const normTipContent = entity === "cult"
+    ? `${CULT_PLANS.marginPercent}% — плановая маржинальность команды (lib/plans.ts), та же норма, что в бизнес-уравнении.`
+    : `${budgetLine}% — средняя плановая маржинальность из бюджета PlanFact за месяцы выбранного периода. В бюджете норма задана помесячно по-разному, поэтому при смене периода линия меняется.`;
 
   const calcProjectsMargin = useCallback((projects?: { price: number; expensePlan: number }[]) => {
     if (!projects?.length) return 0;
@@ -141,13 +145,16 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
   }, []);
 
   const chartData = useMemo(() => {
-    // Для маржинальности проекты отбакетены отдельно (Культ — по «Бриф получен»). Если такого набора нет — fallback на m.projects (Бластер — по «Дате акта»).
+    // Культ: факт из PlanFact P&L (как KPI). Бластер: по проектам amoCRM с «Датой акта».
     const projsOf = (m: typeof monthly[number]) => m.marginalityProjects ?? m.projects;
+    const useProjectMargin = entity !== "cult";
 
-    const monthsWithProjects = monthly.filter((m) => projsOf(m)?.length);
+    const monthsWithProjects = useProjectMargin
+      ? monthly.filter((m) => projsOf(m)?.length)
+      : [];
     const hasProjects = monthsWithProjects.length > 0;
 
-    // Кумулятивная маржинальность: из проектов (AmoCRM) если есть, иначе — из P&L
+    // Кумулятивная маржинальность
     let cumMarginPercent = 0;
     if (hasProjects) {
       let cumPrice = 0;
@@ -230,7 +237,7 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
     }
 
     return data;
-  }, [monthly, drillMonth, calcProjectsMargin]);
+  }, [monthly, drillMonth, calcProjectsMargin, entity]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleBarClick = useCallback((data: any) => {
@@ -262,16 +269,20 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
           )}
           <SourceMark
             entity={entity}
-            systems={["planfact", "amo"]}
-            plan="норма — среднее помесячных планов маржинальности из бюджета PlanFact за период"
+            systems={entity === "cult" ? ["planfact"] : ["planfact", "amo"]}
+            plan={entity === "cult"
+              ? `норма — ${CULT_PLANS.marginPercent}% из lib/plans.ts (план команды)`
+              : "норма — среднее помесячных планов маржинальности из бюджета PlanFact за период"}
             fact={
               entity === "cult"
-                ? "amoCRM — сумма сделки и её поле «Маржа»"
+                ? "PlanFact — маржа ÷ выручка за прошедшие месяцы (как KPI-карточка)"
                 : "amoCRM — сумма сделки и её поле «План затрат»"
             }
-            note="Проект попадает в месяц своей «Даты акта». Пустая дата — сделка не видна на графике, о таких предупреждает жёлтый бейдж."
+            note={entity === "cult"
+              ? "Помесячные бары — факт P&L; пунктир — плановая норма 20%."
+              : "Проект попадает в месяц своей «Даты акта». Пустая дата — сделка не видна на графике, о таких предупреждает жёлтый бейдж."}
           />
-          {!!projectsWithoutAct?.length && (
+          {entity !== "cult" && !!projectsWithoutAct?.length && (
             <Hint
               always
               side="bottom"
@@ -358,7 +369,7 @@ export function MarginalityChart({ monthly, periodSelector, entity, projectsWith
                 <BudgetBadge
                   value={`Норма · ${budgetLine}%`}
                   tipTitle="Откуда эта норма"
-                  tipContent={`${budgetLine}% — средняя плановая маржинальность из бюджета за месяцы выбранного периода. В бюджете норма задана помесячно по-разному (осознанно), поэтому при смене периода линия меняется.\nНе путать с «Маржин-ть (Бюджет)» в бизнес-уравнении: та взвешенная и только по прошедшим месяцам — числа могут не совпадать.`}
+                  tipContent={normTipContent}
                 />
               }
             />

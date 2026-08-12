@@ -166,7 +166,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     let totalProjectsByActs = 0;
     let totalProjectsPlan = 0;
     let totalWinsFact = 0;
-    let amoProjectsPrice = 0, amoProjectsExpense = 0, amoProjectsCount = 0;
+    let amoProjectsPrice = 0, amoProjectsCount = 0;
 
     for (const m of monthly) {
       // Вся воронка (факт И план) — только по прошедшим месяцам, как и финансы ниже.
@@ -183,14 +183,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
       if (m.projects) {
         totalProjectsByActs += m.projects.length;
       }
-      // Маржин-ть Култа считаем по тем же акт-проектам, что и график «Маржинальность»
-      // (m.marginalityProjects). Бластер — marginalityProjects нет, падаем на m.projects
-      // (у него они и так по «Дате акта»). Иначе уравнение и график давали бы разный %.
-      const marginSourceProjects = m.marginalityProjects ?? m.projects;
-      if (marginSourceProjects) {
-        for (const p of marginSourceProjects) {
+      // Средний чек — по сделкам amoCRM с «Датой акта» (marginalityProjects у Культа, m.projects у Бластера).
+      const avgCheckProjects = m.marginalityProjects ?? m.projects;
+      if (avgCheckProjects) {
+        for (const p of avgCheckProjects) {
           amoProjectsPrice += p.price;
-          amoProjectsExpense += p.expensePlan;
           amoProjectsCount++;
         }
       }
@@ -205,13 +202,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
       budgetProfit += m.budgetProfit;
     }
 
-    // Маржинальность Бластера — теперь как в KPI-карточке: Маржа / Выручка из PlanFact.
-    // Культ оставляем по проектам (там используется поле "Маржа" в лиде AmoCRM).
-    const avgFactMarginPctCult = amoProjectsPrice > 0
-      ? ((amoProjectsPrice - amoProjectsExpense) / amoProjectsPrice) * 100
-      : 0;
-    const avgFactMarginPctBlaster = factRevenue > 0 ? (factMargin / factRevenue) * 100 : 0;
-    const avgFactMarginPct = entity === "cult" ? avgFactMarginPctCult : avgFactMarginPctBlaster;
+    // Маржинальность — как KPI-карточка: Маржа ÷ Выручка из PlanFact (оба контура).
+    const avgFactMarginPct = factRevenue > 0 ? (factMargin / factRevenue) * 100 : 0;
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
     // Винрейт/конверсия:
@@ -243,9 +235,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const CULT_BUDGET_AVG_CHECK = CULT_PLANS.avgCheck;
     const CULT_BUDGET_CONVERSION = CULT_PLANS.conversionPercent;
     const CULT_BUDGET_PROJECTS = totalProjectsPlan;
-    const pastMonthCount = monthly.filter((m) => m.isPast).length;
-    const cultPlanRevenue = CULT_PLANS.revenuePerMonth * pastMonthCount;
-    const cultPlanMargin = CULT_PLANS.marginPerMonth * pastMonthCount;
+    // Маржин-ть Культа: факт — PlanFact (как KPI); план — 20% из plans.ts.
     const cultPlanMarginPct = CULT_PLANS.marginPercent;
 
     // items: [name, fact, budget, isPercent, isExpense]
@@ -255,9 +245,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
           ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false],
           ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false],
           ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false],
-          ["Выручка", factRevenue, cultPlanRevenue, false, false],
+          ["Выручка", factRevenue, budgetRevenue, false, false],
           ["Маржин-ть", avgFactMarginPct, cultPlanMarginPct, true, false],
-          ["Маржа", factMargin, cultPlanMargin, false, false],
+          ["Маржа", factMargin, budgetMargin, false, false],
           ["Пост. расходы", factFixed, budgetFixed, false, true],
           ["Прибыль", factProfit, budgetProfit, false, false],
         ]
