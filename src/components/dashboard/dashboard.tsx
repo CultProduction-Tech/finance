@@ -100,6 +100,10 @@ function DashboardInner() {
   const kpiStart = kpiLocalStart ?? startMonth;
   const kpiEnd = kpiLocalEnd ?? endMonth;
 
+  // Пресет «НИ» в шапке: текущий год, Янв–Дек (не кастомный интервал вроде Янв–Июл)
+  const businessYear = parseInt(businessToday.slice(0, 4), 10);
+  const globalFullYear = year === businessYear && startMonth === 0 && endMonth === 11;
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -407,13 +411,13 @@ function DashboardInner() {
             ) : (
               <ChartCardSkeleton variant="line" />
             )}
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
-              {(data, _loading, ps, chartMode) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutBrief={data.projectsWithoutBrief} chartMode={chartMode} />}
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} globalFullYear={globalFullYear}>
+              {(data, _loading, ps, chartMode) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutBrief={data.projectsWithoutBrief} chartMode={chartMode} globalFullYear={globalFullYear} />}
             </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} globalFullYear={globalFullYear}>
               {(data, _loading, ps) => <MarginalityChart monthly={data.monthly} periodSelector={ps} entity={entity} projectsWithoutAct={data.projectsWithoutAct} />}
             </ChartWithPeriod>
-            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
+            <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} globalFullYear={globalFullYear}>
               {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.expenseBaseRevenue ?? data.revenue} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
           </div>
@@ -427,7 +431,7 @@ function DashboardInner() {
               Только у Бластера: у Култа Побед и Винрейта нет, копия была бы неотличима от верхней. */}
           {entity === "blaster" && (
             <div className="mt-5">
-              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion}>
+              <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} globalFullYear={globalFullYear}>
                 {(data, _loading, ps, _chartMode) => <BusinessEquationChart monthly={data.monthly} periodSelector={ps} entity={entity} detailed />}
               </ChartWithPeriod>
             </div>

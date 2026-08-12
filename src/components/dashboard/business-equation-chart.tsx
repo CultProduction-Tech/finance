@@ -55,6 +55,8 @@ interface BusinessEquationChartProps {
   detailed?: boolean;
   /** «НИ» — показываем три строки: бюджет года, бюджет НИ (YTD), факт */
   chartMode?: ChartMode;
+  /** Верхняя панель в пресете «НИ» (текущий год, Янв–Дек) — иначе строка «Бюджет год» скрыта */
+  globalFullYear?: boolean;
 }
 
 /** Столбцы только для детальной версии — в основном уравнении их нет */
@@ -149,7 +151,7 @@ function BarWithLabel(props: any) {
   );
 }
 
-export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief, detailed = false, chartMode = "ni" }: BusinessEquationChartProps) {
+export function BusinessEquationChart({ monthly, periodSelector, entity, projectsWithoutBrief, detailed = false, chartMode = "ni", globalFullYear = false }: BusinessEquationChartProps) {
   const { enabled: hintMode } = useHintMode();
 
   // Плашка «месяц ещё идёт»: отклонения считаются по прошедшим месяцам, включая
@@ -162,7 +164,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
   const daysInCurrentMonth = new Date(parseInt(businessToday.slice(0, 4), 10), currentMonthIdx + 1, 0).getDate();
   const periodHasCurrentMonth = monthly.some((m) => m.month === currentMonthKey && m.isPast);
   const chartData = useMemo<BarDataPoint[]>(() => {
-    const showYearBudget = chartMode === "ni";
+    const showYearBudget = chartMode === "ni" && globalFullYear;
 
     // План на весь выбранный период (все месяцы, включая будущие)
     let yearBudgetRevenue = 0, yearBudgetMargin = 0;
@@ -323,7 +325,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         isPercent,
       };
     });
-  }, [monthly, entity, detailed, chartMode]);
+  }, [monthly, entity, detailed, chartMode, globalFullYear]);
 
   return (
     <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.10)] transition-shadow duration-200 p-5">
@@ -412,8 +414,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
           if (chartMode === "ni") {
             return (
               <>
-                {renderRow("Бюджет год", "budgetYear")}
-                {renderRow("Бюджет НИ", "budget")}
+                {showYearBudget && renderRow("Бюджет год", "budgetYear")}
+                {renderRow(showYearBudget ? "Бюджет НИ" : "Бюджет", "budget")}
                 {renderRow("Факт", "fact", { bold: true, negativeRed: true })}
               </>
             );
@@ -500,9 +502,11 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         </BarChart>
       </ResponsiveContainer>
       <p className="mt-2 text-center text-[11px] text-muted-foreground">
-        {chartMode === "ni"
-          ? "Бюджет год — план на весь выбранный период. Бюджет НИ и факт — накопленно за прошедшие месяцы (Янв–…). Бары — отклонение факта от бюджета НИ, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."
-          : "Бары — отклонение факта от плана за месяц, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."}
+        {chartMode === "ni" && globalFullYear
+          ? "Бюджет год — план на весь год (Янв–Дек). Бюджет НИ и факт — накопленно за прошедшие месяцы. Бары — отклонение факта от бюджета НИ, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."
+          : chartMode === "ni"
+            ? "Бюджет и факт — накопленно за прошедшие месяцы выбранного интервала. Бары — отклонение факта от бюджета, %."
+            : "Бары — отклонение факта от плана за месяц, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."}
       </p>
     </div>
   );

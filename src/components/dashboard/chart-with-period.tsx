@@ -15,6 +15,8 @@ interface ChartWithPeriodProps {
   globalKpi: KpiData;
   /** Инкрементится на каждое взаимодействие с верхней панелью периода */
   periodVersion: number;
+  /** Верхняя панель: год = текущий, Янв–Дек (пресет «НИ») */
+  globalFullYear: boolean;
   children: (kpi: KpiData, loading: boolean, periodSelector: ReactNode, chartMode: ChartMode) => ReactNode;
 }
 
@@ -27,6 +29,7 @@ export function ChartWithPeriod({
   globalEndMonth,
   globalKpi,
   periodVersion,
+  globalFullYear,
   children,
 }: ChartWithPeriodProps) {
   // Два представления (ТЗ Кости): «НИ» — период верхней панели (по умолчанию
