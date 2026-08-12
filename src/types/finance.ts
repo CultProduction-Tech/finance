@@ -94,7 +94,7 @@ export interface KpiData {
   budgetMeta?: BudgetMeta;    // Паспорт плана: состав + сигнал «есть бюджет новее»
   sources?: { planfact: string; amocrm: string; budget?: string }; // "ok" | текст ошибки источника; budget — не найден сконфигурированный бюджет
   projectsWithoutAct?: { id: number; name: string }[]; // Сделки периода без «Даты акта» — невидимы в графике маржинальности (оба контура)
-  projectsWithoutBrief?: { id: number; name: string }[]; // Бластер: сделки периода без «Бриф получен» — невидимы в Запросах/Победах
+  projectsWithoutBrief?: { id: number; name: string }[]; // Сделки периода в «запросных» статусах без «Бриф получен»
 }
 
 export interface MonthlyFinancials extends MonthlyData {

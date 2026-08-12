@@ -183,13 +183,9 @@ export interface AmoConfig {
   requestStatusIds?: number[];
   /** Статусы для "побед" — используется в getLeadCountsByCreatedDate (Янв-Мар) и getBlasterClosedLeadCounts (Апр+). Для Бластера: [Реализованo]. */
   winStatusIds?: number[];
-  /** Custom-поле «Бриф получен» (для Запросов Бластера + bucketing проектов в графике маржинальности у Культа) */
+  /** Custom-поле «Бриф получен» — месяц для Запросов (Бластер + Култ) */
   briefDateFieldId?: number;
-  /** Cult-specific: system user ID for counting requests */
-  systemCreatedByUserId?: number;
-  /** Cult-specific: "Первичный контакт" status ID */
-  primaryContactStatusId?: number;
-  /** Cult-specific: "Взяли в работу" custom field ID and enum value */
+  /** Култ: «Взяли в работу» — числитель Конверсии (формула не меняется) */
   takenToWorkFieldId?: number;
   takenToWorkEnumId?: number;
 }
@@ -459,62 +455,79 @@ export async function getBlasterCountsByBriefField(
   return { buckets, withoutBrief };
 }
 
+export type CultMonthlyCounts = { requests: number; takenToWork: number };
+
+export interface CultBriefResult {
+  buckets: Record<string, CultMonthlyCounts>;
+  /** Лиды в «запросных» статусах с пустым «Бриф получен» */
+  withoutBrief: { id: number; name: string; createdAt: number }[];
+}
+
+function leadTakenToWork(
+  lead: AmoLead,
+  takenFieldId?: number,
+  takenEnumId?: number,
+): boolean {
+  if (!takenFieldId || !takenEnumId || !lead.custom_fields_values) return false;
+  const field = lead.custom_fields_values.find((f) => f.field_id === takenFieldId);
+  return field?.values?.some(
+    (v) => v.value === "Да" || (v as { enum_id?: number }).enum_id === takenEnumId,
+  ) ?? false;
+}
+
 /**
- * Подсчёт запросов для Культа: лиды, созданные «Системой» в указанном периоде.
- * Возвращает общее количество и количество «взятых в работу» (ушедших из Первичного контакта).
+ * Запросы Культа по «Бриф получен» (как у Бластера, но свой набор статусов).
+ *
+ * Учитываются все лиды в requestStatusIds с заполненным «Бриф получен» —
+ * месяц = дата поля, этап воронки не влияет (в т.ч. «Закрыто и не реализовано»).
+ * Конверсия: takenToWork = подмножество с «Взяли в работу» = Да (формула прежняя).
  */
-export async function getSystemCreatedLeadCounts(
-  startDate: string,
-  endDate: string,
+export async function getCultCountsByBriefField(
   config: AmoConfig,
-): Promise<{ totalRequests: number; takenToWork: number }> {
+): Promise<CultBriefResult> {
   const pipelineId = config.pipelineId;
-  const createdByUserId = config.systemCreatedByUserId;
-  const primaryContactStatusId = config.primaryContactStatusId;
+  const reqStatusIds = config.requestStatusIds ?? [];
+  const briefFieldId = config.briefDateFieldId;
   const takenFieldId = config.takenToWorkFieldId;
   const takenEnumId = config.takenToWorkEnumId;
 
-  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !createdByUserId || !primaryContactStatusId) {
-    throw new Error("amoCRM (Култ) не сконфигурирован: нужны BASE_URL/TOKEN/PIPELINE + systemCreatedByUserId + primaryContactStatusId");
+  if (!BASE_URL || !ACCESS_TOKEN || !pipelineId || !reqStatusIds.length || !briefFieldId) {
+    throw new Error("amoCRM (Култ) не сконфигурирован: нужны BASE_URL/TOKEN/PIPELINE + requestStatusIds + briefDateFieldId");
   }
 
-  const startTs = dayStartTs(startDate);
-  const endTs = dayEndTs(endDate);
-
-  // Запросы: лиды от Системы, в "Первичный контакт", созданные в периоде
-  // + считаем "взяли в работу" по кастомному полю
-  let totalRequests = 0;
-  let takenToWork = 0;
+  const buckets: Record<string, CultMonthlyCounts> = {};
+  const withoutBrief: { id: number; name: string; createdAt: number }[] = [];
   let page = 1;
   let hasMore = true;
 
   while (hasMore) {
-    const params = new URLSearchParams({
-      "filter[pipeline_id]": String(pipelineId),
-      "filter[created_by]": String(createdByUserId),
-      "filter[created_at][from]": String(startTs),
-      "filter[created_at][to]": String(endTs),
-      "filter[statuses][0][pipeline_id]": String(pipelineId),
-      "filter[statuses][0][status_id]": String(primaryContactStatusId),
-      limit: "250",
-      page: String(page),
+    const params = new URLSearchParams({ limit: "250", page: String(page) });
+    reqStatusIds.forEach((sid, i) => {
+      params.set(`filter[statuses][${i}][pipeline_id]`, String(pipelineId));
+      params.set(`filter[statuses][${i}][status_id]`, String(sid));
     });
     const data = await amoFetch<AmoLeadsResponse>(`/api/v4/leads?${params}`);
-    if (!data._embedded?.leads?.length) break;
-    for (const lead of data._embedded.leads) {
-      if (lead.pipeline_id !== pipelineId) continue;
-      totalRequests++;
-      // Проверяем кастомное поле "Взяли в работу" = "Да"
-      if (takenFieldId && takenEnumId && lead.custom_fields_values) {
-        const field = lead.custom_fields_values.find((f) => f.field_id === takenFieldId);
-        if (field?.values?.some((v) => v.value === "Да" || (v as { enum_id?: number }).enum_id === takenEnumId)) {
-          takenToWork++;
-        }
+    const items = data._embedded?.leads;
+    if (!items?.length) break;
+    for (const l of items) {
+      if (l.pipeline_id !== pipelineId) continue;
+      const f = l.custom_fields_values?.find((f) => f.field_id === briefFieldId);
+      const v = f?.values?.[0]?.value;
+      if (!v) {
+        withoutBrief.push({ id: l.id, name: l.name, createdAt: l.created_at });
+        continue;
       }
+      const monthKey = toMonthKey(Number(v));
+      let b = buckets[monthKey];
+      if (!b) {
+        b = { requests: 0, takenToWork: 0 };
+        buckets[monthKey] = b;
+      }
+      b.requests++;
+      if (leadTakenToWork(l, takenFieldId, takenEnumId)) b.takenToWork++;
     }
     hasMore = !!data._links?.next;
     page++;
   }
-
-  return { totalRequests, takenToWork };
+  return { buckets, withoutBrief };
 }

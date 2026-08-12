@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityConfig } from "@/lib/entity-config";
 import type { PaymentStructureResponse } from "@/lib/planfact-client";
-import { getProjectDetails, getLeadCountsByCreatedDate, getSystemCreatedLeadCounts, getBlasterCountsByBriefField } from "@/lib/amocrm-client";
-import type { AmoProjectDetail, BlasterBriefResult } from "@/lib/amocrm-client";
+import { getProjectDetails, getLeadCountsByCreatedDate, getBlasterCountsByBriefField, getCultCountsByBriefField } from "@/lib/amocrm-client";
+import type { AmoProjectDetail, BlasterBriefResult, CultBriefResult } from "@/lib/amocrm-client";
 import type { LegalEntity, BudgetMeta } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 import { currentMonthInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
@@ -192,13 +192,10 @@ export async function GET(request: NextRequest) {
       return getLeadCountsByCreatedDate(mStart, mEnd, amoConfig);
     });
 
-    // Cult: system-created lead counts for requests & conversion
-    const cultLeadPromises = isCult
-      ? monthRanges.map(({ m, mStart, mEnd }) => {
-          if (m > currentMonth) return Promise.resolve({ totalRequests: 0, takenToWork: 0 });
-          return getSystemCreatedLeadCounts(mStart, mEnd, amoConfig);
-        })
-      : null;
+    // Культ: один запрос — лиды в 8 статусах, месяц = «Бриф получен».
+    const cultCountsPromise: Promise<CultBriefResult | null> = isCult
+      ? getCultCountsByBriefField(amoConfig)
+      : Promise.resolve(null);
 
     // Бластер: один запрос в AmoCRM — лиды в 6 статусах с custom-полем "Бриф получен".
     //   Запросы/Победы/Завершённые в Апр+ — бакет по дате из поля.
@@ -223,16 +220,16 @@ export async function GET(request: NextRequest) {
     let projectResults: AmoProjectDetail[][] = months.map(() => []);
     let marginalityProjectResults: AmoProjectDetail[][] | null = null;
     let leadCountResults: { sold: number; totalRequests: number; wins: number }[] = months.map(() => ({ sold: 0, totalRequests: 0, wins: 0 }));
-    let cultLeadResults: { totalRequests: number; takenToWork: number }[] | null = null;
     let blasterCounts: BlasterBriefResult | null = null;
+    let cultCounts: CultBriefResult | null = null;
     let blasterActCheck: AmoProjectDetail[] | null = null;
     try {
-      [projectResults, marginalityProjectResults, leadCountResults, cultLeadResults, blasterCounts, blasterActCheck] = await Promise.all([
+      [projectResults, marginalityProjectResults, leadCountResults, blasterCounts, cultCounts, blasterActCheck] = await Promise.all([
         Promise.all(projectPromises),
         marginalityProjectsPromises ? Promise.all(marginalityProjectsPromises) : Promise.resolve(null),
         Promise.all(leadCountPromises),
-        cultLeadPromises ? Promise.all(cultLeadPromises) : Promise.resolve(null),
         blasterCountsPromise,
+        cultCountsPromise,
         blasterActCheckPromise,
       ]);
     } catch (amoError) {
@@ -243,16 +240,13 @@ export async function GET(request: NextRequest) {
     const projectsByMonth = new Map<string, AmoProjectDetail[]>();
     const marginalityProjectsByMonth = new Map<string, AmoProjectDetail[]>();
     const leadCountsByMonth = new Map<string, { sold: number; totalRequests: number; wins: number }>();
-    const cultLeadsByMonth = new Map<string, { totalRequests: number; takenToWork: number }>();
+    const cultCountsByMonth: Record<string, { requests: number; takenToWork: number }> = cultCounts?.buckets ?? {};
     const blasterCountsByMonth: Record<string, { requests: number; wins: number; completed: number }> = blasterCounts?.buckets ?? {};
     for (let i = 0; i < months.length; i++) {
       projectsByMonth.set(months[i], projectResults[i]);
       leadCountsByMonth.set(months[i], leadCountResults[i]);
       if (marginalityProjectResults) {
         marginalityProjectsByMonth.set(months[i], marginalityProjectResults[i]);
-      }
-      if (cultLeadResults) {
-        cultLeadsByMonth.set(months[i], cultLeadResults[i]);
       }
     }
 
@@ -599,9 +593,9 @@ export async function GET(request: NextRequest) {
         //   Запросы (все месяцы): по полю "Бриф получен" из AmoCRM
         //   Победы/Завершённые: до марта 2026 — по дате создания + текущий статус (избегаем аномалии Мар),
         //                       с апреля 2026 — по дате "Бриф получен" + текущий статус (то же поле что Запросы).
-        // Культ — без изменений (системный пользователь + Первичный контакт).
+        // Культ: Запросы и Конверсия (числитель) — по «Бриф получен», 8 статусов.
         requestsFact: isCult
-          ? (cultLeadsByMonth.get(monthKey)?.totalRequests ?? 0)
+          ? (cultCountsByMonth[monthKey]?.requests ?? 0)
           : (blasterCountsByMonth[monthKey]?.requests ?? 0),
         // Количественные планы заданы на PLANS_YEAR — для других лет 0 («плана нет»)
         requestsPlan: !monthKey.startsWith(`${PLANS_YEAR}-`)
@@ -610,7 +604,7 @@ export async function GET(request: NextRequest) {
             ? CULT_PLANS.requestsPerMonth
             : (BLASTER_PLANS.requestsByMonth2026[parseInt(monthKey.split("-")[1], 10) - 1] ?? 0),
         projectsSoldFact: isCult
-          ? (cultLeadsByMonth.get(monthKey)?.takenToWork ?? 0)
+          ? (cultCountsByMonth[monthKey]?.takenToWork ?? 0)
           : (monthKey >= "2026-04"
               ? (blasterCountsByMonth[monthKey]?.completed ?? 0)
               : (leadCountsByMonth.get(monthKey)?.sold ?? 0)),
@@ -796,11 +790,10 @@ export async function GET(request: NextRequest) {
       .filter((p) => p.hasActDate === false)
       .map((p) => ({ id: p.id, name: p.name }));
 
-    // Бластер: лиды в «запросных» статусах без «Бриф получен» — тихо выпадают из
-    // Запросов/Побед. Фетч по статусам идёт по всей истории, поэтому ограничиваем
-    // созданными в выбранном периоде (дата создания в бизнес-TZ). Бейдж — у уравнения.
-    const projectsWithoutBrief = !isCult
-      ? (blasterCounts?.withoutBrief ?? [])
+    // Лиды в «запросных» статусах без «Бриф получен» — бейдж у бизнес-уравнения.
+    const withoutBriefSource = isCult ? cultCounts?.withoutBrief : blasterCounts?.withoutBrief;
+    const projectsWithoutBrief = withoutBriefSource
+      ? withoutBriefSource
           .filter((l) => {
             const created = new Date(l.createdAt * 1000).toLocaleDateString("sv-SE", { timeZone: BUSINESS_TZ });
             return created >= startDate && created <= endDate;

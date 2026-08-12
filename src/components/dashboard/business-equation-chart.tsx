@@ -243,6 +243,10 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const CULT_BUDGET_AVG_CHECK = CULT_PLANS.avgCheck;
     const CULT_BUDGET_CONVERSION = CULT_PLANS.conversionPercent;
     const CULT_BUDGET_PROJECTS = totalProjectsPlan;
+    const pastMonthCount = monthly.filter((m) => m.isPast).length;
+    const cultPlanRevenue = CULT_PLANS.revenuePerMonth * pastMonthCount;
+    const cultPlanMargin = CULT_PLANS.marginPerMonth * pastMonthCount;
+    const cultPlanMarginPct = CULT_PLANS.marginPercent;
 
     // items: [name, fact, budget, isPercent, isExpense]
     const items: [string, number, number, boolean, boolean][] = entity === "cult"
@@ -251,9 +255,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
           ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, true, false],
           ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, false, false],
           ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, false, false],
-          ["Выручка", factRevenue, budgetRevenue, false, false],
-          ["Маржин-ть", avgFactMarginPct, avgBudgetMarginPct, true, false],
-          ["Маржа", factMargin, budgetMargin, false, false],
+          ["Выручка", factRevenue, cultPlanRevenue, false, false],
+          ["Маржин-ть", avgFactMarginPct, cultPlanMarginPct, true, false],
+          ["Маржа", factMargin, cultPlanMargin, false, false],
           ["Пост. расходы", factFixed, budgetFixed, false, true],
           ["Прибыль", factProfit, budgetProfit, false, false],
         ]
@@ -333,7 +337,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
               always
               side="bottom"
               title="Пустое поле «Бриф получен» в amoCRM"
-              content={`Не попадают в Запросы и Победы:\n${projectsWithoutBrief.map((p) => `• ${p.name}`).join("\n")}\nЗаполни «Бриф получен» в сделке — она вернётся в воронку.`}
+              content={`Не попадают в Запросы:\n${projectsWithoutBrief.map((p) => `• ${p.name}`).join("\n")}\nЗаполни «Бриф получен» в сделке — она вернётся в воронку.`}
             >
               <span className="inline-flex items-center rounded-full bg-amber-50 px-2 h-6 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70 whitespace-nowrap cursor-help">
                 &#x26A0;&#xFE0F; {projectsWithoutBrief.length} {dealsWord(projectsWithoutBrief.length)} без брифа
