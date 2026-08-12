@@ -163,9 +163,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
   const currentDay = parseInt(businessToday.slice(8, 10), 10);
   const daysInCurrentMonth = new Date(parseInt(businessToday.slice(0, 4), 10), currentMonthIdx + 1, 0).getDate();
   const periodHasCurrentMonth = monthly.some((m) => m.month === currentMonthKey && m.isPast);
+  const showYearBudget = chartMode === "ni" && globalFullYear;
   const chartData = useMemo<BarDataPoint[]>(() => {
-    const showYearBudget = chartMode === "ni" && globalFullYear;
-
     // План на весь выбранный период (все месяцы, включая будущие)
     let yearBudgetRevenue = 0, yearBudgetMargin = 0;
     let yearBudgetFixed = 0, yearBudgetProfit = 0;
