@@ -238,11 +238,10 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
     // Винрейт/конверсия:
-    //   Бластер: победы (Продажа + Реализовано) / завершённые (Продажа + Реализовано + Закрыто и не реализовано) × 100%
-    //   Культ:   takenToWork / totalRequests × 100%
-    // У Бластера используем m.winsFact в числителе и m.projectsSoldFact в знаменателе (он же "обработанные" = 3 финальных статуса).
+    //   Бластер: победы / завершённые × 100%; отдельно «Конверсия» = Победы ÷ Запросы
+    //   Культ:   Проекты ÷ Запросы × 100% — те же числа, что в соседних столбцах
     const factConversion = entity === "cult"
-      ? (totalRequestsFact > 0 ? (totalProjectsSoldFact / totalRequestsFact) * 100 : 0)
+      ? (totalRequestsFact > 0 ? (totalProjectsByActs / totalRequestsFact) * 100 : 0)
       : (totalProjectsSoldFact > 0 ? (totalWinsFact / totalProjectsSoldFact) * 100 : 0);
     // «Конверсия запросов в проекты» для Бластера = Победы ÷ Запросы.
     // Добавляется рядом с Винрейтом (аддитивно, Винрейт остаётся).
@@ -264,7 +263,12 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const blasterBudgetProjects = totalProjectsPlan;
 
     const CULT_BUDGET_AVG_CHECK = CULT_PLANS.avgCheck;
-    const CULT_BUDGET_CONVERSION = CULT_PLANS.conversionPercent;
+    const cultBudgetConversion = totalRequestsPlan > 0
+      ? (totalProjectsPlan / totalRequestsPlan) * 100
+      : 0;
+    const cultYearBudgetConversion = yearRequestsPlan > 0
+      ? (yearProjectsPlan / yearRequestsPlan) * 100
+      : 0;
     const CULT_BUDGET_PROJECTS = totalProjectsPlan;
     // Маржин-ть Культа: факт — PlanFact (как KPI); план — 20% из plans.ts.
     const cultPlanMarginPct = CULT_PLANS.marginPercent;
@@ -273,7 +277,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const items: [string, number, number, number, boolean, boolean][] = entity === "cult"
       ? [
           ["Запросы", totalRequestsFact, totalRequestsPlan, yearRequestsPlan, false, false],
-          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, CULT_BUDGET_CONVERSION, true, false],
+          ["Конверсия", factConversion, cultBudgetConversion, cultYearBudgetConversion, true, false],
           ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, yearProjectsPlan, false, false],
           ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, CULT_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, yearBudgetRevenue, false, false],

@@ -35,7 +35,7 @@ export const BLASTER_PLANS = {
 export const CULT_PLANS = {
   /** План запросов в месяц */
   requestsPerMonth: 9.8,
-  /** План конверсии (Взятые в работу ÷ Запросы), % */
+  /** План конверсии (Проекты ÷ Запросы), % — справочно; в уравнении считается из projectsPerMonth / requestsPerMonth */
   conversionPercent: 25,
   /** План проектов в месяц */
   projectsPerMonth: 2.5,

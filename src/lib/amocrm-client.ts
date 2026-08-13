@@ -185,7 +185,7 @@ export interface AmoConfig {
   winStatusIds?: number[];
   /** Custom-поле «Бриф получен» — месяц для Запросов (Бластер + Култ) */
   briefDateFieldId?: number;
-  /** Култ: «Взяли в работу» — числитель Конверсии (формула не меняется) */
+  /** Култ: «Взяли в работу» — поле в amoCRM; в дашборде не используется (конверсия = Проекты ÷ Запросы) */
   takenToWorkFieldId?: number;
   takenToWorkEnumId?: number;
 }
@@ -480,7 +480,7 @@ function leadTakenToWork(
  *
  * Учитываются все лиды в requestStatusIds с заполненным «Бриф получен» —
  * месяц = дата поля, этап воронки не влияет (в т.ч. «Закрыто и не реализовано»).
- * Конверсия: takenToWork = подмножество с «Взяли в работу» = Да (формула прежняя).
+ * Конверсия в уравнении: Проекты ÷ Запросы (поле «Взяли в работу» здесь не используется).
  */
 export async function getCultCountsByBriefField(
   config: AmoConfig,
