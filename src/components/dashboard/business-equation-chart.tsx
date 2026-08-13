@@ -263,12 +263,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const blasterBudgetProjects = totalProjectsPlan;
 
     const CULT_BUDGET_AVG_CHECK = CULT_PLANS.avgCheck;
-    const cultBudgetConversion = totalRequestsPlan > 0
-      ? (totalProjectsPlan / totalRequestsPlan) * 100
-      : 0;
-    const cultYearBudgetConversion = yearRequestsPlan > 0
-      ? (yearProjectsPlan / yearRequestsPlan) * 100
-      : 0;
+    const CULT_BUDGET_CONVERSION = CULT_PLANS.conversionPercent;
     const CULT_BUDGET_PROJECTS = totalProjectsPlan;
     // Маржин-ть Культа: факт — PlanFact (как KPI); план — 20% из plans.ts.
     const cultPlanMarginPct = CULT_PLANS.marginPercent;
@@ -277,7 +272,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const items: [string, number, number, number, boolean, boolean][] = entity === "cult"
       ? [
           ["Запросы", totalRequestsFact, totalRequestsPlan, yearRequestsPlan, false, false],
-          ["Конверсия", factConversion, cultBudgetConversion, cultYearBudgetConversion, true, false],
+          ["Конверсия", factConversion, CULT_BUDGET_CONVERSION, CULT_BUDGET_CONVERSION, true, false],
           ["Проекты", totalProjectsByActs, CULT_BUDGET_PROJECTS, yearProjectsPlan, false, false],
           ["Средний чек", factAvgCheck, CULT_BUDGET_AVG_CHECK, CULT_BUDGET_AVG_CHECK, false, false],
           ["Выручка", factRevenue, budgetRevenue, yearBudgetRevenue, false, false],

@@ -235,7 +235,7 @@ const CULT: EntityHints = {
       "Источник: AmoCRM.\n" +
       "Факт: Проекты ÷ Запросы × 100%.\n" +
       "Числитель — столбец «Проекты» (дата создания), знаменатель — «Запросы» («Бриф получен»).\n" +
-      "План: Σ плановых проектов ÷ Σ плановых запросов × 100% (lib/plans.ts: projectsPerMonth, requestsPerMonth).",
+      "План: 25% (lib/plans.ts, conversionPercent).",
   },
   eq_projects: {
     title: "Проекты",
