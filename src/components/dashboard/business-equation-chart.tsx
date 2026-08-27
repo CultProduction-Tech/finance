@@ -375,7 +375,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
           <span className="shrink-0 pt-0.5 text-sm leading-none">&#x23F3;</span>
           <span>
-            <b>{MONTHS_RU[currentMonthIdx]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. Факт копится с начала месяца, план дан за весь: отрицательные бары в начале — норма.
+            <b>{MONTHS_RU[currentMonthIdx]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. По деньгам за текущий месяц берём бюджет (как «на конец месяца» в ПФ), не факт к дате.
           </span>
         </div>
       )}

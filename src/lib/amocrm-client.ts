@@ -16,10 +16,10 @@ const EXPENSE_PLAN_FIELD_ID = 1647605;
 const STATUS_SOLD = 142;
 
 export interface AmoLeadCounts {
-  /** Лиды в терминальных статусах (conversionSoldStatusIds — Реализовано + Закрыто и не реализ.) — знаменатель Винрейта */
+  /** Лиды в статусах conversionSoldStatusIds (Продажа + Реализ. + Закрыто) — знаменатель Винрейта */
   sold: number;
   totalRequests: number;
-  /** Лиды в "победных" статусах (winStatusIds — Реализовано) по дате создания */
+  /** Лиды в "победных" статусах (winStatusIds — Продажа + Реализовано) по дате создания */
   wins: number;
 }
 
@@ -390,8 +390,8 @@ function toMonthKey(ts: number): string {
  *
  * Внутри месяца:
  *   requests  — все лиды в 6 целевых статусах
- *   wins      — подмножество, у которых текущий статус ∈ winStatusIds (Реализованo)
- *   completed — подмножество, у которых текущий статус ∈ conversionSoldStatusIds (Реализ. + Закрыто_не_реализ)
+ *   wins      — подмножество, у которых текущий статус ∈ winStatusIds (Продажа + Реализовано)
+ *   completed — подмножество ∈ conversionSoldStatusIds (Продажа + Реализ. + Закрыто_не_реализ)
  *
  * ⚡ Запросов AmoCRM: ~10 (только пагинация всех лидов в 6 статусах).
  */

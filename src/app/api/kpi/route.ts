@@ -551,25 +551,35 @@ export async function GET(request: NextRequest) {
 
     for (const monthKey of Array.from(monthlyMap.keys()).sort()) {
       const m = monthlyMap.get(monthKey)!;
-      const margin = m.revenue - m.variableExpenses;
-      const marginPercent = m.revenue > 0 ? Math.round((margin / m.revenue) * 100) : 0;
+      const factMarginRaw = m.revenue - m.variableExpenses;
+      const factMarginPercentRaw = m.revenue > 0 ? Math.round((factMarginRaw / m.revenue) * 100) : 0;
       const budgetMargin = m.budgetRevenue - m.budgetVariableExpenses;
       const budgetMarginPercent = m.budgetRevenue > 0 ? Math.round((budgetMargin / m.budgetRevenue) * 100) : 0;
 
-      const fixedExpensesForEquation = monthKey === currentMonth ? m.budgetFixedExpenses : m.fixedExpenses;
+      // Текущий (незакрытый) месяц: в «факт» денежных показателей кладём бюджет —
+      // как «цифра на конец месяца» в ПФ (синяя), а не накопленный факт к дате.
+      const isOpenMonth = monthKey === currentMonth;
+      const revenue = isOpenMonth ? m.budgetRevenue : m.revenue;
+      const variableExpenses = isOpenMonth ? m.budgetVariableExpenses : m.variableExpenses;
+      const margin = isOpenMonth ? budgetMargin : factMarginRaw;
+      const marginPercent = isOpenMonth ? budgetMarginPercent : factMarginPercentRaw;
+      const fixedExpenses = isOpenMonth ? m.budgetFixedExpenses : m.fixedExpenses;
+      const factProfit = isOpenMonth ? m.budgetProfit : m.factProfit;
+      const factRevenue = isOpenMonth ? m.budgetRevenue : m.factRevenue;
+      const profit = isOpenMonth ? m.budgetProfit : m.profit;
 
       monthly.push({
         month: monthKey,
-        revenue: m.revenue,
-        variableExpenses: m.variableExpenses,
+        revenue,
+        variableExpenses,
         margin,
         marginPercent,
-        fixedExpenses: m.fixedExpenses,
-        fixedExpensesForEquation,
-        profit: m.profit,
-        factProfit: m.factProfit,
+        fixedExpenses,
+        fixedExpensesForEquation: fixedExpenses,
+        profit,
+        factProfit,
         budgetProfit: m.budgetProfit,
-        factRevenue: m.factRevenue,
+        factRevenue,
         budgetRevenue: m.budgetRevenue,
         budgetMargin,
         budgetMarginPercent,
@@ -620,10 +630,10 @@ export async function GET(request: NextRequest) {
               : (leadCountsByMonth.get(monthKey)?.wins ?? 0)),
       });
 
-      totalRevenue += m.revenue;
-      totalVariableExpenses += m.variableExpenses;
-      totalFixedExpenses += m.fixedExpenses;
-      totalProfit += m.profit;
+      totalRevenue += revenue;
+      totalVariableExpenses += variableExpenses;
+      totalFixedExpenses += fixedExpenses;
+      totalProfit += profit;
     }
 
     const totalMargin = totalRevenue - totalVariableExpenses;
