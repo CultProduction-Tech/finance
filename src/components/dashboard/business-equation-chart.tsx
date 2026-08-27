@@ -238,16 +238,13 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     const avgBudgetMarginPct = budgetRevenue > 0 ? (budgetMargin / budgetRevenue) * 100 : 0;
 
     // Винрейт/конверсия:
-    //   Бластер: победы / завершённые × 100%; отдельно «Конверсия» = Победы ÷ Запросы
-    //   Культ:   Проекты ÷ Запросы × 100% — те же числа, что в соседних столбцах
+    //   Бластер: оба = Победы ÷ Завершённые (Продажа+Реализ) / (Продажа+Реализ+Закрыто)
+    //   Культ:   Проекты ÷ Запросы
     const factConversion = entity === "cult"
       ? (totalRequestsFact > 0 ? (totalProjectsByActs / totalRequestsFact) * 100 : 0)
       : (totalProjectsSoldFact > 0 ? (totalWinsFact / totalProjectsSoldFact) * 100 : 0);
-    // «Конверсия запросов в проекты» для Бластера = Победы ÷ Запросы.
-    // Добавляется рядом с Винрейтом (аддитивно, Винрейт остаётся).
-    const factConversionRate = totalRequestsFact > 0
-      ? (totalWinsFact / totalRequestsFact) * 100
-      : 0;
+    // Бластер: «Конверсия» в основном уравнении = та же логика винрейта (раньше было Победы÷Запросы → 6% при 1/16).
+    const factConversionRate = factConversion;
     // Средний чек = Σ цен сданных проектов ÷ их число, по «Дате акта» (тот же
     // набор сделок, что график «Маржинальность»). «Чек» — атрибут сделки, а не
     // денежного потока: раньше делили PlanFact-выручку (даты платежей) на кол-во
@@ -257,7 +254,8 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     // Планы — из единого модуля lib/plans.ts (хардкод by design, но в одном месте)
     const BLASTER_BUDGET_AVG_CHECK = BLASTER_PLANS.avgCheck;
     const BLASTER_BUDGET_CONVERSION = BLASTER_PLANS.winRatePercent;
-    const BLASTER_BUDGET_CONVERSION_RATE = BLASTER_PLANS.conversionPercent;
+    // Конверсия Бластера = винрейт → тот же план 40%
+    const BLASTER_BUDGET_CONVERSION_RATE = BLASTER_PLANS.winRatePercent;
     // План проектов (оба контура) — сумма помесячных m.projectsPlan за прошедшую
     // часть периода: единый источник с route и автоматический year-gate планов.
     const blasterBudgetProjects = totalProjectsPlan;
@@ -375,7 +373,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
         <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
           <span className="shrink-0 pt-0.5 text-sm leading-none">&#x23F3;</span>
           <span>
-            <b>{MONTHS_RU[currentMonthIdx]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. По деньгам за текущий месяц берём бюджет (как «на конец месяца» в ПФ), не факт к дате.
+            <b>{MONTHS_RU[currentMonthIdx]} ещё идёт</b> — день {currentDay} из {daysInCurrentMonth}. По деньгам за текущий месяц в «факте» — план ОПиУ PlanFact на весь месяц («показывать план»), не накопление к дате.
           </span>
         </div>
       )}
