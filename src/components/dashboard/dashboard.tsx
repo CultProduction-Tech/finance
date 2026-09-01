@@ -131,7 +131,7 @@ function DashboardInner() {
   }, [entity]);
 
   // KPI виджеты — используют свой локальный период
-  const { data: kpi, loading, useMock, syncedAt, isStale, degradedSources } = useKpi({
+  const { data: kpi, loading, useMock, syncedAt, isStale, degradedSources, planFactFrozen, planFactAsOf } = useKpi({
     entity,
     year: kpiYear,
     startMonth: kpiStart,
@@ -140,7 +140,7 @@ function DashboardInner() {
   });
 
   // Графики — используют глобальный период (как стартовая точка)
-  const { data: globalKpi, degradedSources: globalDegraded } = useKpi({
+  const { data: globalKpi, degradedSources: globalDegraded, planFactFrozen: globalPfFrozen, planFactAsOf: globalPfAsOf } = useKpi({
     entity,
     year,
     startMonth,
@@ -177,6 +177,9 @@ function DashboardInner() {
   const budgetError = !useMock
     ? (liveSources?.budget ?? globalLiveSources?.budget ?? null)
     : null;
+
+  const pfFrozen = planFactFrozen || globalPfFrozen;
+  const pfAsOf = planFactAsOf || globalPfAsOf;
 
   // Снимок не сегодняшний → показываем дату, а не голое время: «снимок от 12:24» у данных
   // двухнедельной давности выглядит свежим. День считаем по бизнес-TZ, как и весь дашборд.
@@ -291,8 +294,13 @@ function DashboardInner() {
         {/* Полоса предупреждений — отдельной строкой под шапкой, а не в левой колонке:
             бейджи длинные, вдвоём они ломали сетку и наезжали на селектор периода.
             Здесь они переносятся (flex-wrap) и ничего не двигают. */}
-        {(useMock || amocrmError || budgetError || isOldSnapshot) && (
+        {(useMock || amocrmError || budgetError || isOldSnapshot || pfFrozen) && (
           <div className="max-w-7xl mx-auto px-6 pb-3 flex flex-wrap items-center gap-2">
+            {pfFrozen && (
+              <Badge variant="secondary" className="text-xs rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                Сегодня платёжный день — данные на {pfAsOf ?? "последний снимок до окна"}
+              </Badge>
+            )}
             {useMock && (
               <Badge variant="destructive" className="text-xs rounded-full">
                 ⚠️ Demo-данные — источники недоступны
@@ -378,6 +386,11 @@ function DashboardInner() {
         ) : null}
       </div>
 
+      {/* Остатки на счетах — сразу под виджетами */}
+      <div className="px-6 pb-5">
+        <CashflowChart entity={entity} refreshKey={refreshKey} onLastBalance={setCashflow3m} />
+      </div>
+
       {/* Графики — скелетоны во время загрузки чтобы layout не прыгал */}
       {!globalKpi && (
         <div className="px-6 pb-6">
@@ -386,9 +399,6 @@ function DashboardInner() {
             <ChartCardSkeleton variant="bar" />
             <ChartCardSkeleton variant="bar" />
             <ChartCardSkeleton variant="bar" />
-          </div>
-          <div className="mt-5">
-            <ChartCardSkeleton variant="line" height={240} />
           </div>
         </div>
       )}
@@ -420,11 +430,6 @@ function DashboardInner() {
             <ChartWithPeriod entity={entity} globalYear={year} globalStartMonth={startMonth} globalEndMonth={endMonth} globalKpi={globalKpi} periodVersion={periodVersion} globalFullYear={globalFullYear}>
               {(data, _loading, ps) => <ExpenseBudgetChart expenseCategories={data.expenseCategories} revenue={data.expenseBaseRevenue ?? data.revenue} periodSelector={ps} entity={entity} />}
             </ChartWithPeriod>
-          </div>
-
-          {/* Кэшфлоу — занимает всю ширину под основной 2×2 сеткой */}
-          <div className="mt-5">
-            <CashflowChart entity={entity} refreshKey={refreshKey} onLastBalance={setCashflow3m} />
           </div>
 
           {/* Детальное «Бизнес-уравнение Лиза» — в самый низ (Костя, созвон 21.07: 18:25).

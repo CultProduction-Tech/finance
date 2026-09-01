@@ -67,5 +67,17 @@
 | `RESEND_API_KEY` | отправка писем со ссылкой для входа (resend.com), домен `financial-dashboard.ru`. |
 | `HUB_URL` / `HUB_SERVICE_TOKEN` | Feature Hub — проверка доступа к дашборду по email (опционально; нет → фолбэк на `AUTH_ALLOWED_DOMAINS`). |
 | `AUTH_ALLOWED_DOMAINS` | домены, которым разрешён вход (cult.team, blasterstudio.ru). |
+| `CRON_SECRET` | Bearer для `/api/cron/warmup-planfact` (прогрев снимков ПФ во вт/чт 23:50 МСК). Без него cron получит 401. |
+| `INTERNAL_APP_URL` | опционально: origin для внутренних запросов прогрева (дефолт `http://127.0.0.1:3000`). |
+
+### Прогрев PlanFact перед платёжными днями
+
+Ср и пт–вс дашборд не обновляет деньги из ПФ (см. `planfact-freeze.ts`). Чтобы снимок был свежим:
+
+1. Задать `CRON_SECRET` в `/opt/finance/.env.local`, `pm2 restart finance`.
+2. Поставить crontab — пример: [`crontab-planfact-warmup.example`](./crontab-planfact-warmup.example) (вт/чт **23:50 Europe/Moscow**).
+3. Проверка: `curl -sS -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/cron/warmup-planfact`.
+
+Эндпоинт греет KPI (текущий месяц + год) и cashflow для Бластера и Культа; в окно заморозки отвечает `skipped` и ничего не пишет.
 
 Деплой и запуск — см. память проекта / `Dockerfile` не используется в проде (pm2 + `next start`, порт 3000).

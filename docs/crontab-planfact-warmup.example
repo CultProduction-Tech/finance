@@ -1,0 +1,18 @@
+# Прогрев снимков PlanFact перед платёжными днями (вт/чт 23:50 МСК)
+#
+# На VPS после деплоя (CRON_SECRET уже в /opt/finance/.env.local):
+#
+#   crontab -e
+#
+# Важно: TZ=Europe/Moscow — чтобы 23:50 было по Москве, даже если VPS в UTC.
+# Секрет подставь из env (не коммить в git):
+
+SHELL=/bin/bash
+TZ=Europe/Moscow
+
+# Вт(2) и Чт(4) в 23:50 МСК
+50 23 * * 2,4 root bash -lc 'set -a; source /opt/finance/.env.local; set +a; curl -fsS -H "Authorization: Bearer '"'"'$CRON_SECRET'"'"'" http://127.0.0.1:3000/api/cron/warmup-planfact' >> /var/log/finance-warmup.log 2>&1
+
+# Ручная проверка на сервере:
+#   set -a && source /opt/finance/.env.local && set +a
+#   curl -sS -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/cron/warmup-planfact | jq .

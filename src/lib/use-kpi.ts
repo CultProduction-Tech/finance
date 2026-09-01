@@ -34,6 +34,9 @@ interface UseKpiResult {
    * дашборд молча показывает старые данные. Null, когда live применён нормально.
    */
   degradedSources: KpiData["sources"] | null;
+  /** Платёжный день: PlanFact заморожен на снимке до окна */
+  planFactFrozen: boolean;
+  planFactAsOf: string | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,6 +90,8 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
   const [syncedAt, setSyncedAt] = useState<Date | null>(null);
   const [isStale, setIsStale] = useState(false);
   const [degradedSources, setDegradedSources] = useState<KpiData["sources"] | null>(null);
+  const [planFactFrozen, setPlanFactFrozen] = useState(false);
+  const [planFactAsOf, setPlanFactAsOf] = useState<string | null>(null);
   // Растущий номер запроса: колбэки устаревших запросов (смена периода/entity) игнорируются
   const requestSeq = useRef(0);
 
@@ -99,6 +104,8 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     setLoading(true);
     setError(null);
     setDegradedSources(null);
+    setPlanFactFrozen(false);
+    setPlanFactAsOf(null);
 
     const base = `/api/kpi?startDate=${startDate}&endDate=${endDate}&entity=${entity}`;
 
@@ -148,6 +155,8 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
       setIsStale(false);
       setUseMock(false);
       setDegradedSources(null);
+      setPlanFactFrozen(!!json.planFactFrozen);
+      setPlanFactAsOf(json.planFactAsOf ?? null);
     } catch (err) {
       // Live упал: если успел показаться снимок — остаёмся на нём (честные данные с меткой времени).
       await snapshotPromise;
@@ -177,5 +186,5 @@ export function useKpi({ entity, year, startMonth, endMonth, refreshKey }: UseKp
     fetchData();
   }, [fetchData]);
 
-  return { data, loading, error, useMock, syncedAt, isStale, degradedSources };
+  return { data, loading, error, useMock, syncedAt, isStale, degradedSources, planFactFrozen, planFactAsOf };
 }

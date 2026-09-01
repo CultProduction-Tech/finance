@@ -7,6 +7,8 @@ import type { LegalEntity, BudgetMeta } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 import { currentMonthInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
 import { BLASTER_PLANS, CULT_PLANS, PLANS_YEAR } from "@/lib/plans";
+import { getPlanFactFreezeState, isSnapshotBeforeFreeze } from "@/lib/planfact-freeze";
+import { mergeKpiPlanFactFromSnapshot } from "@/lib/merge-kpi-planfact-freeze";
 
 export interface ExpenseCategory {
   id: number;
@@ -43,6 +45,10 @@ export interface KpiResponse {
   projectsWithoutAct?: { id: number; name: string }[];
   /** Бластер: сделки периода в «запросных» статусах без «Бриф получен» — невидимы в Запросах/Победах */
   projectsWithoutBrief?: { id: number; name: string }[];
+  /** Платёжный день: денежный слой PlanFact заморожен на снимке до окна */
+  planFactFrozen?: boolean;
+  /** Подпись «на когда» заморозки ПФ, напр. «вт 26.08 23:59» */
+  planFactAsOf?: string;
 }
 
 export interface MonthlyKpi {
@@ -832,14 +838,30 @@ export async function GET(request: NextRequest) {
       projectsWithoutBrief,
     };
 
-    // Обновляем снимок: следующая загрузка дашборда начнёт с него мгновенно.
-    // Деградированный ответ (без amoCRM или без бюджета) не пишем — не затираем
-    // последний полноценный снимок.
-    if (amocrmStatus === "ok" && !budgetStatus) {
+    // Платёжные дни (ср / пт–вс): деньги PlanFact — из снимка до окна, Amo — живой.
+    // Снимок в эти дни не перезаписываем (иначе затрём «вт/чт 23:59» платёжным шумом).
+    const freeze = getPlanFactFreezeState();
+    const preFreezeSnap = freeze.active
+      ? await readSnapshot<KpiResponse>(snapshotKey)
+      : null;
+    const canFreezePf = !!(
+      freeze.active
+      && freeze.asOfLabel
+      && preFreezeSnap
+      && isSnapshotBeforeFreeze(preFreezeSnap.snapshotAt, freeze)
+    );
+
+    const out = canFreezePf
+      ? mergeKpiPlanFactFromSnapshot(response, preFreezeSnap!.payload, {
+          planFactAsOf: freeze.asOfLabel!,
+        })
+      : response;
+
+    if (amocrmStatus === "ok" && !budgetStatus && !freeze.active) {
       await saveSnapshot(snapshotKey, response);
     }
 
-    return NextResponse.json(response);
+    return NextResponse.json(out);
   } catch (error) {
     console.error("KPI API error:", error);
     return NextResponse.json(

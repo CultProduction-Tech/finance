@@ -3,6 +3,7 @@ import { getEntityConfig } from "@/lib/entity-config";
 import type { LegalEntity } from "@/types/finance";
 import { saveSnapshot, readSnapshot } from "@/lib/snapshot";
 import { todayInBusinessTz } from "@/lib/timezone";
+import { getPlanFactFreezeState, isSnapshotBeforeFreeze } from "@/lib/planfact-freeze";
 
 function fmt(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -13,6 +14,8 @@ interface CashflowResponsePayload {
   points: { date: string; balance: number; type: "fact" | "plan" }[];
   syncedAt?: string;
   snapshot?: boolean;
+  planFactFrozen?: boolean;
+  planFactAsOf?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -27,6 +30,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "no snapshot yet" }, { status: 404 });
     }
     return NextResponse.json({ ...snap.payload, syncedAt: snap.snapshotAt, snapshot: true });
+  }
+
+  // Платёжный день: не ходим в ПФ — отдаём снимок до окна заморозки.
+  const freeze = getPlanFactFreezeState();
+  if (freeze.active) {
+    const snap = await readSnapshot<CashflowResponsePayload>(snapshotKey);
+    if (snap && isSnapshotBeforeFreeze(snap.snapshotAt, freeze)) {
+      return NextResponse.json({
+        ...snap.payload,
+        syncedAt: snap.snapshotAt,
+        planFactFrozen: true,
+        planFactAsOf: freeze.asOfLabel,
+      });
+    }
   }
 
   try {
@@ -66,11 +83,11 @@ export async function GET(request: NextRequest) {
     const plannedOps = await pf.getPlannedOperations(todayStr, rangeEndStr);
     const planDiffByDate = new Map<string, number>();
     for (const op of plannedOps) {
-      const d = op.operationDate?.slice(0, 10);
+      const od = op.operationDate?.slice(0, 10);
       // API может вернуть операции вне запрошенного периода — фильтруем сами
-      if (!d || d < todayStr || d > rangeEndStr) continue;
+      if (!od || od < todayStr || od > rangeEndStr) continue;
       const sign = op.operationType === "Income" ? 1 : op.operationType === "Outcome" ? -1 : 0;
-      planDiffByDate.set(d, (planDiffByDate.get(d) || 0) + sign * op.value);
+      planDiffByDate.set(od, (planDiffByDate.get(od) || 0) + sign * op.value);
     }
     // Полная дневная сетка [сегодня..конец диапазона] — дни без плановых операций дают 0
     const dailyCashflows: { date: string; planDifference: number }[] = [];
@@ -100,7 +117,10 @@ export async function GET(request: NextRequest) {
       points,
       syncedAt: new Date().toISOString(),
     };
-    await saveSnapshot(snapshotKey, payload);
+    // В платёжное окно снимок не пишем — не затираем «чт 23:59» свежим шумом ПФ.
+    if (!freeze.active) {
+      await saveSnapshot(snapshotKey, payload);
+    }
 
     return NextResponse.json(payload);
   } catch (error) {

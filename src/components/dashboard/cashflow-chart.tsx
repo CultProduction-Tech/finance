@@ -29,6 +29,8 @@ interface CashflowData {
   points: CashflowPoint[];
   syncedAt?: string;
   snapshot?: boolean;
+  planFactFrozen?: boolean;
+  planFactAsOf?: string;
 }
 
 interface CashflowChartProps {
@@ -170,7 +172,9 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   // Подписи дат. «Данные на» — реальное время данных с сервера (для снимка — время снимка).
   const monthsShort = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
   const syncedDate = data.syncedAt ? new Date(data.syncedAt) : new Date();
-  const dataAsOf = `${String(syncedDate.getDate()).padStart(2, "0")}.${String(syncedDate.getMonth() + 1).padStart(2, "0")}.${syncedDate.getFullYear()} ${String(syncedDate.getHours()).padStart(2, "0")}:${String(syncedDate.getMinutes()).padStart(2, "0")}${data.snapshot ? " (снимок)" : ""}`;
+  const dataAsOf = data.planFactFrozen
+    ? `Сегодня платёжный день — данные на ${data.planFactAsOf ?? "последний снимок до окна"}`
+    : `${String(syncedDate.getDate()).padStart(2, "0")}.${String(syncedDate.getMonth() + 1).padStart(2, "0")}.${syncedDate.getFullYear()} ${String(syncedDate.getHours()).padStart(2, "0")}:${String(syncedDate.getMinutes()).padStart(2, "0")}${data.snapshot ? " (снимок)" : ""}`;
   const startDate = chartData[0]?.date;
   const endDate = chartData[chartData.length - 1]?.date;
   const periodLabel = startDate && endDate
