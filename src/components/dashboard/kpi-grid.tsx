@@ -23,24 +23,23 @@ function deviation(fact: number, budget: number): number {
 }
 
 export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
-  // Единая семантика с бизнес-уравнением: и факт, и план — ТОЛЬКО прошедшие
-  // месяцы периода. Раньше деньги считались «прогнозом» (факт + план будущих):
-  // «НИ Янв–Дек» в виджете давал +2.1 млн прибыли, а в уравнении рядом
-  // −2.1 млн факта — одинаковый режим показывал разные цифры и путал всех.
+  // Деньги/воронка: прошедшие + текущий (isPast). Если выбран только будущий месяц
+  // (например октябрь в сентябре) — показываем план ОПиУ, уже лежащий в тех же полях.
   const past = data.monthly.filter((m) => m.isPast);
-  const revenue = past.reduce((s, m) => s + m.revenue, 0);
-  const margin = past.reduce((s, m) => s + m.margin, 0);
-  const profit = past.reduce((s, m) => s + m.factProfit, 0);
-  const budgetRevenue = past.reduce((s, m) => s + m.budgetRevenue, 0);
-  const budgetMargin = past.reduce((s, m) => s + m.budgetMargin, 0);
-  const budgetProfit = past.reduce((s, m) => s + m.budgetProfit, 0);
+  const rows = past.length > 0 ? past : data.monthly;
+  const revenue = rows.reduce((s, m) => s + m.revenue, 0);
+  const margin = rows.reduce((s, m) => s + m.margin, 0);
+  const profit = rows.reduce((s, m) => s + m.factProfit, 0);
+  const budgetRevenue = rows.reduce((s, m) => s + m.budgetRevenue, 0);
+  const budgetMargin = rows.reduce((s, m) => s + m.budgetMargin, 0);
+  const budgetProfit = rows.reduce((s, m) => s + m.budgetProfit, 0);
   const marginPercent = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
   const budgetMarginPercent = budgetRevenue > 0
     ? Math.round((budgetMargin / budgetRevenue) * 100)
     : 0;
 
-  const requestsFact = past.reduce((s, m) => s + m.requestsFact, 0);
-  const requestsPlan = past.reduce((s, m) => s + m.requestsPlan, 0);
+  const requestsFact = rows.reduce((s, m) => s + m.requestsFact, 0);
+  const requestsPlan = rows.reduce((s, m) => s + m.requestsPlan, 0);
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

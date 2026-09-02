@@ -381,6 +381,14 @@ function DashboardInner() {
                 </span>
               </div>
             )}
+            {kpiStart > currentMonth && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl bg-sky-50 px-3 py-2 text-xs leading-snug text-sky-900 ring-1 ring-sky-200/70 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/20">
+                <span className="shrink-0 pt-0.5 text-sm leading-none">📅</span>
+                <span>
+                  <b>Будущий период</b> — деньги: план ОПиУ PlanFact. Amo: сделки с датой акта / брифа в этом периоде (если уже проставлены).
+                </span>
+              </div>
+            )}
             <KpiGrid data={kpi} cashflow3m={cashflow3m} entity={entity} />
           </>
         ) : null}

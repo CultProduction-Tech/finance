@@ -163,7 +163,6 @@ export async function GET(request: NextRequest) {
     }
 
     const pastMonths = months.filter((m) => m <= currentMonth);
-    const futureMonths = months.filter((m) => m > currentMonth);
 
     const monthRanges = months.map((m) => {
       const [y, mo] = m.split("-").map(Number);
@@ -176,27 +175,25 @@ export async function GET(request: NextRequest) {
     const isCult = entity === "cult";
 
     // Бластер: проекты — по «Дате акта». Культ: для подсчёта количества — по created_at.
+    // Будущие месяцы тоже тянем: акт/бриф уже могут стоять на октябрь, пока на дворе сентябрь.
     const projectsDateMode: "act" | "created" = isCult ? "created" : "act";
-    const projectPromises = monthRanges.map(({ m, mStart, mEnd }) => {
-      if (m > currentMonth) return Promise.resolve([]);
-      return getProjectDetails(mStart, mEnd, amoConfig, projectsDateMode);
-    });
+    const projectPromises = monthRanges.map(({ mStart, mEnd }) =>
+      getProjectDetails(mStart, mEnd, amoConfig, projectsDateMode),
+    );
 
     // Культ: проекты для графика маржинальности бакетим по «Дате акта» (реализация
     // проекта), а не по created_at как счётчик «Проекты» — маржа признаётся при сдаче,
     // как у Бластера. Отдельный фетч, т.к. анкер-дата другая (акт может быть в другом
     // месяце, чем создание, и ловит переходящие проекты: создан в пред. году, сдан в этом).
     const marginalityProjectsPromises = isCult
-      ? monthRanges.map(({ m, mStart, mEnd }) => {
-          if (m > currentMonth) return Promise.resolve([]);
-          return getProjectDetails(mStart, mEnd, amoConfig, "act");
-        })
+      ? monthRanges.map(({ mStart, mEnd }) =>
+          getProjectDetails(mStart, mEnd, amoConfig, "act"),
+        )
       : null;
 
-    const leadCountPromises = monthRanges.map(({ m, mStart, mEnd }) => {
-      if (m > currentMonth) return Promise.resolve({ sold: 0, totalRequests: 0, wins: 0 });
-      return getLeadCountsByCreatedDate(mStart, mEnd, amoConfig);
-    });
+    const leadCountPromises = monthRanges.map(({ mStart, mEnd }) =>
+      getLeadCountsByCreatedDate(mStart, mEnd, amoConfig),
+    );
 
     // Культ: один запрос — лиды в 8 статусах, месяц = «Бриф получен».
     const cultCountsPromise: Promise<CultBriefResult | null> = isCult
@@ -256,7 +253,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const psPromises = pastMonths.map((m) => {
+    // ОПиУ по всем месяцам периода: закрытые — factValue; текущий и будущие — planValue
+    // («показывать план»), чтобы октябрь в сентябре показывал план, а не нули.
+    const psPromises = months.map((m) => {
       const [y, mo] = m.split("-").map(Number);
       const mStart = `${y}-${String(mo).padStart(2, "0")}-01`;
       const lastDay = new Date(y, mo, 0).getDate();
@@ -289,13 +288,13 @@ export async function GET(request: NextRequest) {
     });
     const monthlyMap = new Map<string, MonthlyEntry>();
 
-    for (let i = 0; i < pastMonths.length; i++) {
-      const monthKey = pastMonths[i];
+    for (let i = 0; i < months.length; i++) {
+      const monthKey = months[i];
       const ps = psResults[i];
-      // Текущий месяц: в «факт» кладём planValue из ОПиУ ПФ («по плану» на весь месяц),
+      // Текущий и будущие месяцы: в «факт» кладём planValue из ОПиУ ПФ («по плану»),
       // не накопленный factValue к дате — как синяя цифра в отчёте ПФ при «показывать план».
       // Закрытые месяцы — обычный факт. Это НЕ версия бюджета из /budgets (там другие цифры).
-      const usePfPlan = monthKey === currentMonth;
+      const usePfPlan = monthKey >= currentMonth;
 
       let revenue = 0;
       let variableExpenses = 0;
@@ -540,15 +539,7 @@ export async function GET(request: NextRequest) {
           if (cls.isRevenue) entry.budgetRevenue += item.value;
           else if (cls.isVariableExpense) entry.budgetVariableExpenses += Math.abs(item.value);
           else if (cls.isFixedExpense) entry.budgetFixedExpenses += Math.abs(item.value);
-
-          if (futureMonths.includes(monthKey)) {
-            if (cat.operationCategoryType === "Income") entry.profit += item.value;
-            else if (cat.operationCategoryType === "Outcome") entry.profit -= Math.abs(item.value);
-
-            if (cls.isRevenue) entry.revenue += item.value;
-            else if (cls.isVariableExpense) entry.variableExpenses += Math.abs(item.value);
-            else if (cls.isFixedExpense) entry.fixedExpenses += Math.abs(item.value);
-          }
+          // Будущие месяцы больше не копируем бюджет в «факт»: туда уже лежит planValue ОПиУ.
         }
       }
     }

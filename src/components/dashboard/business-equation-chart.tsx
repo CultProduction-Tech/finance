@@ -199,11 +199,12 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     let totalWinsFact = 0;
     let amoProjectsPrice = 0, amoProjectsCount = 0;
 
+    // Воронка и финансы — по прошедшим/текущему. Если в периоде нет ни одного
+    // isPast (выбран только будущий месяц) — берём план ОПиУ из тех же полей.
+    const onlyFuture = !monthly.some((x) => x.isPast);
+
     for (const m of monthly) {
-      // Вся воронка (факт И план) — только по прошедшим месяцам, как и финансы ниже.
-      // Иначе на годовом периоде факт-к-сегодня сравнивается с планом всего года
-      // и отклонения выглядят катастрофой (−56% вместо честных −20%).
-      if (!m.isPast) continue;
+      if (!m.isPast && !onlyFuture) continue;
 
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;

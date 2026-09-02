@@ -170,11 +170,13 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   const zeroOffset = yMax / yRange; // 0 — всё красное; 1 — всё зелёное
 
   // Подписи дат. «Данные на» — реальное время данных с сервера (для снимка — время снимка).
+  // В платёжный день — полная фраза без префикса «Данные на» (иначе дубль).
   const monthsShort = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
   const syncedDate = data.syncedAt ? new Date(data.syncedAt) : new Date();
-  const dataAsOf = data.planFactFrozen
-    ? `Сегодня платёжный день — данные на ${data.planFactAsOf ?? "последний снимок до окна"}`
-    : `${String(syncedDate.getDate()).padStart(2, "0")}.${String(syncedDate.getMonth() + 1).padStart(2, "0")}.${syncedDate.getFullYear()} ${String(syncedDate.getHours()).padStart(2, "0")}:${String(syncedDate.getMinutes()).padStart(2, "0")}${data.snapshot ? " (снимок)" : ""}`;
+  const freezeAsOf = data.planFactAsOf ?? "последний снимок до окна";
+  const dataAsOfLabel = data.planFactFrozen
+    ? `Сегодня платёжный день — данные на ${freezeAsOf}`
+    : `Данные на ${String(syncedDate.getDate()).padStart(2, "0")}.${String(syncedDate.getMonth() + 1).padStart(2, "0")}.${syncedDate.getFullYear()} ${String(syncedDate.getHours()).padStart(2, "0")}:${String(syncedDate.getMinutes()).padStart(2, "0")}${data.snapshot ? " (снимок)" : ""}`;
   const startDate = chartData[0]?.date;
   const endDate = chartData[chartData.length - 1]?.date;
   const periodLabel = startDate && endDate
@@ -207,7 +209,7 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
             note="Прогноз строится от текущего остатка с учётом запланированных поступлений и списаний."
           />
         </div>
-        <span className="text-xs text-muted-foreground">Данные на {dataAsOf}</span>
+        <span className="text-xs text-muted-foreground">{dataAsOfLabel}</span>
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
