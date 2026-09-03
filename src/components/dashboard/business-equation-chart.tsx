@@ -421,7 +421,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
               <>
                 {showYearBudget && renderRow("Бюджет год", "budgetYear")}
                 {renderRow(showYearBudget ? "Бюджет НИ" : "Бюджет", "budget")}
-                {renderRow("Факт", "fact", { bold: true, negativeRed: true })}
+                {renderRow("Факт НИ", "fact", { bold: true, negativeRed: true })}
               </>
             );
           }
@@ -508,9 +508,9 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
       </ResponsiveContainer>
       <p className="mt-2 text-center text-[11px] text-muted-foreground">
         {chartMode === "ni" && globalFullYear
-          ? "Бюджет год — план на весь год (Янв–Дек). Бюджет НИ и факт — накопленно за прошедшие месяцы. Бары — отклонение факта от бюджета НИ, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."
+          ? "Бюджет год — план на весь год (Янв–Дек). Бюджет НИ и факт НИ — накопленно за прошедшие месяцы. Бары — отклонение факта НИ от бюджета НИ, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."
           : chartMode === "ni"
-            ? "Бюджет и факт — накопленно за прошедшие месяцы выбранного интервала. Бары — отклонение факта от бюджета, %."
+            ? "Бюджет и факт НИ — накопленно за прошедшие месяцы выбранного интервала. Бары — отклонение факта НИ от бюджета, %."
             : "Бары — отклонение факта от плана за месяц, %. «Прибыль» — разница в деньгах (шкала ±2 млн)."}
       </p>
     </div>
