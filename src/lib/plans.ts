@@ -33,14 +33,36 @@ export const BLASTER_PLANS = {
 } as const;
 
 export const CULT_PLANS = {
-  /** План запросов в месяц */
-  requestsPerMonth: 9.8,
+  /** План запросов в месяц (целые; в одиночном месяце и коротких периодах) */
+  requestsPerMonth: 16,
+  /** План запросов на весь 2026 — не 16×12: годовая цель другая */
+  requestsPerYear: 195,
   /** План конверсии (Проекты ÷ Запросы), % — целевая норма в бизнес-уравнении */
   conversionPercent: 25,
   /** План проектов в месяц */
-  projectsPerMonth: 2.5,
+  projectsPerMonth: 4,
+  /** План проектов на весь 2026 — не 4×12 */
+  projectsPerYear: 50,
   /** Плановый средний чек, ₽ */
-  avgCheck: 5_000_000,
+  avgCheck: 3_500_000,
   /** План маржинальности, % — норма в уравнении и на графике; факт — PlanFact P&L */
   marginPercent: 20,
 } as const;
+
+/**
+ * План запросов/проектов Культа за набор месяцев:
+ * все 12 месяцев PLANS_YEAR → годовая цель; иначе помесячный × число месяцев года планов.
+ */
+export function cultCountPlan(
+  kind: "requests" | "projects",
+  monthKeys: readonly string[],
+): number {
+  const inYear = monthKeys.filter((k) => k.startsWith(`${PLANS_YEAR}-`));
+  if (inYear.length === 0) return 0;
+  const unique = new Set(inYear);
+  if (unique.size === 12) {
+    return kind === "requests" ? CULT_PLANS.requestsPerYear : CULT_PLANS.projectsPerYear;
+  }
+  const per = kind === "requests" ? CULT_PLANS.requestsPerMonth : CULT_PLANS.projectsPerMonth;
+  return per * unique.size;
+}

@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { MonthlyKpiData, LegalEntity, MONTHS_RU } from "@/types/finance";
 import { CHART_COLORS } from "@/lib/chart-colors";
-import { BLASTER_PLANS, CULT_PLANS } from "@/lib/plans";
+import { BLASTER_PLANS, CULT_PLANS, cultCountPlan } from "@/lib/plans";
 import { BarCursor } from "./chart-cursor";
 import { Hint } from "@/components/ui/hint";
 import { SourceMark } from "./source-mark";
@@ -176,15 +176,12 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     // План на весь выбранный период (все месяцы, включая будущие)
     let yearBudgetRevenue = 0, yearBudgetMargin = 0;
     let yearBudgetFixed = 0, yearBudgetProfit = 0;
-    let yearRequestsPlan = 0, yearProjectsPlan = 0;
 
     for (const m of monthly) {
       yearBudgetRevenue += m.budgetRevenue;
       yearBudgetMargin += m.budgetMargin;
       yearBudgetFixed += m.budgetFixedExpenses;
       yearBudgetProfit += m.budgetProfit;
-      yearRequestsPlan += m.requestsPlan;
-      yearProjectsPlan += m.projectsPlan;
     }
     const yearBudgetMarginPct = yearBudgetRevenue > 0 ? (yearBudgetMargin / yearBudgetRevenue) * 100 : 0;
 
@@ -198,6 +195,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     let totalProjectsPlan = 0;
     let totalWinsFact = 0;
     let amoProjectsPrice = 0, amoProjectsCount = 0;
+    const pastMonthKeys: string[] = [];
 
     // Воронка и финансы — по прошедшим/текущему. Если в периоде нет ни одного
     // isPast (выбран только будущий месяц) — берём план ОПиУ из тех же полей.
@@ -206,6 +204,7 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
     for (const m of monthly) {
       if (!m.isPast && !onlyFuture) continue;
 
+      pastMonthKeys.push(m.month);
       totalRequestsFact += m.requestsFact;
       totalRequestsPlan += m.requestsPlan;
       totalProjectsPlan += m.projectsPlan;
@@ -232,6 +231,19 @@ export function BusinessEquationChart({ monthly, periodSelector, entity, project
       budgetFixed += m.budgetFixedExpenses;
       factProfit += m.factProfit;
       budgetProfit += m.budgetProfit;
+    }
+
+    const allMonthKeys = monthly.map((m) => m.month);
+    // Культ: полный год в выборке → 195/50; иначе 16/4 × месяцы. Бластер — сумма из route.
+    const yearRequestsPlan = entity === "cult"
+      ? cultCountPlan("requests", allMonthKeys)
+      : monthly.reduce((s, m) => s + m.requestsPlan, 0);
+    const yearProjectsPlan = entity === "cult"
+      ? cultCountPlan("projects", allMonthKeys)
+      : monthly.reduce((s, m) => s + m.projectsPlan, 0);
+    if (entity === "cult") {
+      totalRequestsPlan = cultCountPlan("requests", pastMonthKeys);
+      totalProjectsPlan = cultCountPlan("projects", pastMonthKeys);
     }
 
     // Маржинальность — как KPI-карточка: Маржа ÷ Выручка из PlanFact (оба контура).

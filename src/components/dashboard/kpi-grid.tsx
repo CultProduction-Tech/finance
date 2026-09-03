@@ -4,6 +4,7 @@ import { KpiData, LegalEntity } from "@/types/finance";
 import { formatMoney } from "@/lib/finance-utils";
 import { KpiCard } from "./kpi-card";
 import { getHint } from "@/lib/hint-texts";
+import { cultCountPlan } from "@/lib/plans";
 
 interface KpiGridProps {
   data: KpiData;
@@ -39,7 +40,9 @@ export function KpiGrid({ data, cashflow3m, entity }: KpiGridProps) {
     : 0;
 
   const requestsFact = rows.reduce((s, m) => s + m.requestsFact, 0);
-  const requestsPlan = rows.reduce((s, m) => s + m.requestsPlan, 0);
+  const requestsPlan = entity === "cult"
+    ? cultCountPlan("requests", rows.map((m) => m.month))
+    : rows.reduce((s, m) => s + m.requestsPlan, 0);
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

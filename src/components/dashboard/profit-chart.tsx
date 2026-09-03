@@ -15,6 +15,14 @@ import { CHART_COLORS } from "@/lib/chart-colors";
 import { Hint } from "@/components/ui/hint";
 import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
+import { todayInBusinessTz } from "@/lib/timezone";
+
+/** Сдвиг YYYY-MM на n месяцев. */
+function addMonthsKey(monthKey: string, delta: number): string {
+  const [y, m] = monthKey.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 interface ProfitChartProps {
   monthly: MonthlyKpiData[];
@@ -101,6 +109,10 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly, entity }
       : false;
     const source = hasAllMonths ? fullYearMonthly! : monthly;
 
+    // Факт НИ: закрытые + текущий + ещё 2 месяца вперёд (план ОПиУ, как в бизнес-уравнении)
+    const currentKey = todayInBusinessTz().slice(0, 7);
+    const factHorizonEnd = addMonthsKey(currentKey, 2);
+
     let cumFact = 0;
     let cumBudget = 0;
     let cumRevenue = 0;
@@ -112,7 +124,7 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly, entity }
       let factCumValue: number | null = null;
       let profitabilityValue: number | null = null;
 
-      if (m.isPast) {
+      if (m.month <= factHorizonEnd) {
         cumFact += m.factProfit;
         cumRevenue += m.factRevenue;
         factCumValue = cumFact;
