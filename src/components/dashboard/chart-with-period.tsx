@@ -32,20 +32,21 @@ export function ChartWithPeriod({
   globalFullYear,
   children,
 }: ChartWithPeriodProps) {
-  // Два представления (ТЗ Кости): «НИ» — период верхней панели (по умолчанию
-  // год: факт копится к сегодня), «Месяц» — текущий неполный месяц.
-  const [mode, setMode] = useState<ChartMode>("ni");
+  const businessToday = todayInBusinessTz();
+  const businessYear = parseInt(businessToday.slice(0, 4), 10);
+  const currentMonth = parseInt(businessToday.slice(5, 7), 10) - 1;
 
-  // Взаимодействие с верхней панелью возвращает график к «НИ» (adjust-during-render)
+  // «НИ» / «Месяц»; выбранный месяц — только этот график, не в URL/localStorage.
+  const [mode, setMode] = useState<ChartMode>("ni");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+
+  // Смена глобального периода → снова «НИ» и текущий месяц
   const [prevPeriodVersion, setPrevPeriodVersion] = useState(periodVersion);
   if (prevPeriodVersion !== periodVersion) {
     setPrevPeriodVersion(periodVersion);
     setMode("ni");
+    setSelectedMonth(currentMonth);
   }
-
-  const businessToday = todayInBusinessTz();
-  const businessYear = parseInt(businessToday.slice(0, 4), 10);
-  const currentMonth = parseInt(businessToday.slice(5, 7), 10) - 1;
 
   const isMonth = mode === "month";
 
@@ -54,24 +55,31 @@ export function ChartWithPeriod({
   const { data: localKpi, loading: localLoading } = useKpi({
     entity,
     year: isMonth ? businessYear : globalYear,
-    startMonth: isMonth ? currentMonth : globalStartMonth,
-    endMonth: isMonth ? currentMonth : globalEndMonth,
+    startMonth: isMonth ? selectedMonth : globalStartMonth,
+    endMonth: isMonth ? selectedMonth : globalEndMonth,
   });
 
   const kpi = isMonth ? localKpi : globalKpi;
   const loading = isMonth ? localLoading : false;
 
-  // Подпись периода: всегда видно, какие месяцы на графике.
-  // «НИ» на полном текущем годе = «Янв–Июл» (по какой месяц включительно копится факт).
+  // Подпись «НИ»: какие месяцы на графике.
   const isFullYear = globalStartMonth === 0 && globalEndMonth === 11;
-  const periodLabel = isMonth
-    ? `${MONTHS_RU[currentMonth]} (идёт)`
-    : isFullYear && globalYear === businessYear
-      ? `Янв–${M3(currentMonth)}`
-      : `${M3(globalStartMonth)}–${M3(globalEndMonth)}${globalYear !== businessYear ? ` ${globalYear}` : ""}`;
+  const periodLabel = isFullYear && globalYear === businessYear
+    ? `Янв–${M3(currentMonth)}`
+    : `${M3(globalStartMonth)}–${M3(globalEndMonth)}${globalYear !== businessYear ? ` ${globalYear}` : ""}`;
 
   const periodSelector = (
-    <ChartPeriodSelector mode={mode} onModeChange={setMode} periodLabel={periodLabel} />
+    <ChartPeriodSelector
+      mode={mode}
+      onModeChange={setMode}
+      periodLabel={periodLabel}
+      selectedMonth={selectedMonth}
+      onSelectedMonthChange={(m) => {
+        setSelectedMonth(m);
+        setMode("month");
+      }}
+      currentMonth={currentMonth}
+    />
   );
 
   if (!kpi) {

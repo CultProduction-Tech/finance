@@ -17,6 +17,7 @@ import { Hint } from "@/components/ui/hint";
 import { SourceMark } from "./source-mark";
 import { getHint } from "@/lib/hint-texts";
 import { todayInBusinessTz } from "@/lib/timezone";
+import { dashboardDataAsOfLabel, formatSyncedAtLabel } from "@/lib/dashboard-as-of";
 
 interface CashflowPoint {
   date: string;
@@ -169,14 +170,17 @@ export function CashflowChart({ entity, refreshKey, onLastBalance }: CashflowCha
   const yRange = yMax - yMin || 1;
   const zeroOffset = yMax / yRange; // 0 — всё красное; 1 — всё зелёное
 
-  // Подписи дат. «Данные на» — реальное время данных с сервера (для снимка — время снимка).
-  // В платёжный день — полная фраза без префикса «Данные на» (иначе дубль).
+  // Подписи дат. В платёжное окно — та же формулировка, что в шапке (сб/вс ≠ «сегодня»).
   const monthsShort = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
   const syncedDate = data.syncedAt ? new Date(data.syncedAt) : new Date();
-  const freezeAsOf = data.planFactAsOf ?? "последний снимок до окна";
-  const dataAsOfLabel = data.planFactFrozen
-    ? `Сегодня платёжный день — данные на ${freezeAsOf}`
-    : `Данные на ${String(syncedDate.getDate()).padStart(2, "0")}.${String(syncedDate.getMonth() + 1).padStart(2, "0")}.${syncedDate.getFullYear()} ${String(syncedDate.getHours()).padStart(2, "0")}:${String(syncedDate.getMinutes()).padStart(2, "0")}${data.snapshot ? " (снимок)" : ""}`;
+  const freezeLabel = data.planFactFrozen
+    ? dashboardDataAsOfLabel({
+        syncedAt: syncedDate,
+        planFactAsOf: data.planFactAsOf,
+      })
+    : null;
+  const dataAsOfLabel = freezeLabel?.text
+    ?? `Данные на ${formatSyncedAtLabel(syncedDate)}${data.snapshot ? " (снимок)" : ""}`;
   const startDate = chartData[0]?.date;
   const endDate = chartData[chartData.length - 1]?.date;
   const periodLabel = startDate && endDate

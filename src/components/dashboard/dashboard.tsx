@@ -20,6 +20,7 @@ import { Hint } from "@/components/ui/hint";
 import { HintModeProvider, useHintMode } from "@/contexts/hint-mode";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { todayInBusinessTz, BUSINESS_TZ } from "@/lib/timezone";
+import { dashboardDataAsOfLabel } from "@/lib/dashboard-as-of";
 
 function HintToggleButton() {
   const { enabled, toggle } = useHintMode();
@@ -131,7 +132,7 @@ function DashboardInner() {
   }, [entity]);
 
   // KPI виджеты — используют свой локальный период
-  const { data: kpi, loading, useMock, syncedAt, isStale, degradedSources, planFactFrozen, planFactAsOf } = useKpi({
+  const { data: kpi, loading, useMock, syncedAt, isStale, degradedSources, planFactAsOf } = useKpi({
     entity,
     year: kpiYear,
     startMonth: kpiStart,
@@ -140,7 +141,7 @@ function DashboardInner() {
   });
 
   // Графики — используют глобальный период (как стартовая точка)
-  const { data: globalKpi, degradedSources: globalDegraded, planFactFrozen: globalPfFrozen, planFactAsOf: globalPfAsOf } = useKpi({
+  const { data: globalKpi, degradedSources: globalDegraded, planFactAsOf: globalPfAsOf } = useKpi({
     entity,
     year,
     startMonth,
@@ -178,7 +179,6 @@ function DashboardInner() {
     ? (liveSources?.budget ?? globalLiveSources?.budget ?? null)
     : null;
 
-  const pfFrozen = planFactFrozen || globalPfFrozen;
   const pfAsOf = planFactAsOf || globalPfAsOf;
 
   // Снимок не сегодняшний → показываем дату, а не голое время: «снимок от 12:24» у данных
@@ -189,6 +189,28 @@ function DashboardInner() {
     day: "2-digit",
     month: "2-digit",
     timeZone: BUSINESS_TZ,
+  });
+
+  // Отметка под селектором периода: на какое число данные (и платёжный день — если он).
+  // ?previewPaymentDay=wed|fri — только подпись, для проверки UI без смены календаря.
+  const [previewPaymentDay, setPreviewPaymentDay] = useState<string | null>(null);
+  useEffect(() => {
+    setPreviewPaymentDay(new URLSearchParams(window.location.search).get("previewPaymentDay"));
+  }, []);
+  const previewNow =
+    previewPaymentDay === "wed"
+      ? new Date("2026-09-02T12:00:00+03:00")
+      : previewPaymentDay === "fri"
+        ? new Date("2026-09-04T12:00:00+03:00")
+        : previewPaymentDay === "sat"
+          ? new Date("2026-09-05T12:00:00+03:00")
+          : previewPaymentDay === "sun"
+            ? new Date("2026-09-06T12:00:00+03:00")
+            : undefined;
+  const dataAsOf = dashboardDataAsOfLabel({
+    syncedAt,
+    planFactAsOf: pfAsOf,
+    now: previewNow,
   });
 
   return (
@@ -239,7 +261,7 @@ function DashboardInner() {
             </a>
           </div>
 
-          {/* Центр (auto-колонка): селектор периода — строго по центру страницы благодаря сетке 1fr·auto·1fr */}
+          {/* Центр (auto-колонка): селектор периода — строго по центру страницы */}
           <PeriodSelector
             year={year}
             startMonth={startMonth}
@@ -248,7 +270,6 @@ function DashboardInner() {
             onStartMonthChange={handleStartMonthChange}
             onEndMonthChange={handleEndMonthChange}
           />
-
           {/* Справа (колонка 1fr): подсказки + обновить (время в строку) + выйти. justify-end — прижать к правому краю */}
           <div className="flex items-center justify-end gap-4 min-w-0">
             <HintToggleButton />
@@ -291,15 +312,36 @@ function DashboardInner() {
           </div>
         </div>
 
-        {/* Полоса предупреждений — отдельной строкой под шапкой, а не в левой колонке:
-            бейджи длинные, вдвоём они ломали сетку и наезжали на селектор периода.
-            Здесь они переносятся (flex-wrap) и ничего не двигают. */}
-        {(useMock || amocrmError || budgetError || isOldSnapshot || pfFrozen) && (
+        {/* Полоса под шапкой: отметка «данные на» + предупреждения.
+            Отдельно от сетки лого/период/кнопки — иначе длинный текст ломает центр. */}
+        {(dataAsOf || useMock || amocrmError || budgetError || isOldSnapshot) && (
           <div className="max-w-7xl mx-auto px-6 pb-3 flex flex-wrap items-center gap-2">
-            {pfFrozen && (
-              <Badge variant="secondary" className="text-xs rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                Сегодня платёжный день — данные на {pfAsOf ?? "последний снимок до окна"}
-              </Badge>
+            {dataAsOf && (
+              <p
+                className="text-xl font-semibold tracking-tight tabular-nums text-foreground"
+                title={
+                  dataAsOf.paymentDay
+                    ? "Платёжный день: PlanFact заморожен на снимок до окна. Amo обновляется."
+                    : "Время последнего расчёта данных на дашборде (Москва)."
+                }
+              >
+                {dataAsOf.headline ? (
+                  <>
+                    <span
+                      className={
+                        entity === "cult"
+                          ? "text-[var(--accent-solid)]"
+                          : "underline underline-offset-4"
+                      }
+                    >
+                      {dataAsOf.headline}
+                    </span>
+                    {dataAsOf.rest}
+                  </>
+                ) : (
+                  dataAsOf.text
+                )}
+              </p>
             )}
             {useMock && (
               <Badge variant="destructive" className="text-xs rounded-full">
