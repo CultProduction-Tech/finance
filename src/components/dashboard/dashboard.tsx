@@ -466,7 +466,7 @@ function DashboardInner() {
                   <span className="text-[11px] text-[#86868b] whitespace-nowrap">
                     план — весь год
                     {year === kpiYear
-                      ? ` · факт — по ${MONTHS_RU[(currentMonth + 2) % 12].substring(0, 3)}${(currentMonth + 2) > 11 ? ` ${kpiYear + 1}` : ""} (+2 мес. план ОПиУ)`
+                      ? ` · факт — по ${MONTHS_RU[(currentMonth + 1) % 12].substring(0, 3)}${(currentMonth + 1) > 11 ? ` ${kpiYear + 1}` : ""} (+1 мес. план ОПиУ)`
                       : ""}
                   </span>
                 }

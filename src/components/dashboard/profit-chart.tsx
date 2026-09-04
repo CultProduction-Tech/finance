@@ -109,9 +109,9 @@ export function ProfitChart({ monthly, periodSelector, fullYearMonthly, entity }
       : false;
     const source = hasAllMonths ? fullYearMonthly! : monthly;
 
-    // Факт НИ: закрытые + текущий + ещё 2 месяца вперёд (план ОПиУ, как в бизнес-уравнении)
+    // Факт НИ: закрытые + текущий + ещё 1 месяц вперёд (план ОПиУ, как в бизнес-уравнении)
     const currentKey = todayInBusinessTz().slice(0, 7);
-    const factHorizonEnd = addMonthsKey(currentKey, 2);
+    const factHorizonEnd = addMonthsKey(currentKey, 1);
 
     let cumFact = 0;
     let cumBudget = 0;
