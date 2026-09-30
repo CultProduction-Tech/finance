@@ -110,15 +110,26 @@ export async function GET(request: NextRequest) {
 
     // Баланс счетов здесь не запрашиваем: карточка «На счетах» скрыта из UI,
     // а остатки для графика cashflow берёт /api/cashflow сам.
+    const needsProjectFilter = !!(
+      config.excludeProjectIds?.length
+      || config.excludeProjectGroupIds?.length
+    );
     const [categories, budgets, allProjects] = await Promise.all([
       pf.getOperationCategories(),
       pf.getBudgets({ budgetMethod: "Bdr" }),
-      config.excludeProjectIds?.length ? pf.getProjects() : Promise.resolve(null),
+      needsProjectFilter ? pf.getProjects() : Promise.resolve(null),
     ]);
 
+    const excludedIds = new Set(config.excludeProjectIds ?? []);
+    const excludedGroups = new Set(config.excludeProjectGroupIds ?? []);
     const pfProjectIds = allProjects
       ? allProjects.items
-          .filter((p) => !config.excludeProjectIds!.includes(p.projectId))
+          .filter((p) => {
+            if (excludedIds.has(p.projectId)) return false;
+            const gid = p.projectGroup?.projectGroupId;
+            if (gid != null && excludedGroups.has(gid)) return false;
+            return true;
+          })
           .map((p) => p.projectId)
       : undefined;
 

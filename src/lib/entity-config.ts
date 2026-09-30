@@ -23,7 +23,13 @@ interface EntityConfig {
     /** Граница "YYYY-MM" — с этого месяца включительно используется new */
     cutoffMonth: string;
   };
+  /** Конкретные проекты PlanFact, которые не входят в отчётность юрлица */
   excludeProjectIds?: number[];
+  /**
+   * Папки проектов PlanFact (`projectGroupId`): все проекты внутри
+   * (текущие и будущие) тоже не входят в отчётность.
+   */
+  excludeProjectGroupIds?: number[];
 }
 
 const configs: Record<LegalEntity, EntityConfig> = {
@@ -76,6 +82,8 @@ const configs: Record<LegalEntity, EntityConfig> = {
     },
     // Исключаем чужие контуры холдинга; «Не выбран» (без проекта) — учитываем (решение 27.08.2026).
     excludeProjectIds: [1538920, 1736870, 1438093], // Техно Тигры, СнупДок, Бурлеск
+    // Папка «ПРОЕКТЫ ТТ» (финдир, 09.2026): все проекты ТТ внутри — вне отчётности Культа.
+    excludeProjectGroupIds: [230027], // ПРОЕКТЫ ТТ
   },
 };
 
