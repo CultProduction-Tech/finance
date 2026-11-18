@@ -1,0 +1,30 @@
+purpose:
+  stands_in_for: Local synthetic PlanFact and amoCRM reads used by the dashboard KPI.
+  unblocks: Production-build HTTP regression checks without real credentials or financial data.
+assumptions:
+  - id: consumed-provider-shapes
+    status: unknown
+    claim: The real providers return the consumed shapes modelled by this fixture.
+    reason: The stand-in was built from repository types and call sites; it is not an owner-maintained provider contract.
+    verification: The signed-out Postman CLI could not search/pull published owner mocks; local real Next/KPI requests against these shapes succeed, but no provider calls were made.
+    source: src/lib/planfact-client.ts; src/lib/amocrm-client.ts; postman/mocks/finance-sources/default.js
+    updated_at: '2026-11-18'
+  - id: real-caller-through-fixtures
+    status: supported
+    claim: In the local HTTP scenarios, the actual Next/KPI handler calls the synthetic providers and returns the same Cult payload as the session-authenticated dashboard API.
+    reason: The wrapper delegates to the existing handler and actual provider requests appear in the simulation log; parity assertions compare payloads excluding volatile syncedAt.
+    verification: On 2026-11-18, tests/second-brain-http.mjs exercised the built application, including auth, invalid periods/configuration, source failures, 429 retry and freeze with and without a snapshot; all assertions passed in the final run.
+    source: tests/second-brain-http.mjs; simulation.ndjson and Postman collection logs in FINANCE_VALIDATION_OUTPUT
+    updated_at: '2026-11-18'
+  - id: real-production-consumer-auth
+    status: unknown
+    claim: The production MCP authorizes individual financial users before reading KPI and sources.
+    reason: This repository has no MCP runtime or user authorization implementation; machine credentials alone do not establish end-user rights.
+    verification: Only synthetic clients were configured locally; no production key was created or activated.
+    source: docs/second-brain-api.md; src/lib/second-brain-access.mjs
+    updated_at: '2026-11-18'
+fingerprints:
+  - id: initial-validation
+    date: '2026-11-18'
+    commit: 73de09f3a5786ef80fbfc4ef923905434bd9a954 with uncommitted test and documentation additions; API and business logic unchanged
+    cli: Postman 1.77.0; Node 20.20.2; Next.js 16.2.0

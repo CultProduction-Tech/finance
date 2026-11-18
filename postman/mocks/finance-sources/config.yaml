@@ -1,0 +1,10 @@
+version: 1
+name: Finance synthetic sources
+slug: finance-synthetic-sources
+protocol: http
+port: 4619
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

@@ -1,0 +1,6 @@
+simulation: finance-api-local-validation
+routing: path
+mocks:
+  - name: finance-sources
+    routeKey: sources
+    path: postman/mocks/finance-sources
