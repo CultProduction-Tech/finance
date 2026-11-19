@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // This exact endpoint verifies its own scoped machine credential.
-  if (pathname === "/api/second-brain/kpi") return NextResponse.next();
+  if (pathname === "/api/second-brain/kpi" || pathname === "/api/second-brain/cashflow") return NextResponse.next();
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
