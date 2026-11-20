@@ -8,8 +8,8 @@ const request=(query='',headers={Authorization:'Bearer '+token})=>new Request('h
 
 test('scoped reader gets native graph including freeze freshness, fixed Cult only',async()=>{
   const data={currentBalance:12,points:[{date:'2026-11-20',balance:12,type:'fact'},{date:'2026-11-21',balance:-5,type:'plan'}],planFactFrozen:true,planFactAsOf:'saved-date',syncedAt:'2026-11-20T00:00:00Z'};
-  const response=await cashflowRead(request(),config,async url=>{
-    assert.equal(url.pathname,'/api/cashflow');assert.equal(url.search,'?entity=cult');
+  const response=await cashflowRead(request(),config,async entity=>{
+    assert.equal(entity,'cult');
     return Response.json(data);
   });
   assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');
