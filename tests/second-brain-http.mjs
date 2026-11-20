@@ -1,5 +1,5 @@
 /** Run after npm ci && npm run build; requires existing Postman CLI >=1.70.
- * Uses real production Next/KPI over HTTP with local Postman upstream fixtures.
+ * Uses a Next production build over HTTP with local Postman upstream fixtures.
  * All credentials/data are synthetic; no cloud reports or production calls.
  */
 import {spawn, execFileSync} from 'node:child_process';
@@ -79,6 +79,42 @@ try{
  }
  assert(ready,'Simulation readiness timeout');
  await start(valid);
+ const cashflow='/api/second-brain/cashflow';
+ const graph='/api/cashflow?entity=cult';
+ const cashflowSnapshot=path.join(sandbox,'data/snapshots/cashflow-cult.json');
+ const cashflowAllow=`pm.test('cashflow Allow',()=>pm.expect(pm.response.headers.get('Allow')).to.eql('GET, OPTIONS'));`;
+ const emptyBody=`pm.test('empty body',()=>pm.expect(pm.response.text()).to.eql(''));`;
+ await run('cashflow-methods',[
+  request('Cashflow OPTIONS',cashflow,204,{method:'OPTIONS',auth:{},checks:[cashflowAllow,emptyBody]}),
+  request('Cashflow HEAD requires credential',cashflow,401,{method:'HEAD',auth:{},checks:[noStore,emptyBody]}),
+  request('Cashflow HEAD rejected',cashflow,405,{method:'HEAD',checks:[cashflowAllow,noStore,emptyBody]}),
+ ]);
+ await run('cashflow-missing-snapshot',[
+  request('Cashflow live read',cashflow,200,{checks:[noStore]}),
+ ]);
+ await assert.rejects(readFile(cashflowSnapshot),{code:'ENOENT'},'Machine GET must not create a snapshot');
+ await run('cashflow-graph-snapshot',[
+  request('Ordinary graph live read',graph,200,{auth:session}),
+  request('Ordinary graph reads its saved snapshot',graph+'&snapshot=1',200,{auth:session,checks:[
+   `pm.test('saved graph snapshot',()=>pm.expect(pm.response.json().snapshot).to.eql(true));`,
+  ]}),
+ ]);
+ const graphSnapshot=JSON.parse(await readFile(cashflowSnapshot,'utf8'));
+ assert.equal(graphSnapshot.payload.currentBalance,5000);
+ const existing=JSON.stringify({...graphSnapshot,payload:{...graphSnapshot.payload,currentBalance:4242}});
+ await writeFile(cashflowSnapshot,existing);
+ await run('cashflow-existing-snapshot',[
+  request('Cashflow still reads live data',cashflow,200,{checks:[
+   `pm.test('live balance',()=>pm.expect(pm.response.json().data.currentBalance).to.eql(5000));`,
+  ]}),
+ ]);
+ assert.equal(await readFile(cashflowSnapshot,'utf8'),existing,'Machine GET must not overwrite the shared snapshot');
+ await run('cashflow-cron-snapshot',[
+  request('Cron can still refresh the graph snapshot',graph,200,{auth:{Authorization:'Bearer synthetic-cron-secret'}}),
+ ]);
+ assert.deepEqual(JSON.parse(await readFile(cashflowSnapshot,'utf8')),graphSnapshot);
+ results.push({name:'cashflow-snapshot-policy',passed:true});
+
  await run('access-and-parity',[
   request('No key',api+'?'+period,401,{auth:{},checks:[noStore]}),
   request('Cookie only',api+'?'+period,401,{auth:session}),
